@@ -13,6 +13,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@anvio/core": "workspace:*",
     "@anvio/events": "workspace:*",
     "@anvio/platform": "workspace:*",
     "@nestjs/common": "^11.1.2",
