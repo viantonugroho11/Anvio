@@ -81,6 +81,18 @@ importers:
 
   apps/cli:
     dependencies:
+      '@anvio/acp':
+        specifier: workspace:*
+        version: link:../../packages/acp
+      '@anvio/automation':
+        specifier: workspace:*
+        version: link:../../packages/automation
+      '@anvio/batch':
+        specifier: workspace:*
+        version: link:../../packages/batch
+      '@anvio/blueprints':
+        specifier: workspace:*
+        version: link:../../packages/blueprints
       '@anvio/channels':
         specifier: workspace:*
         version: link:../../packages/channels
@@ -90,9 +102,33 @@ importers:
       '@anvio/events':
         specifier: workspace:*
         version: link:../../packages/events
+      '@anvio/execution':
+        specifier: workspace:*
+        version: link:../../packages/execution
+      '@anvio/goals':
+        specifier: workspace:*
+        version: link:../../packages/goals
+      '@anvio/hooks':
+        specifier: workspace:*
+        version: link:../../packages/hooks
+      '@anvio/kanban':
+        specifier: workspace:*
+        version: link:../../packages/kanban
+      '@anvio/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
       '@anvio/platform':
         specifier: workspace:*
         version: link:../../packages/platform
+      '@anvio/runtimes':
+        specifier: workspace:*
+        version: link:../../packages/runtimes
+      '@anvio/souls':
+        specifier: workspace:*
+        version: link:../../packages/souls
+      '@anvio/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@anvio/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
@@ -157,11 +193,27 @@ importers:
         specifier: ^3.1.4
         version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
 
+  packages/acp:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
   packages/agents:
     dependencies:
       '@anvio/core':
         specifier: workspace:*
         version: link:../core
+      '@anvio/events':
+        specifier: workspace:*
+        version: link:../events
       '@anvio/memory':
         specifier: workspace:*
         version: link:../memory
@@ -174,6 +226,9 @@ importers:
       '@anvio/skills':
         specifier: workspace:*
         version: link:../skills
+      '@anvio/souls':
+        specifier: workspace:*
+        version: link:../souls
       uuid:
         specifier: ^11.1.0
         version: 11.1.1
@@ -197,6 +252,66 @@ importers:
       '@types/jsonwebtoken':
         specifier: ^9.0.9
         version: 9.0.10
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/automation:
+    dependencies:
+      '@anvio/blueprints':
+        specifier: workspace:*
+        version: link:../blueprints
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+      '@anvio/events':
+        specifier: workspace:*
+        version: link:../events
+      '@anvio/storage':
+        specifier: workspace:*
+        version: link:../storage
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/batch:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+      '@anvio/storage':
+        specifier: workspace:*
+        version: link:../storage
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/blueprints:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -295,6 +410,85 @@ importers:
         specifier: ^3.1.4
         version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
 
+  packages/execution:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+      '@anvio/storage':
+        specifier: workspace:*
+        version: link:../storage
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/goals:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+      '@anvio/storage':
+        specifier: workspace:*
+        version: link:../storage
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/hooks:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+      '@anvio/events':
+        specifier: workspace:*
+        version: link:../events
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/kanban:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+      '@anvio/events':
+        specifier: workspace:*
+        version: link:../events
+      '@anvio/storage':
+        specifier: workspace:*
+        version: link:../storage
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
   packages/memory:
     dependencies:
       '@anvio/core':
@@ -376,6 +570,12 @@ importers:
       '@anvio/auth':
         specifier: workspace:*
         version: link:../auth
+      '@anvio/automation':
+        specifier: workspace:*
+        version: link:../automation
+      '@anvio/blueprints':
+        specifier: workspace:*
+        version: link:../blueprints
       '@anvio/channels':
         specifier: workspace:*
         version: link:../channels
@@ -385,6 +585,9 @@ importers:
       '@anvio/events':
         specifier: workspace:*
         version: link:../events
+      '@anvio/hooks':
+        specifier: workspace:*
+        version: link:../hooks
       '@anvio/memory':
         specifier: workspace:*
         version: link:../memory
@@ -397,9 +600,25 @@ importers:
       '@anvio/skills':
         specifier: workspace:*
         version: link:../skills
+      '@anvio/souls':
+        specifier: workspace:*
+        version: link:../souls
       '@anvio/workspace':
         specifier: workspace:*
         version: link:../workspace
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/runtimes:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -413,6 +632,25 @@ importers:
       '@anvio/core':
         specifier: workspace:*
         version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/souls:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+      '@anvio/storage':
+        specifier: workspace:*
+        version: link:../storage
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -477,18 +715,51 @@ importers:
 
   tests/integration:
     devDependencies:
+      '@anvio/acp':
+        specifier: workspace:*
+        version: link:../../packages/acp
+      '@anvio/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
       '@anvio/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@anvio/automation':
+        specifier: workspace:*
+        version: link:../../packages/automation
+      '@anvio/batch':
+        specifier: workspace:*
+        version: link:../../packages/batch
+      '@anvio/blueprints':
+        specifier: workspace:*
+        version: link:../../packages/blueprints
       '@anvio/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@anvio/events':
         specifier: workspace:*
         version: link:../../packages/events
+      '@anvio/execution':
+        specifier: workspace:*
+        version: link:../../packages/execution
+      '@anvio/goals':
+        specifier: workspace:*
+        version: link:../../packages/goals
+      '@anvio/hooks':
+        specifier: workspace:*
+        version: link:../../packages/hooks
+      '@anvio/kanban':
+        specifier: workspace:*
+        version: link:../../packages/kanban
       '@anvio/memory':
         specifier: workspace:*
         version: link:../../packages/memory
+      '@anvio/runtimes':
+        specifier: workspace:*
+        version: link:../../packages/runtimes
+      '@anvio/souls':
+        specifier: workspace:*
+        version: link:../../packages/souls
       '@anvio/storage':
         specifier: workspace:*
         version: link:../../packages/storage

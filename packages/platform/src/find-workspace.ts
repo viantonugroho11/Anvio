@@ -17,3 +17,14 @@ export function findWorkspacePath(): string {
 
   return path.join(cwd, 'workspace');
 }
+
+export function findRepoRoot(startPath?: string): string | undefined {
+  let dir = startPath ?? process.cwd();
+  for (let i = 0; i < 6; i++) {
+    if (fs.existsSync(path.join(dir, 'configs/blueprints'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return undefined;
+}

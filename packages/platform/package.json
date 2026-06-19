@@ -15,12 +15,17 @@
   "dependencies": {
     "@anvio/agents": "workspace:*",
     "@anvio/auth": "workspace:*",
+    "@anvio/automation": "workspace:*",
+    "@anvio/blueprints": "workspace:*",
+    "@anvio/channels": "workspace:*",
     "@anvio/core": "workspace:*",
     "@anvio/events": "workspace:*",
+    "@anvio/hooks": "workspace:*",
     "@anvio/memory": "workspace:*",
     "@anvio/models": "workspace:*",
     "@anvio/personas": "workspace:*",
     "@anvio/skills": "workspace:*",
+    "@anvio/souls": "workspace:*",
     "@anvio/workspace": "workspace:*",
     "@anvio/channels": "workspace:*"
   },

@@ -1,3 +1,6 @@
+import { ActionExecutor, createAutomationEngine, type AutomationEngine } from '@anvio/automation';
+import { BlueprintExecutor, createCatalogRegistry } from '@anvio/blueprints';
+import { createHookEngine, type HookEngine } from '@anvio/hooks';
 import { DefaultAgentRuntime } from '@anvio/agents';
 import { createChannelHub, FilesystemAgentInbox, type WhatsAppChannel } from '@anvio/channels';
 import { createAuthProvider } from '@anvio/auth';
@@ -10,12 +13,13 @@ import type {
   Session,
 } from '@anvio/core';
 import { createEventBus, EventSubjects, type EventBusLike } from '@anvio/events';
-import { createMemoryStore } from '@anvio/memory';
+import { createMemoryProvider } from '@anvio/memory';
 import { createModelProvider } from '@anvio/models';
 import { PersonaService } from '@anvio/personas';
+import { createSoulService } from '@anvio/souls';
 import { SkillRegistry } from '@anvio/skills';
 import { Workspace } from '@anvio/workspace';
-import { findWorkspacePath } from './find-workspace.js';
+import { findRepoRoot, findWorkspacePath } from './find-workspace.js';
 
 export interface PlatformContext {
   workspace: Workspace;
@@ -26,6 +30,9 @@ export interface PlatformContext {
   channelHub: ChannelHubPort;
   inbox: AgentInbox;
   whatsapp?: WhatsAppChannel;
+  blueprintExecutor: BlueprintExecutor;
+  automationEngine: AutomationEngine;
+  hookEngine: HookEngine;
 }
 
 export interface PlatformOptions {
@@ -44,9 +51,10 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     defaultUserId: spec.defaultUserId,
   });
 
-  const memoryStore = createMemoryStore(spec.memory.provider, workspace.storage);
+  const memoryProvider = createMemoryProvider(spec.memory.provider, workspace.storage);
   const personaService = new PersonaService(workspace.loader);
   const skillRegistry = new SkillRegistry(workspace.loader);
+  const soulService = createSoulService(workspace.storage, memoryProvider);
 
   const apiKey = options.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY ?? '';
   const modelProvider = apiKey
@@ -71,7 +79,8 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   const runtime = new DefaultAgentRuntime({
     personaService,
     skillRegistry,
-    memoryStore,
+    memoryStore: memoryProvider,
+    soulService,
     modelProvider,
     onProgress: (sessionId, phase) => {
       void eventBus.publishCore(EventSubjects.AGENT_RUN_PROGRESS, 'anvio.agent.run.progress', {
@@ -85,7 +94,71 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
 
   await channelHub.startAll();
 
-  return { workspace, auth, runtime, eventBus, modelProvider, channelHub, inbox, whatsapp };
+  const repoRoot = findRepoRoot(workspacePath);
+  const catalog = createCatalogRegistry(workspacePath, repoRoot);
+  const blueprintExecutor = new BlueprintExecutor({
+    catalog,
+    runAgent: async (agentId, input) => {
+      const agent = await workspace.loader.loadAgent(agentId);
+      const stored = await workspace.sessions.create({
+        userId: spec.defaultUserId,
+        agentName: agentId,
+        channel: 'automation',
+        messages: [],
+        status: 'idle',
+        detached: true,
+      });
+      const session = storedSessionToRuntime(stored);
+      const result = await runtime.run(session, agent, { content: input });
+      return result.content;
+    },
+  });
+
+  const actionExecutor = new ActionExecutor({
+    blueprintExecutor,
+    runAgent: async (agentId, input) => {
+      const agent = await workspace.loader.loadAgent(agentId);
+      const stored = await workspace.sessions.create({
+        userId: spec.defaultUserId,
+        agentName: agentId,
+        channel: 'automation',
+        messages: [],
+        status: 'idle',
+        detached: true,
+      });
+      const session = storedSessionToRuntime(stored);
+      const result = await runtime.run(session, agent, { content: input });
+      return result.content;
+    },
+  });
+
+  const automationEngine = createAutomationEngine({
+    storage: workspace.storage,
+    actionExecutor,
+    userId: spec.defaultUserId,
+    eventBus: {
+      subscribeCore: (subject, handler) => eventBus.subscribeCore(subject as typeof EventSubjects.SESSION_STARTED, handler),
+      publish: (subject, type, data) => eventBus.publish(subject as typeof EventSubjects.SESSION_STARTED, type, data),
+    },
+  });
+
+  const hookEngine = createHookEngine(workspacePath, eventBus);
+  await hookEngine.start();
+  await automationEngine.start();
+
+  return {
+    workspace,
+    auth,
+    runtime,
+    eventBus,
+    modelProvider,
+    channelHub,
+    inbox,
+    whatsapp,
+    blueprintExecutor,
+    automationEngine,
+    hookEngine,
+  };
 }
 
 function createMockModelProvider(): ModelProvider {
@@ -136,3 +209,4 @@ export async function loadAgent(workspace: Workspace, name: string): Promise<Age
 }
 
 export type { ChannelHubPort, AgentInbox, WhatsAppChannel };
+export { findRepoRoot, findWorkspacePath } from './find-workspace.js';
