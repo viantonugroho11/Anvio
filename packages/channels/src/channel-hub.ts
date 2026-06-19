@@ -19,6 +19,14 @@ export class ChannelHub implements ChannelHubPort {
     return this.adapters.get(channel);
   }
 
+  listAdapters(): ChannelAdapter[] {
+    return [...this.adapters.values()];
+  }
+
+  listChannelTypes(): ChannelType[] {
+    return [...this.adapters.keys()];
+  }
+
   async sendMessage(
     channel: ChannelType,
     sessionId: string,

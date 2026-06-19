@@ -12,3 +12,4 @@ export * from './whatsapp.js';
 export * from './rest-api.js';
 export * from './cli-channel.js';
 export * from './create-channels.js';
+export * from './channel-health.js';
