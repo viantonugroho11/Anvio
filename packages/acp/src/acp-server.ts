@@ -6,6 +6,7 @@ import type {
   AcpRunHandler,
   AcpServerConfig,
   AcpServerStatus,
+  AcpStreamHandler,
 } from './protocol/messages.js';
 
 export class AcpServer {
@@ -16,6 +17,7 @@ export class AcpServer {
   constructor(
     private readonly config: AcpServerConfig,
     private readonly onPrompt: AcpRunHandler,
+    private readonly onStream?: AcpStreamHandler,
   ) {
     this.actualPort = config.port;
   }
@@ -75,6 +77,31 @@ export class AcpServer {
       return;
     }
 
+    if (req.method === 'POST' && url === '/prompt/stream') {
+      if (!this.onStream) {
+        this.json(res, 501, { error: 'Streaming not configured' });
+        return;
+      }
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      });
+      try {
+        const payload = (await readJson(req)) as AcpPromptRequest;
+        const result = await this.onStream(payload, (event) => {
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
+        });
+        res.write(`data: ${JSON.stringify({ type: 'done', sessionId: result.sessionId, status: result.status })}\n\n`);
+        res.end();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        res.write(`data: ${JSON.stringify({ type: 'error', error: message })}\n\n`);
+        res.end();
+      }
+      return;
+    }
+
     if (req.method === 'POST' && url === '/prompt') {
       try {
         const payload = (await readJson(req)) as AcpPromptRequest;
@@ -100,8 +127,12 @@ export class AcpServer {
   }
 }
 
-export function createAcpServer(config: AcpServerConfig, onPrompt: AcpRunHandler): AcpServer {
-  return new AcpServer(config, onPrompt);
+export function createAcpServer(
+  config: AcpServerConfig,
+  onPrompt: AcpRunHandler,
+  onStream?: AcpStreamHandler,
+): AcpServer {
+  return new AcpServer(config, onPrompt, onStream);
 }
 
 function readJson(req: http.IncomingMessage): Promise<unknown> {

@@ -1241,24 +1241,57 @@ async function cmdAcp(sub: string[]) {
         return;
       }
       const platform = await getPlatform();
-      acpServerInstance = createAcpServer({ host, port }, async (request) => {
+      const runPrompt = async (request: { agent: string; message: string; userId?: string; sessionId?: string }) => {
         const agent = await loadAgent(platform.workspace, request.agent);
         const userId = request.userId ?? ws.config.spec.defaultUserId;
-        const stored = await platform.workspace.sessions.create({
-          userId,
-          agentName: request.agent,
-          channel: 'acp',
-          messages: [],
-          status: 'idle',
-          detached: true,
-        });
+        let stored = request.sessionId
+          ? await platform.workspace.sessions.get(request.sessionId)
+          : null;
+        if (!stored) {
+          stored = await platform.workspace.sessions.create({
+            userId,
+            agentName: request.agent,
+            channel: 'acp',
+            messages: [],
+            status: 'idle',
+            detached: true,
+          });
+        }
         const session = storedSessionToRuntime(stored);
         const result = await platform.runtime.run(session, agent, { content: request.message });
         return { sessionId: stored.id, content: result.content, status: result.status };
+      };
+
+      acpServerInstance = createAcpServer({ host, port }, runPrompt, async (request, emit) => {
+        const agent = await loadAgent(platform.workspace, request.agent);
+        const userId = request.userId ?? ws.config.spec.defaultUserId;
+        let stored = request.sessionId
+          ? await platform.workspace.sessions.get(request.sessionId)
+          : null;
+        if (!stored) {
+          stored = await platform.workspace.sessions.create({
+            userId,
+            agentName: request.agent,
+            channel: 'acp',
+            messages: [],
+            status: 'idle',
+            detached: true,
+          });
+        }
+        const session = storedSessionToRuntime(stored);
+        let content = '';
+        for await (const chunk of platform.runtime.stream(session, agent, { content: request.message })) {
+          if (chunk.type === 'chunk' && chunk.delta) {
+            content += chunk.delta;
+            emit({ type: 'chunk', delta: chunk.delta });
+          }
+          if (chunk.type === 'error') emit({ type: 'error', error: chunk.error });
+        }
+        return { sessionId: stored.id, content, status: 'completed' };
       });
       await acpServerInstance.start();
       console.log(`ACP server listening on http://${host}:${port}`);
-      console.log('Endpoints: GET /health, POST /prompt');
+      console.log('Endpoints: GET /health, POST /prompt, POST /prompt/stream');
       await new Promise<void>(() => {});
       break;
     }

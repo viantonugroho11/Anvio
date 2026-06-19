@@ -24,6 +24,11 @@ export interface AcpErrorResponse {
 
 export type AcpRunHandler = (request: AcpPromptRequest) => Promise<AcpPromptResponse>;
 
+export type AcpStreamHandler = (
+  request: AcpPromptRequest,
+  emit: (event: { type: 'chunk' | 'done' | 'error'; delta?: string; error?: string }) => void,
+) => Promise<AcpPromptResponse>;
+
 export interface AcpServerConfig {
   host: string;
   port: number;
