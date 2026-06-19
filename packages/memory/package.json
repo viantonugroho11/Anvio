@@ -17,5 +17,12 @@
     "@anvio/core": "workspace:*",
     "@anvio/storage": "workspace:*"
   },
-  "devDependencies": { "typescript": "^5.8.3", "vitest": "^3.1.4" }
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.9.1"
+  }
 }

@@ -66,7 +66,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     defaultUserId: spec.defaultUserId,
   });
 
-  const memoryProvider = createMemoryProvider(spec.memory.provider, workspace.storage);
+  const memoryProvider = createMemoryProvider(spec.memory.provider, workspace.storage, undefined, {
+    fts: spec.memory.fts,
+  });
   const repoRoot = findRepoRoot(workspacePath);
   const personaService = new PersonaService(workspace.loader);
   const skillCatalog = createSkillCatalogResolver(workspacePath, repoRoot);

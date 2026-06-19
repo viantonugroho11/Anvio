@@ -9,18 +9,38 @@ import type {
 import type { FilesystemStorageProvider } from '@anvio/storage';
 import { createHonchoProvider, type HonchoConfig } from './providers/honcho/honcho-provider.js';
 import { MemoryRecallIndex } from './recall-index.js';
+import { openSqliteFtsRecall, type SqliteFtsRecall } from './providers/sqlite/sqlite-fts-recall.js';
+import path from 'node:path';
+
+export interface FilesystemMemoryOptions {
+  enableFts?: boolean;
+}
 
 /** Filesystem-based memory provider — default for local-first mode. */
 export class FilesystemMemoryProvider implements MemoryProvider {
   readonly providerId = 'filesystem';
   private readonly recallIndex: MemoryRecallIndex;
+  private ftsRecall: SqliteFtsRecall | null = null;
+  private ftsInit: Promise<void> | null = null;
 
   constructor(
     private readonly storage: FilesystemStorageProvider,
     private readonly sessionPrefix = 'memory/sessions',
     private readonly userPrefix = 'memory',
+    private readonly options: FilesystemMemoryOptions = {},
   ) {
     this.recallIndex = new MemoryRecallIndex(storage);
+  }
+
+  private ensureFts(): Promise<void> {
+    if (!this.options.enableFts) return Promise.resolve();
+    if (!this.ftsInit) {
+      const dbPath = path.join(this.storage.rootPath, 'memory/recall.sqlite');
+      this.ftsInit = openSqliteFtsRecall(dbPath).then((fts) => {
+        this.ftsRecall = fts;
+      });
+    }
+    return this.ftsInit;
   }
 
   private sessionKey(sessionId: string): string {
@@ -32,26 +52,32 @@ export class FilesystemMemoryProvider implements MemoryProvider {
   }
 
   async healthCheck(): Promise<MemoryProviderHealth> {
-    return { ok: true, details: 'Filesystem memory provider active' };
+    await this.ensureFts();
+    const fts = this.ftsRecall ? 'FTS5 recall enabled' : 'keyword recall index';
+    return { ok: true, details: `Filesystem memory provider active (${fts})` };
   }
 
   async getContext(sessionId: string, userId: string): Promise<MemoryContext> {
+    await this.ensureFts();
     const [shortTerm, longTerm] = await Promise.all([
       this.getMessages(sessionId),
       this.getBySession(sessionId),
     ]);
     const lastUser = [...shortTerm].reverse().find((m) => m.role === 'user');
-    const recall = lastUser
-      ? await this.recallIndex.recall(userId, lastUser.content, 3)
-      : [];
-    const recallEntries: MemoryEntry[] = recall.map((hit, i) => ({
-      id: `recall-${i}`,
-      sessionId: hit.sessionId,
-      userId,
-      type: hit.type,
-      content: hit.content,
-      createdAt: new Date(),
-    }));
+    let recallEntries: MemoryEntry[] = [];
+    if (lastUser) {
+      const hits = this.ftsRecall
+        ? this.ftsRecall.search(userId, lastUser.content, 5)
+        : await this.recallIndex.recall(userId, lastUser.content, 3);
+      recallEntries = hits.map((hit, i) => ({
+        id: `recall-${i}`,
+        sessionId: hit.sessionId,
+        userId,
+        type: hit.type,
+        content: hit.content,
+        createdAt: new Date(),
+      }));
+    }
     return { shortTerm, longTerm: [...recallEntries, ...longTerm], semantic: [] };
   }
 
@@ -105,15 +131,21 @@ export class FilesystemMemoryProvider implements MemoryProvider {
     existing.push(stored);
     await this.storage.writeJson(key, existing);
     await this.recallIndex.indexEntry(stored);
+    await this.ensureFts();
+    this.ftsRecall?.index(stored);
     return stored;
   }
 
   async getBySession(sessionId: string, limit = 50): Promise<MemoryEntry[]> {
     const files = await this.storage.list('memory');
     const entries: MemoryEntry[] = [];
-    for (const file of files.filter((f) => f.endsWith('.json') && !f.includes('sessions/'))) {
+    for (const file of files.filter(
+      (f) => f.endsWith('.json') && !f.includes('sessions/') && !f.endsWith('_recall-index.json'),
+    )) {
       const items = await this.storage.readJson<MemoryEntry[]>(file);
-      if (items) entries.push(...items.filter((e) => e.sessionId === sessionId));
+      if (Array.isArray(items)) {
+        entries.push(...items.filter((e) => e.sessionId === sessionId));
+      }
     }
     return entries.slice(-limit);
   }
@@ -155,10 +187,14 @@ export function createMemoryProvider(
   provider: string,
   storage: FilesystemStorageProvider,
   honchoConfig?: HonchoConfig,
+  memoryConfig?: { fts?: boolean },
 ): MemoryProvider {
+  const enableFts = memoryConfig?.fts === true || provider === 'sqlite';
   switch (provider) {
     case 'filesystem':
-      return new FilesystemMemoryProvider(storage);
+      return new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', { enableFts });
+    case 'sqlite':
+      return new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', { enableFts: true });
     case 'honcho': {
       const config =
         honchoConfig ??
@@ -169,10 +205,11 @@ export function createMemoryProvider(
               workspaceId: process.env.HONCHO_WORKSPACE_ID,
             }
           : undefined);
-      return createHonchoProvider(new FilesystemMemoryProvider(storage), config);
+      return createHonchoProvider(
+        new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', { enableFts }),
+        config,
+      );
     }
-    case 'sqlite':
-      return createStubProvider('sqlite');
     case 'postgresql':
     case 'redis':
       return createStubProvider(provider);

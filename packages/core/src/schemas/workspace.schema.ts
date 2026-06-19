@@ -31,6 +31,7 @@ export const memoryConfigSchema = z.object({
     .enum(['filesystem', 'sqlite', 'postgresql', 'qdrant', 'redis', 'honcho'])
     .default('filesystem'),
   basePath: z.string().default('memory'),
+  fts: z.boolean().default(false),
 });
 
 export const runtimeConfigSchema = z.object({

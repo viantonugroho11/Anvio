@@ -7,6 +7,10 @@ export class FilesystemStorageProvider implements StorageProvider {
 
   constructor(private readonly rootDir: string) {}
 
+  get rootPath(): string {
+    return this.rootDir;
+  }
+
   private resolve(key: string): string {
     const resolved = path.resolve(this.rootDir, key);
     if (!resolved.startsWith(path.resolve(this.rootDir))) {

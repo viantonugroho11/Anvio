@@ -60,8 +60,40 @@ export class HonchoMemoryProvider implements MemoryProvider {
     }
   }
 
-  getContext(sessionId: string, userId: string): Promise<MemoryContext> {
-    return this.delegate.getContext(sessionId, userId);
+  async getContext(sessionId: string, userId: string): Promise<MemoryContext> {
+    const base = await this.delegate.getContext(sessionId, userId);
+    const dialectic = await this.fetchDialecticContext(userId, sessionId);
+    if (dialectic.length === 0) return base;
+    return {
+      ...base,
+      longTerm: [
+        ...dialectic.map((content, i) => ({
+          id: `honcho-${i}`,
+          sessionId,
+          userId,
+          type: 'fact' as const,
+          content,
+          createdAt: new Date(),
+        })),
+        ...base.longTerm,
+      ],
+    };
+  }
+
+  private async fetchDialecticContext(userId: string, sessionId: string): Promise<string[]> {
+    if (!this.config?.apiKey) return [];
+    try {
+      const url = `${this.config.baseUrl.replace(/\/$/, '')}/v1/users/${encodeURIComponent(userId)}/context?session_id=${encodeURIComponent(sessionId)}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${this.config.apiKey}` },
+      });
+      if (!res.ok) return [];
+      const data = (await res.json()) as { insights?: string[]; memories?: Array<{ content: string }> };
+      if (data.insights?.length) return data.insights.slice(0, 5);
+      return (data.memories ?? []).map((m) => m.content).slice(0, 5);
+    } catch {
+      return [];
+    }
   }
 
   storeConversation(
