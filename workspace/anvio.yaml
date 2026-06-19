@@ -1,0 +1,20 @@
+# Anvio Workspace Configuration
+# Local-first, file-first — no database or authentication required.
+apiVersion: anvio.io/v1
+kind: Workspace
+metadata:
+  name: default
+  version: "1.0.0"
+spec:
+  auth:
+    enabled: false
+  storage:
+    provider: filesystem
+    basePath: .
+  memory:
+    provider: filesystem
+    basePath: memory
+  events:
+    provider: local
+  defaultAgent: architect
+  defaultUserId: local-user
