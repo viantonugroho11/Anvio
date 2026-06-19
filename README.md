@@ -504,6 +504,8 @@ Docker and PostgreSQL are optional — only needed for Level 3+ workflows.
 
 Full index: [`docs/`](docs/)
 
+See also: [`CHANGELOG.md`](CHANGELOG.md)
+
 ---
 
 ## License
