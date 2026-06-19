@@ -7,8 +7,13 @@ import { ChannelHub } from './channel-hub.js';
 import { ChannelSessionBridge } from './channel-session-bridge.js';
 import { CliChannel } from './cli-channel.js';
 import { DiscordChannel } from './discord.js';
+import { EmailChannel } from './email.js';
+import { GoogleChatChannel } from './google-chat.js';
+import { MatrixChannel } from './matrix.js';
 import { RestApiChannel } from './rest-api.js';
+import { SignalChannel } from './signal.js';
 import { SlackChannel } from './slack.js';
+import { TeamsChannel } from './teams.js';
 import { TelegramChannel } from './telegram.js';
 import { WebChatChannel } from './web-chat.js';
 import { WhatsAppChannel } from './whatsapp.js';
@@ -33,6 +38,39 @@ export interface ChannelConfig {
   discord?: { enabled?: boolean; botToken?: string; defaultAgent?: string };
   slack?: SlackChannelConfig;
   whatsapp?: WhatsAppChannelConfig;
+  teams?: {
+    enabled?: boolean;
+    appId?: string;
+    appPassword?: string;
+    serviceUrl?: string;
+    defaultAgent?: string;
+  };
+  matrix?: {
+    enabled?: boolean;
+    homeserverUrl?: string;
+    accessToken?: string;
+    userId?: string;
+    roomId?: string;
+    defaultAgent?: string;
+  };
+  email?: {
+    enabled?: boolean;
+    smtpHost?: string;
+    username?: string;
+    password?: string;
+    defaultAgent?: string;
+  };
+  signal?: {
+    enabled?: boolean;
+    signalCliPath?: string;
+    phoneNumber?: string;
+    defaultAgent?: string;
+  };
+  googleChat?: {
+    enabled?: boolean;
+    webhookUrl?: string;
+    defaultAgent?: string;
+  };
 }
 
 export interface CreateChannelHubOptions {
@@ -143,6 +181,74 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
       onApproval,
     });
     registerAdapter(hub, whatsapp, onInbound);
+  }
+
+  const bridgeOpts = { sessionBridge: bridge, sessions: options.sessions, onApproval };
+
+  registerAdapter(
+    hub,
+    new TeamsChannel({
+      ...bridgeOpts,
+      appId: options.channels?.teams?.appId ?? process.env.TEAMS_APP_ID,
+      appPassword: options.channels?.teams?.appPassword ?? process.env.TEAMS_APP_PASSWORD,
+      serviceUrl: options.channels?.teams?.serviceUrl ?? process.env.TEAMS_SERVICE_URL,
+      defaultAgent: options.channels?.teams?.defaultAgent ?? options.defaultAgent,
+    }),
+    onInbound,
+  );
+
+  registerAdapter(
+    hub,
+    new MatrixChannel({
+      ...bridgeOpts,
+      homeserverUrl: options.channels?.matrix?.homeserverUrl ?? process.env.MATRIX_HOMESERVER_URL,
+      accessToken: options.channels?.matrix?.accessToken ?? process.env.MATRIX_ACCESS_TOKEN,
+      userId: options.channels?.matrix?.userId ?? process.env.MATRIX_USER_ID,
+      roomId: options.channels?.matrix?.roomId ?? process.env.MATRIX_ROOM_ID,
+      defaultAgent: options.channels?.matrix?.defaultAgent ?? options.defaultAgent,
+    }),
+    onInbound,
+  );
+
+  if (options.channels?.email?.enabled) {
+    registerAdapter(
+      hub,
+      new EmailChannel({
+        ...bridgeOpts,
+        smtpHost: options.channels.email.smtpHost ?? process.env.EMAIL_SMTP_HOST,
+        username: options.channels.email.username ?? process.env.EMAIL_USERNAME,
+        password: options.channels.email.password ?? process.env.EMAIL_PASSWORD,
+        defaultAgent: options.channels.email.defaultAgent ?? options.defaultAgent,
+      }),
+      onInbound,
+    );
+  }
+
+  if (options.channels?.signal?.enabled) {
+    registerAdapter(
+      hub,
+      new SignalChannel({
+        ...bridgeOpts,
+        signalCliPath: options.channels.signal.signalCliPath ?? process.env.SIGNAL_CLI_PATH,
+        phoneNumber: options.channels.signal.phoneNumber ?? process.env.SIGNAL_PHONE_NUMBER,
+        defaultAgent: options.channels.signal.defaultAgent ?? options.defaultAgent,
+      }),
+      onInbound,
+    );
+  }
+
+  const googleChatWebhook =
+    options.channels?.googleChat?.webhookUrl ?? process.env.GOOGLE_CHAT_WEBHOOK_URL;
+  if (options.channels?.googleChat?.enabled && googleChatWebhook) {
+    registerAdapter(
+      hub,
+      new GoogleChatChannel({
+        ...bridgeOpts,
+        webhookUrl: googleChatWebhook,
+        defaultAgent: options.channels.googleChat.defaultAgent ?? options.defaultAgent,
+      }),
+      onInbound,
+    );
   }
 
   return { hub, whatsapp };

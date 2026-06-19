@@ -3,7 +3,17 @@ import type { ChannelConfig } from './create-channels.js';
 
 const BUILTIN_CHANNELS: ChannelType[] = ['cli', 'web-chat', 'rest'];
 
-const OPTIONAL_CHANNELS: ChannelType[] = ['telegram', 'discord', 'slack', 'whatsapp'];
+const OPTIONAL_CHANNELS: ChannelType[] = [
+  'telegram',
+  'discord',
+  'slack',
+  'whatsapp',
+  'teams',
+  'matrix',
+  'email',
+  'signal',
+  'google-chat',
+];
 
 function report(
   channel: ChannelType,
@@ -36,6 +46,11 @@ export async function probeAllChannels(config?: ChannelConfig): Promise<ChannelH
   results.push(await probeDiscord(config));
   results.push(await probeSlack(config));
   results.push(await probeWhatsApp(config));
+  results.push(probeTeams(config));
+  results.push(probeMatrix(config));
+  results.push(probeEmail(config));
+  results.push(probeSignal(config));
+  results.push(probeGoogleChat(config));
 
   return results;
 }
@@ -162,6 +177,20 @@ async function probeSlack(config?: ChannelConfig): Promise<ChannelHealthReport> 
   }
 }
 
+export function summarizeChannelHealth(reports: ChannelHealthReport[]): {
+  healthy: number;
+  degraded: number;
+  disabled: number;
+  misconfigured: number;
+  unreachable: number;
+} {
+  const summary = { healthy: 0, degraded: 0, disabled: 0, misconfigured: 0, unreachable: 0 };
+  for (const r of reports) {
+    summary[r.status] += 1;
+  }
+  return summary;
+}
+
 async function probeWhatsApp(config?: ChannelConfig): Promise<ChannelHealthReport> {
   const channel: ChannelType = 'whatsapp';
   if (!isEnabled(config, 'whatsapp')) {
@@ -208,18 +237,60 @@ async function probeWhatsApp(config?: ChannelConfig): Promise<ChannelHealthRepor
   }
 }
 
-export function summarizeChannelHealth(reports: ChannelHealthReport[]): {
-  healthy: number;
-  degraded: number;
-  disabled: number;
-  misconfigured: number;
-  unreachable: number;
-} {
-  const summary = { healthy: 0, degraded: 0, disabled: 0, misconfigured: 0, unreachable: 0 };
-  for (const r of reports) {
-    summary[r.status] += 1;
+function probeTeams(config?: ChannelConfig): ChannelHealthReport {
+  const channel: ChannelType = 'teams';
+  const appId = config?.teams?.appId ?? process.env.TEAMS_APP_ID;
+  const appPassword = config?.teams?.appPassword ?? process.env.TEAMS_APP_PASSWORD;
+  if (appId && appPassword) {
+    return report(channel, 'degraded', 'Bot credentials set — webhook delivery requires serviceUrl + conversation');
   }
-  return summary;
+  return report(channel, 'healthy', 'In-memory adapter registered — configure TEAMS_* for live Bot Framework');
+}
+
+function probeMatrix(config?: ChannelConfig): ChannelHealthReport {
+  const channel: ChannelType = 'matrix';
+  const token = config?.matrix?.accessToken ?? process.env.MATRIX_ACCESS_TOKEN;
+  const homeserver = config?.matrix?.homeserverUrl ?? process.env.MATRIX_HOMESERVER_URL;
+  if (token && homeserver) {
+    return report(channel, 'degraded', 'Matrix credentials set — requires roomId for live send');
+  }
+  return report(channel, 'healthy', 'In-memory adapter registered — configure MATRIX_* for live homeserver');
+}
+
+function probeEmail(config?: ChannelConfig): ChannelHealthReport {
+  const channel: ChannelType = 'email';
+  if (!isEnabled(config, 'email')) {
+    return report(channel, 'disabled', 'Not enabled — set spec.channels.email.enabled: true');
+  }
+  const smtpHost = config?.email?.smtpHost ?? process.env.EMAIL_SMTP_HOST;
+  if (!smtpHost) {
+    return report(channel, 'misconfigured', 'Missing EMAIL_SMTP_HOST or spec.channels.email.smtpHost');
+  }
+  return report(channel, 'degraded', 'SMTP configured — outbound queue mode until full IMAP/SMTP bridge');
+}
+
+function probeSignal(config?: ChannelConfig): ChannelHealthReport {
+  const channel: ChannelType = 'signal';
+  if (!isEnabled(config, 'signal')) {
+    return report(channel, 'disabled', 'Not enabled — set spec.channels.signal.enabled: true');
+  }
+  const cli = config?.signal?.signalCliPath ?? process.env.SIGNAL_CLI_PATH;
+  if (!cli) {
+    return report(channel, 'misconfigured', 'Missing SIGNAL_CLI_PATH or spec.channels.signal.signalCliPath');
+  }
+  return report(channel, 'degraded', 'signal-cli path configured — bridge delivery deferred');
+}
+
+function probeGoogleChat(config?: ChannelConfig): ChannelHealthReport {
+  const channel: ChannelType = 'google-chat';
+  if (!isEnabled(config, 'googleChat')) {
+    return report(channel, 'disabled', 'Not enabled — set spec.channels.googleChat.enabled: true');
+  }
+  const webhook = config?.googleChat?.webhookUrl ?? process.env.GOOGLE_CHAT_WEBHOOK_URL;
+  if (!webhook) {
+    return report(channel, 'misconfigured', 'Missing GOOGLE_CHAT_WEBHOOK_URL');
+  }
+  return report(channel, 'healthy', 'Webhook URL configured');
 }
 
 export { OPTIONAL_CHANNELS, BUILTIN_CHANNELS };
