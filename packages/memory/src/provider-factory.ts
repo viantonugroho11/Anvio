@@ -8,16 +8,20 @@ import type {
 } from '@anvio/core';
 import type { FilesystemStorageProvider } from '@anvio/storage';
 import { createHonchoProvider, type HonchoConfig } from './providers/honcho/honcho-provider.js';
+import { MemoryRecallIndex } from './recall-index.js';
 
 /** Filesystem-based memory provider — default for local-first mode. */
 export class FilesystemMemoryProvider implements MemoryProvider {
   readonly providerId = 'filesystem';
+  private readonly recallIndex: MemoryRecallIndex;
 
   constructor(
     private readonly storage: FilesystemStorageProvider,
     private readonly sessionPrefix = 'memory/sessions',
     private readonly userPrefix = 'memory',
-  ) {}
+  ) {
+    this.recallIndex = new MemoryRecallIndex(storage);
+  }
 
   private sessionKey(sessionId: string): string {
     return `${this.sessionPrefix}/${sessionId}.json`;
@@ -31,12 +35,24 @@ export class FilesystemMemoryProvider implements MemoryProvider {
     return { ok: true, details: 'Filesystem memory provider active' };
   }
 
-  async getContext(sessionId: string, _userId: string): Promise<MemoryContext> {
+  async getContext(sessionId: string, userId: string): Promise<MemoryContext> {
     const [shortTerm, longTerm] = await Promise.all([
       this.getMessages(sessionId),
       this.getBySession(sessionId),
     ]);
-    return { shortTerm, longTerm, semantic: [] };
+    const lastUser = [...shortTerm].reverse().find((m) => m.role === 'user');
+    const recall = lastUser
+      ? await this.recallIndex.recall(userId, lastUser.content, 3)
+      : [];
+    const recallEntries: MemoryEntry[] = recall.map((hit, i) => ({
+      id: `recall-${i}`,
+      sessionId: hit.sessionId,
+      userId,
+      type: hit.type,
+      content: hit.content,
+      createdAt: new Date(),
+    }));
+    return { shortTerm, longTerm: [...recallEntries, ...longTerm], semantic: [] };
   }
 
   async storeConversation(
@@ -88,6 +104,7 @@ export class FilesystemMemoryProvider implements MemoryProvider {
     };
     existing.push(stored);
     await this.storage.writeJson(key, existing);
+    await this.recallIndex.indexEntry(stored);
     return stored;
   }
 

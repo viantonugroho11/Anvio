@@ -69,3 +69,4 @@ export function createMemoryProviderFromConfig(
 
 export * from './provider-factory.js';
 export * from './filesystem-memory.js';
+export { MemoryRecallIndex, type RecallHit } from './recall-index.js';
