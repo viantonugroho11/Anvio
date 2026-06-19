@@ -1,0 +1,99 @@
+# Production Docker Compose
+# Usage: docker compose -f docker/docker-compose.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-anvio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-anvio}
+      POSTGRES_DB: ${POSTGRES_DB:-anvio}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-anvio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-m", "8222"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-anvio}:${POSTGRES_PASSWORD:-anvio}@postgres:5432/${POSTGRES_DB:-anvio}
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-anvio}:${POSTGRES_PASSWORD:-anvio}@postgres:5432/${POSTGRES_DB:-anvio}
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gateway
+    environment:
+      API_URL: http://api:3000
+      NATS_URL: nats://nats:4222
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3001:3001"
+    depends_on:
+      - api
+      - nats
+      - redis
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

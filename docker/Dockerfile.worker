@@ -1,0 +1,30 @@
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
+WORKDIR /app
+
+FROM base AS deps
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/core/package.json ./packages/core/
+COPY packages/db/package.json ./packages/db/
+COPY packages/events/package.json ./packages/events/
+COPY packages/observability/package.json ./packages/observability/
+COPY packages/personas/package.json ./packages/personas/
+COPY packages/skills/package.json ./packages/skills/
+COPY packages/memory/package.json ./packages/memory/
+COPY packages/models/package.json ./packages/models/
+COPY packages/agents/package.json ./packages/agents/
+COPY packages/tools/package.json ./packages/tools/
+RUN pnpm install --frozen-lockfile
+
+FROM deps AS build
+COPY . .
+RUN pnpm build --filter=@anvio/worker...
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/apps/worker/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/apps/worker/package.json ./
+CMD ["node", "dist/main.js"]
