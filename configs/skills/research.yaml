@@ -1,0 +1,20 @@
+apiVersion: anvio.io/v1
+kind: Skill
+metadata:
+  slug: research
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  name: Research
+  description: Deep research and synthesis
+  category: knowledge
+  routing: research
+  instructions: |
+    When researching:
+    1. Gather sources and verify facts
+    2. Synthesize findings clearly
+    3. Cite assumptions and gaps
+  permissions: []
+  toolRequirements: []
+  contextRequirements: []
+  tags: [knowledge]

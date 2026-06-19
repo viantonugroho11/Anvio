@@ -3,9 +3,12 @@ kind: Skill
 metadata:
   slug: architecture
   version: "1.0.0"
+  catalog: bundled
 spec:
   name: Architecture
   description: System design, architecture review, and technical decision making
+  category: engineering
+  routing: coding
   instructions: |
     When performing architecture tasks:
     1. Understand requirements and constraints first

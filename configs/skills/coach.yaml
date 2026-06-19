@@ -1,0 +1,20 @@
+apiVersion: anvio.io/v1
+kind: Skill
+metadata:
+  slug: coach
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  name: Coach
+  description: Coaching and personal growth
+  category: personal
+  routing: chat
+  instructions: |
+    When coaching:
+    1. Ask clarifying questions
+    2. Reflect back key themes
+    3. Suggest actionable next steps
+  permissions: []
+  toolRequirements: []
+  contextRequirements: []
+  tags: [personal]

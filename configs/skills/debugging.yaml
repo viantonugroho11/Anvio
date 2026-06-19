@@ -1,0 +1,20 @@
+apiVersion: anvio.io/v1
+kind: Skill
+metadata:
+  slug: debugging
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  name: Debugging
+  description: Diagnose and fix issues
+  category: engineering
+  routing: coding
+  instructions: |
+    When debugging:
+    1. Reproduce the issue reliably
+    2. Isolate root cause with evidence
+    3. Fix and verify with tests
+  permissions: []
+  toolRequirements: []
+  contextRequirements: []
+  tags: [engineering]

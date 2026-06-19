@@ -1,0 +1,20 @@
+apiVersion: anvio.io/v1
+kind: Skill
+metadata:
+  slug: documentation
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  name: Documentation
+  description: Write and maintain documentation
+  category: knowledge
+  routing: research
+  instructions: |
+    When documenting:
+    1. Target the reader and their task
+    2. Use clear structure and examples
+    3. Keep docs aligned with code
+  permissions: []
+  toolRequirements: []
+  contextRequirements: []
+  tags: [knowledge]

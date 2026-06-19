@@ -1,0 +1,20 @@
+apiVersion: anvio.io/v1
+kind: Skill
+metadata:
+  slug: project-manager
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  name: Project Manager
+  description: Project tracking and coordination
+  category: productivity
+  routing: research
+  instructions: |
+    When managing projects:
+    1. Track status, blockers, and owners
+    2. Align work to milestones
+    3. Communicate progress clearly
+  permissions: []
+  toolRequirements: []
+  contextRequirements: []
+  tags: [productivity]

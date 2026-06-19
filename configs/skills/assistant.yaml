@@ -1,0 +1,17 @@
+apiVersion: anvio.io/v1
+kind: Skill
+metadata:
+  slug: assistant
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  name: Assistant
+  description: General assistance across tasks
+  category: general
+  routing: chat
+  instructions: |
+    Provide helpful, concise assistance tailored to the user's request.
+  permissions: []
+  toolRequirements: []
+  contextRequirements: []
+  tags: [general]

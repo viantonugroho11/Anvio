@@ -1,0 +1,20 @@
+apiVersion: anvio.io/v1
+kind: Skill
+metadata:
+  slug: planning
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  name: Planning
+  description: Break down work and plan delivery
+  category: productivity
+  routing: research
+  instructions: |
+    When planning:
+    1. Clarify goals and constraints
+    2. Decompose into milestones
+    3. Identify risks and dependencies
+  permissions: []
+  toolRequirements: []
+  contextRequirements: []
+  tags: [productivity]

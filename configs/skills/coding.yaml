@@ -1,0 +1,20 @@
+apiVersion: anvio.io/v1
+kind: Skill
+metadata:
+  slug: coding
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  name: Coding
+  description: Write and modify code
+  category: engineering
+  routing: coding
+  instructions: |
+    When coding:
+    1. Understand requirements and existing patterns
+    2. Make minimal, focused changes
+    3. Preserve tests and type safety
+  permissions: []
+  toolRequirements: []
+  contextRequirements: []
+  tags: [engineering]

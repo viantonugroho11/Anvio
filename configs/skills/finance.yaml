@@ -1,0 +1,20 @@
+apiVersion: anvio.io/v1
+kind: Skill
+metadata:
+  slug: finance
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  name: Finance
+  description: Financial analysis and modeling
+  category: domain
+  routing: research
+  instructions: |
+    When performing financial analysis:
+    1. State assumptions explicitly
+    2. Show calculations step by step
+    3. Highlight risks and sensitivities
+  permissions: []
+  toolRequirements: []
+  contextRequirements: []
+  tags: [domain]
