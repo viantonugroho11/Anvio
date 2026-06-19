@@ -10,6 +10,7 @@ import type {
   UserInput,
 } from '@anvio/core';
 import type { MemoryStore } from '@anvio/core';
+import type { SoulService } from '@anvio/souls';
 import { PersonaService } from '@anvio/personas';
 import { SkillRegistry } from '@anvio/skills';
 
@@ -18,6 +19,7 @@ export interface AgentRuntimeDeps {
   skillRegistry: SkillRegistry;
   memoryStore: MemoryStore;
   modelProvider: ModelProvider;
+  soulService?: SoulService;
   onProgress?: (sessionId: string, phase: string) => void;
 }
 
@@ -54,7 +56,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
       yield { type: 'progress' as const, phase: 'Assembling context', status: 'running' as const };
       this.deps.onProgress?.(session.id, 'Assembling context');
 
-      const systemPrompt = await this.assembleSystemPrompt(agent);
+      const systemPrompt = await this.assembleSystemPrompt(agent, session.userId);
       const memoryContext = await this.deps.memoryStore.getContext(session.id, session.userId);
       const messages: ChatMessage[] = [
         ...memoryContext.shortTerm,
@@ -114,7 +116,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
     return this.run(session, agent, { content: 'Continue after approval.' });
   }
 
-  private async assembleSystemPrompt(agent: AgentDefinition): Promise<string> {
+  private async assembleSystemPrompt(agent: AgentDefinition, userId: string): Promise<string> {
     const [persona, skillSpecs] = await Promise.all([
       this.deps.personaService.getBySlug(agent.spec.persona),
       this.deps.skillRegistry.getBySlugs(agent.spec.skills),
@@ -123,7 +125,19 @@ export class DefaultAgentRuntime implements AgentRuntime {
     const personaPrompt = this.deps.personaService.renderSystemPrompt(persona);
     const skillPrompt = this.deps.skillRegistry.renderSkillInstructions(skillSpecs);
 
-    return [personaPrompt, skillPrompt].filter(Boolean).join('\n\n---\n\n');
+    const parts = [personaPrompt, skillPrompt];
+
+    const soulSlug = agent.spec.soul;
+    if (soulSlug && this.deps.soulService) {
+      try {
+        const soulContext = await this.deps.soulService.loadContext(soulSlug, userId);
+        parts.push(this.deps.soulService.renderSoulContext(soulContext));
+      } catch {
+        // Soul optional — fall back to persona-only context
+      }
+    }
+
+    return parts.filter(Boolean).join('\n\n---\n\n');
   }
 }
 

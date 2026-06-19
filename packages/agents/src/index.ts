@@ -4,3 +4,11 @@ export {
   createOrchestrationPlan,
   type SupervisorOrchestratorDeps,
 } from './orchestrator.js';
+export {
+  resolveTaskOrder,
+  normalizeTasks,
+  getReadyTasks,
+  interpolateTaskInput,
+  type PlannedTask,
+} from './task-planner.js';
+export { DelegationProgressTracker, type DelegationEventPublisher } from './delegation-progress.js';

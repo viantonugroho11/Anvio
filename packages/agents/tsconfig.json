@@ -4,9 +4,11 @@
   "include": ["src/**/*"],
   "references": [
     { "path": "../core" },
+    { "path": "../events" },
     { "path": "../personas" },
     { "path": "../skills" },
     { "path": "../memory" },
-    { "path": "../models" }
+    { "path": "../models" },
+    { "path": "../souls" }
   ]
 }

@@ -15,7 +15,9 @@
   },
   "dependencies": {
     "@anvio/core": "workspace:*",
+    "@anvio/events": "workspace:*",
     "@anvio/personas": "workspace:*",
+    "@anvio/souls": "workspace:*",
     "@anvio/skills": "workspace:*",
     "@anvio/memory": "workspace:*",
     "@anvio/models": "workspace:*",
