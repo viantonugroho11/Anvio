@@ -6,6 +6,9 @@ import type {
   ShortTermMemoryPort,
   LongTermMemoryPort,
 } from '@anvio/core';
+import type { FilesystemStorageProvider } from '@anvio/storage';
+import { createMemoryProvider } from './provider-factory.js';
+import type { MemoryProvider } from '@anvio/core';
 
 export class CompositeMemoryStore implements MemoryStore {
   constructor(
@@ -43,4 +46,26 @@ export class CompositeMemoryStore implements MemoryStore {
   }
 }
 
+/** @deprecated Use FilesystemMemoryProvider via createMemoryProvider */
+export {
+  FilesystemShortTermMemory,
+  FilesystemLongTermMemory,
+  FilesystemMemoryStore,
+} from './filesystem-memory.js';
+
+export function createMemoryStore(
+  provider: string,
+  storage: FilesystemStorageProvider,
+): MemoryStore {
+  return createMemoryProvider(provider, storage);
+}
+
+export function createMemoryProviderFromConfig(
+  provider: string,
+  storage: FilesystemStorageProvider,
+): MemoryProvider {
+  return createMemoryProvider(provider, storage);
+}
+
+export * from './provider-factory.js';
 export * from './filesystem-memory.js';
