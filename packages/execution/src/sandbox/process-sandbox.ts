@@ -25,13 +25,7 @@ export async function runInProcessSandbox(
   options: ProcessSandboxOptions,
 ): Promise<ProcessSandboxResult> {
   if (options.runtime === 'docker') {
-    return {
-      exitCode: 1,
-      stdout: '',
-      stderr: 'Docker sandbox is not implemented (Level 3 stub)',
-      durationMs: 0,
-      timedOut: false,
-    };
+    return runDockerSandbox(options);
   }
 
   const started = Date.now();
@@ -113,4 +107,70 @@ async function buildCommand(
       throw new Error(`Unsupported runtime: ${_exhaustive}`);
     }
   }
+}
+
+async function runDockerSandbox(options: ProcessSandboxOptions): Promise<ProcessSandboxResult> {
+  const started = Date.now();
+  const image = process.env.ANVIO_DOCKER_IMAGE ?? 'node:20-alpine';
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'anvio-docker-'));
+  const scriptName = /^(\s*(def |import |from ))/.test(options.code) ? 'script.py' : 'script.js';
+  const scriptPath = path.join(tmpDir, scriptName);
+  await fs.writeFile(scriptPath, options.code, 'utf8');
+
+  const mount = `${options.cwd}:/workspace`;
+  const inner =
+    scriptName === 'script.py'
+      ? `python3 /tmp/script/${scriptName}`
+      : `node /tmp/script/${scriptName}`;
+
+  const args = [
+    'run',
+    '--rm',
+    '-v',
+    mount,
+    '-v',
+    `${tmpDir}:/tmp/script:ro`,
+    '-w',
+    '/workspace',
+    ...(options.networkEnabled ? [] : ['--network', 'none']),
+    image,
+    'sh',
+    '-c',
+    inner,
+  ];
+
+  return new Promise((resolve) => {
+    const child = spawn('docker', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (c: Buffer) => {
+      stdout += c.toString();
+    });
+    child.stderr?.on('data', (c: Buffer) => {
+      stderr += c.toString();
+    });
+    const timer = setTimeout(() => child.kill('SIGKILL'), options.timeoutMs);
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      void fs.rm(tmpDir, { recursive: true, force: true });
+      resolve({
+        exitCode: code ?? 1,
+        stdout,
+        stderr,
+        durationMs: Date.now() - started,
+        timedOut: false,
+      });
+    });
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      void fs.rm(tmpDir, { recursive: true, force: true });
+      resolve({
+        exitCode: 1,
+        stdout,
+        stderr: err.message,
+        durationMs: Date.now() - started,
+        timedOut: false,
+      });
+    });
+  });
 }
