@@ -36,11 +36,41 @@ export const eventsConfigSchema = z.object({
   url: z.string().optional(),
 });
 
+export const channelProviderSchema = z.object({
+  enabled: z.boolean().default(false),
+  botToken: z.string().optional(),
+  defaultAgent: z.string().optional(),
+});
+
+export const slackChannelSchema = channelProviderSchema.extend({
+  appToken: z.string().optional(),
+});
+
+export const whatsappChannelSchema = channelProviderSchema.extend({
+  accessToken: z.string().optional(),
+  phoneNumberId: z.string().optional(),
+  verifyToken: z.string().optional(),
+});
+
+export const channelsConfigSchema = z.object({
+  telegram: channelProviderSchema.optional(),
+  discord: channelProviderSchema.optional(),
+  whatsapp: whatsappChannelSchema.optional(),
+  slack: slackChannelSchema.optional(),
+});
+
+export const worktreesConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  repoPath: z.string().default('..'),
+});
+
 export const workspaceSpecSchema = z.object({
   auth: authConfigSchema.default({ enabled: false, provider: 'none' }),
   storage: storageConfigSchema.default({ provider: 'filesystem', basePath: '.' }),
   memory: memoryConfigSchema.default({ provider: 'filesystem', basePath: 'memory' }),
   events: eventsConfigSchema.default({ provider: 'local' }),
+  channels: channelsConfigSchema.optional(),
+  worktrees: worktreesConfigSchema.default({ enabled: false, repoPath: '..' }),
   defaultAgent: z.string().optional(),
   defaultUserId: z.string().default('local-user'),
 });

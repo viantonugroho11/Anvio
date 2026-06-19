@@ -29,6 +29,10 @@ export const agentApprovalsSchema = z.object({
     .default(['destructive']),
 });
 
+export const agentWorkspaceSchema = z.object({
+  isolatedWorktree: z.boolean().default(false),
+});
+
 export const agentSpecSchema = z.object({
   description: z.string().min(1),
   persona: z.string().min(1),
@@ -38,6 +42,7 @@ export const agentSpecSchema = z.object({
   memory: agentMemorySchema.default({}),
   orchestration: agentOrchestrationSchema.default({ pattern: 'single', delegates: [] }),
   approvals: agentApprovalsSchema.default({ requiredFor: ['destructive'] }),
+  workspace: agentWorkspaceSchema.default({ isolatedWorktree: false }),
 });
 
 export const agentDefinitionSchema = z.object({

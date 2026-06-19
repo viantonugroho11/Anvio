@@ -17,3 +17,4 @@ export * from './ports/tool.port.js';
 export * from './ports/agent-inbox.port.js';
 export * from './ports/artifact-store.port.js';
 export * from './ports/orchestration.port.js';
+export * from './ports/worktree.port.js';
