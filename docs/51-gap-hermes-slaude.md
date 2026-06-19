@@ -26,7 +26,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | #   | Gap                                       | Hermes | slaude  | Anvio hari ini                                             | Target                             |
 | --- | ----------------------------------------- | ------ | ------- | ---------------------------------------------------------- | ---------------------------------- |
 | T1  | Built-in tools (60+)                      | ✅      | via MCP | 🟡 3 tool (`web_fetch`, `web_search`, `execute_code` stub) | Expand `@anvio/tools` gateway      |
-| T2  | Browser sandbox (Playwright)              | ✅      | —       | ❌ flag `browser` di gateway, belum implement               | Provider pluggable di gateway      |
+| T2  | Browser sandbox (Playwright)              | ✅      | —       | ✅ Playwright + fetch fallback                              | —                                  |
 | T3  | Image generation                          | ✅      | —       | ❌ stub config only                                         | Provider OpenAI/Replicate/etc.     |
 | T4  | Text-to-speech (tool)                     | ✅      | —       | ❌ stub config only                                         | Wire ke `@anvio/voice`             |
 | T5  | `execute_code` programmatic multi-step    | ✅      | —       | 🟡 stub                                                    | Hermes-style collapse pipeline     |
@@ -76,8 +76,8 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | --- | --------------------------------- | ------ | ------ | --------------------------------- | ---------------------------- |
 | L1  | Skill evolution (draft → promote) | ✅      | —      | ✅ `.md` drafts                    | —                            |
 | L2  | Memory nudge on session end       | ✅      | —      | ✅                                 | —                            |
-| L3  | Honcho provider                   | ✅      | —      | 🟡 filesystem delegate + API sync | Full dialectic model         |
-| L4  | FTS5 cross-session recall         | ✅      | —      | ❌                                 | sqlite memory layer          |
+| L3  | Honcho provider                   | ✅      | —      | ✅ delegate + dialectic context fetch | —                            |
+| L4  | FTS5 cross-session recall         | ✅      | —      | ✅ optional sqlite FTS5                | —                            |
 | L5  | LLM periodic summarization        | ✅      | —      | 🟡 nudge only                     | Scheduled summarizer job     |
 | L6  | Skill self-improve during use     | ✅      | —      | ❌                                 | Runtime skill patch proposal |
 | L7  | Knowledge base raw→wiki           | —      | ✅      | ✅ `@anvio/knowledge`              | —                            |
@@ -91,12 +91,12 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | #   | Gap                           | Hermes  | slaude | Anvio hari ini                | Target                            |
 | --- | ----------------------------- | ------- | ------ | ----------------------------- | --------------------------------- |
 | R1  | Local runtime                 | ✅       | ✅      | ✅                             | —                                 |
-| R2  | Docker runtime                | ✅       | —      | 🟡 via code execution package | First-class runtime provider      |
+| R2  | Docker runtime                | ✅       | —      | ✅ DockerRuntimeProvider      | —                                 |
 | R3  | SSH remote                    | ✅       | —      | 🟡 connectivity test only     | Agent exec over SSH               |
 | R4  | Daytona serverless            | ✅       | —      | 🟡 stub                       | API integration                   |
 | R5  | Modal serverless              | ✅       | —      | 🟡 stub                       | API integration                   |
 | R6  | Singularity                   | ✅       | —      | ❌                             | Low priority                      |
-| R7  | Cursor / Claude Code / Codex  | partial | —      | 🟡 ACP stub                   | `anvio acp serve` production path |
+| R7  | Cursor / Claude Code / Codex  | partial | —      | ✅ ACP serve + Cursor delegate | Claude Code / Codex stubs remain |
 | R8  | Desktop app (installer, tray) | ✅       | —      | ❌ U38 deferred                | `apps/desktop` optional           |
 
 

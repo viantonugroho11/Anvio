@@ -43,8 +43,8 @@ flowchart TB
 | L3 | Session summarizer + summary storage | ✅ Phase K |
 | L4 | Cross-session recall index (filesystem) | ✅ Phase K |
 | L5 | Skill self-improve from tool use | ✅ Phase K |
-| L6 | Honcho full dialectic | 🟡 |
-| L7 | FTS5 / sqlite recall layer | 🔜 |
+| L6 | Honcho full dialectic | ✅ Phase K+ |
+| L7 | FTS5 / sqlite recall layer | ✅ Phase K+ |
 
 **CLI:** `anvio learning drafts`, `anvio learning promote`
 
@@ -89,7 +89,7 @@ flowchart TB
 | T1 | `web_fetch` | ✅ |
 | T2 | `file_read` / `file_write` | ✅ Phase K |
 | T3 | `execute_code` via CodeExecutor | ✅ Phase K |
-| T4 | Browser sandbox (Playwright) | 🔜 |
+| T4 | Browser sandbox (Playwright) | ✅ Phase K+ |
 | T5 | Image / TTS providers | 🔜 |
 
 **Config:** `workspace/tools/gateway.yaml`
@@ -104,7 +104,7 @@ flowchart TB
 | R2 | Docker runtime (first-class) | ✅ Phase K |
 | R3 | SSH connectivity | 🟡 |
 | R4 | Daytona / Modal | 🟡 stub |
-| R7 | ACP / Cursor delegate | 🟡 |
+| R7 | ACP / Cursor delegate | ✅ Phase K+ |
 
 **CLI:** `anvio runtime list`, `anvio exec`, `anvio acp serve`
 

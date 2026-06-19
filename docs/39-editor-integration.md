@@ -134,10 +134,20 @@ spec:
 ## CLI
 
 ```bash
-anvio acp serve                    # Start ACP server
-anvio acp status                   # Connected editors
-anvio runtime test cursor          # Test Cursor runtime connection
+anvio acp serve                    # Start ACP server (POST /prompt, POST /prompt/stream)
+anvio acp status                   # Server status
+anvio runtime test cursor          # Test Cursor runtime connection (requires ANVIO_ACP_ENDPOINT)
 ```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Health check |
+| POST | `/prompt` | Run agent, return full response JSON |
+| POST | `/prompt/stream` | SSE stream of `{ type: 'chunk', delta }` events |
+
+Set `ANVIO_ACP_ENDPOINT=http://127.0.0.1:8765` for agents with `runtime.provider: cursor`.
 
 ## Operational Runbook
 
