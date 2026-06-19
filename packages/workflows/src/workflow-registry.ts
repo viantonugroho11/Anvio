@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import type { WorkflowDefinition } from '@anvio/core';
-import { parseWorkflowDefinition } from '@anvio/core';
+import { parseWorkflowDefinition, parseWorkflowMd } from '@anvio/core';
 
 export interface WorkflowRegistryPaths {
   bundledDir: string;
@@ -29,10 +29,11 @@ export class WorkflowRegistry {
 
   async load(slug: string): Promise<WorkflowDefinition> {
     for (const dir of [this.paths.workspaceDir, this.paths.bundledDir]) {
-      for (const ext of ['yaml', 'yml']) {
+      for (const ext of ['md', 'yaml', 'yml']) {
         const filePath = path.join(dir, `${slug}.${ext}`);
         try {
           const raw = await fs.readFile(filePath, 'utf-8');
+          if (ext === 'md') return parseWorkflowMd(raw, slug);
           return parseWorkflowDefinition(parseYaml(raw));
         } catch {
           // try next path
@@ -43,16 +44,17 @@ export class WorkflowRegistry {
   }
 
   async validateFile(filePath: string): Promise<WorkflowDefinition> {
-    const raw = parseYaml(await fs.readFile(filePath, 'utf-8'));
-    return parseWorkflowDefinition(raw);
+    const raw = await fs.readFile(filePath, 'utf-8');
+    if (filePath.endsWith('.md')) return parseWorkflowMd(raw);
+    return parseWorkflowDefinition(parseYaml(raw));
   }
 
   private async listDir(dir: string): Promise<string[]> {
     try {
       const files = await fs.readdir(dir);
       return files
-        .filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'))
-        .map((f) => f.replace(/\.(yaml|yml)$/, ''))
+        .filter((f) => f.endsWith('.yaml') || f.endsWith('.yml') || f.endsWith('.md'))
+        .map((f) => f.replace(/\.(yaml|yml|md)$/, ''))
         .filter((f) => !f.startsWith('_'));
     } catch {
       return [];
