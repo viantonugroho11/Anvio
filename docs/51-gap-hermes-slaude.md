@@ -43,7 +43,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | --- | ------------------------------------- | ------- | ---------- | --------------------------------------- | ------------------------------------- |
 | C1  | Jumlah platform                       | 20+     | Slack      | 🟡 ~12 type                             | Mattermost, Feishu, SMS, … per demand |
 | C2  | Harness depth (engagement, format)    | partial | Slack deep | 🟡 general stack                        | Snapshot tests per adapter            |
-| C3  | Harness default on                    | —       | —          | 🟡 `enabled: false`                     | Enable setelah regression green       |
+| C3  | Harness default on                    | —       | —          | ✅ enabled + regression           | —                                 |
 | C4  | Microsoft Teams live                  | ✅       | —          | 🟡 in-memory + Bot Framework when creds | E2E dengan `TEAMS_`*                  |
 | C5  | Matrix live                           | ✅       | —          | 🟡 in-memory + CS API when creds        | E2E dengan `MATRIX_*`                 |
 | C6  | Email IMAP/SMTP full                  | ✅       | —          | 🟡 outbound queue                       | Bidirectional mail thread             |
@@ -61,9 +61,9 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | --- | ---------------------------------- | ------ | ------------- | --------------------------- | -------------------------------- |
 | S1  | SOUL.md identity                   | ✅      | ✅             | ✅ `souls/*/SOUL.md`         | —                                |
 | S2  | SOUL.md policy gate                | basic  | ✅ scope-based | ✅ `@anvio/soul-gate`        | —                                |
-| S3  | Contextual connections broker      | —      | ✅             | 🟡 store + encrypt scaffold | Per-user OAuth tokens            |
-| S4  | CDP / login-host (browser grant)   | —      | ✅             | ❌                           | `connect/login-host` Phase K?    |
-| S5  | Per-user connection isolation test | —      | ✅             | 🟡                          | User A ≠ User B without approval |
+| S3  | Contextual connections broker      | —      | ✅             | ✅ store + encrypt + CLI       | —                                |
+| S4  | CDP / login-host (browser grant)   | —      | ✅             | ✅ local OAuth callback host   | Full CDP browser grant optional  |
+| S5  | Per-user connection isolation test | —      | ✅             | ✅ integration tests           | —                                |
 | S6  | slaude.json / manifest import      | —      | ✅             | ❌ optional doc only         | `anvio kb sync --from-slaude`    |
 
 

@@ -63,7 +63,10 @@ anvio soul validate-policy workspace/souls/architect-soul/SOUL.md
 ```bash
 anvio harness status
 anvio harness simulate
+anvio connect list|put|revoke|login-host
 ```
+
+Set `ANVIO_CONNECTION_ENCRYPTION_KEY` when `connectBroker.enabled: true`.
 
 ## Architecture
 

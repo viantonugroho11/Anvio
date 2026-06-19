@@ -110,6 +110,20 @@ flowchart TB
 
 ---
 
+## Phase P1 — Harness & Connections
+
+See [53-phase-p1-priorities.md](./53-phase-p1-priorities.md).
+
+| ID | Deliverable | Status |
+|----|-------------|--------|
+| C3 | Harness enabled + regression | ✅ Phase P1 |
+| S4 | OAuth login-host | ✅ Phase P1 |
+| S5 | Connection isolation | ✅ Phase P1 |
+
+**CLI:** `anvio connect list|put|revoke|login-host`
+
+---
+
 ## Success criteria (Phase K)
 
 1. Session end produces **summary + recall hits** in next chat turn
