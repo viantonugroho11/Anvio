@@ -31,7 +31,7 @@ Cross-cutting initiative documented in [24-advanced-agent-os-overview.md](./24-a
 | **F — Docs & CLI** | Documentation suite, CLI surface, workspace templates | U19 | ✅ |
 | **G — Channel Harness** | Generalized slaude harness (all channels), Soul Gate, approval | U20–U28, U36 | ✅ |
 | **H — Learning & Tools** | Hermes learning loop, Tool Gateway, Knowledge base | U29–U31, U37 | ✅ |
-| **I — Scale & Reach** | Workflow engine, expanded channels, remote runtimes, voice | U32–U35, U38 | 📋 |
+| **I — Scale & Reach** | Workflow engine, expanded channels, remote runtimes, voice | U32–U35, U38 | ✅ |
 
 Full plan (Phase G+): [plans/2026-06-19-002-feat-unified-agent-product-plan.md](./plans/2026-06-19-002-feat-unified-agent-product-plan.md).
 
@@ -56,3 +56,10 @@ Full plan (Phase G+): [plans/2026-06-19-002-feat-unified-agent-product-plan.md](
 | [38-integration-architecture.md](./38-integration-architecture.md) | MCP integrations |
 | [39-editor-integration.md](./39-editor-integration.md) | ACP editor server |
 | [40-subagent-delegation.md](./40-subagent-delegation.md) | Subagent delegation |
+| [41-channel-harness.md](./41-channel-harness.md) | Channel harness |
+| [43-learning-loop.md](./43-learning-loop.md) | Learning loop |
+| [44-tool-gateway.md](./44-tool-gateway.md) | Tool gateway |
+| [45-workflow-engine.md](./45-workflow-engine.md) | Workflow DAG engine |
+| [46-expanded-channels.md](./46-expanded-channels.md) | Expanded channels |
+| [47-remote-runtimes.md](./47-remote-runtimes.md) | Remote runtimes |
+| [48-voice-mode.md](./48-voice-mode.md) | Voice mode |

@@ -156,6 +156,12 @@ importers:
       '@anvio/tools':
         specifier: workspace:*
         version: link:../../packages/tools
+      '@anvio/voice':
+        specifier: workspace:*
+        version: link:../../packages/voice
+      '@anvio/workflows':
+        specifier: workspace:*
+        version: link:../../packages/workflows
       '@anvio/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
@@ -743,6 +749,9 @@ importers:
       '@anvio/tools':
         specifier: workspace:*
         version: link:../tools
+      '@anvio/workflows':
+        specifier: workspace:*
+        version: link:../workflows
       '@anvio/workspace':
         specifier: workspace:*
         version: link:../workspace
@@ -836,6 +845,35 @@ importers:
       '@anvio/db':
         specifier: workspace:*
         version: link:../db
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/voice:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/workflows:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
       yaml:
         specifier: ^2.8.0
         version: 2.9.0
@@ -955,6 +993,12 @@ importers:
       '@anvio/tools':
         specifier: workspace:*
         version: link:../../packages/tools
+      '@anvio/voice':
+        specifier: workspace:*
+        version: link:../../packages/voice
+      '@anvio/workflows':
+        specifier: workspace:*
+        version: link:../../packages/workflows
       '@anvio/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace

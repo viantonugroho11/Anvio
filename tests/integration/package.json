@@ -28,6 +28,8 @@
     "@anvio/harness": "workspace:*",
     "@anvio/platform": "workspace:*",
     "@anvio/workspace": "workspace:*",
+    "@anvio/workflows": "workspace:*",
+    "@anvio/voice": "workspace:*",
     "yaml": "^2.8.0",
     "vitest": "^3.1.4"
   }

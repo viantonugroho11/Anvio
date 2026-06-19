@@ -16,7 +16,9 @@ import { createModelRouter, MODEL_PROVIDER_IDS, OPENAI_COMPATIBLE_PROVIDER_SPECS
 import { createSkillCatalogResolver, createSkillInstaller } from '@anvio/skills';
 import { createAcpServer } from '@anvio/acp';
 import { createCodeExecutor, ExecutionAuditLog } from '@anvio/execution';
-import { createRuntimeFactory } from '@anvio/runtimes';
+import { createRuntimeFactory, SshRuntimeProvider } from '@anvio/runtimes';
+import { DagExecutor, createWorkflowRegistry } from '@anvio/workflows';
+import { VoicePipeline } from '@anvio/voice';
 import { createGoalEngine } from '@anvio/goals';
 import { createKanbanEngine } from '@anvio/kanban';
 import { createMemoryProvider } from '@anvio/memory';
@@ -129,6 +131,12 @@ async function main() {
     case 'learning':
       await cmdLearning(args.slice(1));
       break;
+    case 'workflow':
+      await cmdWorkflow(args.slice(1));
+      break;
+    case 'voice':
+      await cmdVoice(args.slice(1));
+      break;
     case 'workspace':
       await cmdWorkspace(args.slice(1));
       break;
@@ -173,7 +181,7 @@ Coordination
   anvio kanban list|create|move        Kanban board tasks
 
 Execution & Providers
-  anvio runtime list|test              Runtime providers (local, cursor, …)
+  anvio runtime list|test              Runtime providers (local, ssh, cursor, …)
   anvio exec run|audit                 Sandboxed code execution
   anvio acp serve|status               ACP editor integration server
   anvio credentials list|add|test      Encrypted credential pools
@@ -183,6 +191,8 @@ Execution & Providers
   anvio tools list|test                Built-in tool gateway (Phase H)
   anvio kb list|ingest|sync            Knowledge base raw→wiki pipeline
   anvio learning drafts|promote        Skill evolution drafts
+  anvio workflow list|validate|run     Standalone DAG workflow engine (Phase I)
+  anvio voice transcribe|speak         STT/TTS voice pipeline (Phase I)
   anvio workspace validate             Validate workspace structure
 
 Environment
@@ -1144,6 +1154,13 @@ async function cmdRuntime(sub: string[]) {
     case 'test': {
       const id = (sub[1] ?? 'cursor') as import('@anvio/core').RuntimeProviderId;
       const provider = factory.get(id);
+      if (id === 'ssh') {
+        const ssh = provider as SshRuntimeProvider;
+        const probe = await ssh.testConnection();
+        console.log(JSON.stringify({ id: provider.runtimeId, ...probe }, null, 2));
+        if (!probe.ok) process.exitCode = 1;
+        break;
+      }
       console.log(JSON.stringify({
         id: provider.runtimeId,
         configured: provider.isConfigured(),
@@ -1155,7 +1172,7 @@ async function cmdRuntime(sub: string[]) {
       break;
     }
     default:
-      console.error('Usage: anvio runtime list|test [cursor|claude-code|codex|local]');
+      console.error('Usage: anvio runtime list|test [local|ssh|cursor|claude-code|codex|daytona|modal]');
       process.exit(1);
   }
 }
@@ -1492,6 +1509,85 @@ async function cmdLearning(sub: string[]) {
     }
     default:
       console.error('Usage: anvio learning drafts|promote');
+      process.exit(1);
+  }
+}
+
+async function cmdWorkflow(sub: string[]) {
+  const action = sub[0] ?? 'list';
+  const wsPath = resolveWorkspacePath();
+  const registry = createWorkflowRegistry(wsPath, findRepoRoot(wsPath));
+  const executor = new DagExecutor({ registry });
+
+  switch (action) {
+    case 'list': {
+      const items = await registry.listAll();
+      if (items.length === 0) {
+        console.log('No workflows found in workspace/workflows/.');
+        return;
+      }
+      for (const item of items) {
+        const wf = await registry.load(item.slug);
+        console.log(`  ${item.slug} [${item.source}] — ${wf.spec.description}`);
+      }
+      break;
+    }
+    case 'validate': {
+      const file = sub[1];
+      if (!file) {
+        console.error('Usage: anvio workflow validate <file.yaml>');
+        process.exit(1);
+      }
+      const wf = await registry.validateFile(path.resolve(file));
+      console.log(`Valid: ${wf.metadata.slug} (${wf.spec.nodes.length} nodes)`);
+      break;
+    }
+    case 'run': {
+      const slug = sub[1];
+      const dryRun = sub.includes('--dry-run');
+      if (!slug) {
+        console.error('Usage: anvio workflow run <slug> [--dry-run] [key=value ...]');
+        process.exit(1);
+      }
+      const inputs: Record<string, unknown> = {};
+      for (const arg of sub.slice(2)) {
+        if (arg.startsWith('--')) continue;
+        const [k, v] = arg.split('=');
+        if (k && v) inputs[k] = v;
+      }
+      const result = await executor.run(slug, inputs, { dryRun });
+      console.log(JSON.stringify(result, null, 2));
+      break;
+    }
+    default:
+      console.error('Usage: anvio workflow list|validate|run');
+      process.exit(1);
+  }
+}
+
+async function cmdVoice(sub: string[]) {
+  const action = sub[0] ?? 'speak';
+  const pipeline = new VoicePipeline();
+
+  switch (action) {
+    case 'transcribe': {
+      const audioPath = sub[1];
+      if (!audioPath) {
+        console.error('Usage: anvio voice transcribe <audio-file>');
+        process.exit(1);
+      }
+      const text = await pipeline.transcribe(path.resolve(audioPath));
+      console.log(text);
+      break;
+    }
+    case 'speak': {
+      const text = sub.slice(1).join(' ') || 'Hello from Anvio voice pipeline';
+      const audio = await pipeline.speak(text);
+      console.log(JSON.stringify({ mimeType: audio.mimeType, bytes: audio.audioBase64.length }, null, 2));
+      break;
+    }
+    default:
+      console.error('Usage: anvio voice transcribe|speak');
       process.exit(1);
   }
 }

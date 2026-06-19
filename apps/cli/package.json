@@ -37,6 +37,8 @@
     "@anvio/tools": "workspace:*",
     "@anvio/harness": "workspace:*",
     "@anvio/soul-gate": "workspace:*",
+    "@anvio/workflows": "workspace:*",
+    "@anvio/voice": "workspace:*",
     "@anvio/souls": "workspace:*",
     "@anvio/storage": "workspace:*",
     "@anvio/workspace": "workspace:*"
