@@ -1,6 +1,7 @@
 import type { ChatMessage, MemoryProvider, SoulDefinition } from '@anvio/core';
 import { SkillEvolutionWriter, type SkillDraftInput } from './skill-evolution.js';
 import { MemoryNudgeEngine } from './memory-nudge.js';
+import { SessionSummarizer } from './session-summarizer.js';
 
 export interface SessionLearningInput {
   sessionId: string;
@@ -12,6 +13,7 @@ export interface SessionLearningInput {
 
 export interface SessionLearningResult {
   memoryNudge: { factsStored: number; facts: string[] };
+  sessionSummary?: { summary: string; stored: boolean };
   skillDraft?: { path: string; slug: string };
   skipped?: string;
 }
@@ -19,6 +21,7 @@ export interface SessionLearningResult {
 export class LearningEngine {
   private readonly nudge: MemoryNudgeEngine;
   private readonly skillWriter: SkillEvolutionWriter;
+  private readonly summarizer: SessionSummarizer;
 
   constructor(
     memory: MemoryProvider,
@@ -26,6 +29,7 @@ export class LearningEngine {
   ) {
     this.nudge = new MemoryNudgeEngine(memory);
     this.skillWriter = new SkillEvolutionWriter(`${workspaceRoot}/skills/_drafts`);
+    this.summarizer = new SessionSummarizer(memory);
   }
 
   async onSessionCompleted(input: SessionLearningInput): Promise<SessionLearningResult> {
@@ -38,6 +42,12 @@ export class LearningEngine {
     }
 
     const memoryNudge = await this.nudge.nudgeFromSession(
+      input.sessionId,
+      input.userId,
+      input.messages,
+    );
+
+    const sessionSummary = await this.summarizer.summarizeAndStore(
       input.sessionId,
       input.userId,
       input.messages,
@@ -61,7 +71,26 @@ export class LearningEngine {
       skillDraft = { path: draft.path, slug: draft.definition.metadata.slug };
     }
 
-    return { memoryNudge, skillDraft };
+    return { memoryNudge, sessionSummary, skillDraft };
+  }
+
+  /** Propose skill patch during runtime tool use (L6 — skill self-improve). */
+  async proposeFromToolUse(input: {
+    sessionId: string;
+    agentId: string;
+    toolName: string;
+    outcome: string;
+  }): Promise<{ path: string; slug: string } | undefined> {
+    if (input.outcome.length < 20) return undefined;
+    const draft = await this.skillWriter.proposeDraft({
+      slug: `${input.agentId}-${input.toolName}`.replace(/[^a-z0-9-]/gi, '-'),
+      sessionId: input.sessionId,
+      agentId: input.agentId,
+      topic: `Tool pattern: ${input.toolName}`,
+      instructions: `Reuse this approach when calling ${input.toolName}:\n${input.outcome.slice(0, 800)}`,
+      sourceExcerpt: input.outcome.slice(0, 300),
+    });
+    return { path: draft.path, slug: draft.definition.metadata.slug };
   }
 
   listDrafts(): Promise<string[]> {
@@ -75,3 +104,4 @@ export class LearningEngine {
 
 export { SkillEvolutionWriter } from './skill-evolution.js';
 export { MemoryNudgeEngine } from './memory-nudge.js';
+export { SessionSummarizer } from './session-summarizer.js';
