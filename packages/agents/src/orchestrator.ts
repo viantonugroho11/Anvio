@@ -1,7 +1,6 @@
 import type {
   AgentDefinition,
   AgentOrchestrator,
-  AgentResult,
   AgentRuntime,
   OrchestrationPlan,
   OrchestrationResult,
@@ -84,8 +83,9 @@ export class SupervisorOrchestrator implements AgentOrchestrator {
       }
     }
 
-    if (results.length === 0) status = 'failed';
-    else if (status === 'partial') status = 'partial';
+    if (results.length === 0) {
+      status = 'failed';
+    }
 
     return { managerSessionId: managerSession.id, results, status };
   }
