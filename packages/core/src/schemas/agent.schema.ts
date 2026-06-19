@@ -1,11 +1,26 @@
 import { z } from 'zod';
+import { modelProviderIdSchema } from './model-provider.schema.js';
 
-export const agentModelSchema = z.object({
-  provider: z.enum(['anthropic', 'openai', 'gemini', 'ollama', 'openrouter']),
-  model: z.string().min(1),
-  maxTokens: z.number().int().positive().default(8192),
-  temperature: z.number().min(0).max(2).optional(),
-});
+export const agentModelSchema = z
+  .object({
+    provider: modelProviderIdSchema,
+    model: z.string().min(1),
+    maxTokens: z.number().int().positive().default(8192),
+    temperature: z.number().min(0).max(2).optional(),
+    /** Override base URL — required when provider is `custom`. */
+    baseUrl: z.string().url().optional(),
+    /** Env var name for API key (e.g. DEEPSEEK_API_KEY). */
+    apiKeyEnv: z.string().min(1).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.provider === 'custom' && !value.baseUrl) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'custom provider requires baseUrl',
+        path: ['baseUrl'],
+      });
+    }
+  });
 
 export const agentMemorySchema = z.object({
   shortTerm: z
