@@ -40,3 +40,7 @@ docker/data/
 # Misc
 *.pem
 .cache/
+
+# Runtime workspace data (local-first)
+workspace/memory/
+workspace/sessions/
