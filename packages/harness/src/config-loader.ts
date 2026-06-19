@@ -10,13 +10,13 @@ kind: HarnessDefaults
 metadata:
   name: default
 spec:
-  enabled: false
+  enabled: true
   soulSlug: architect-soul
   suppressRawOutput: true
   idleMinutes: 15
   resumeSessions: true
   connectBroker:
-    enabled: false
+    enabled: true
     encryptionKeyEnv: ANVIO_CONNECTION_ENCRYPTION_KEY
     defaultTtlSeconds: 3600
 `;

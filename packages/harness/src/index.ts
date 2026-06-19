@@ -41,7 +41,12 @@ export async function createHarnessFromWorkspace(
     const key = process.env[keyEnv];
     if (key) {
       const store = new ConnectionStore(options.workspaceRoot, key);
-      connectBroker = new ConnectionBroker(store, true);
+      connectBroker = new ConnectionBroker(
+        store,
+        true,
+        defaults.connectBroker.defaultTtlSeconds,
+        options.workspaceRoot,
+      );
     }
   }
 
@@ -83,4 +88,5 @@ export {
 export { formatForChannel, markdownToPlain, markdownToSlackMrkdwn } from './format/index.js';
 export { SessionResumeTracker } from './session-resume.js';
 export { ConnectionBroker, ConnectionStore } from './connect/broker.js';
+export { startLoginHost, type LoginHostSession } from './connect/login-host.js';
 export { SimulationTransport, runSimulationScenario } from './simulation/transport.js';
