@@ -12,6 +12,8 @@ export const toolGatewaySpecSchema = z.object({
       web_fetch: toolGatewayToolSchema.default({}),
       web_search: toolGatewayToolSchema.default({ enabled: false }),
       execute_code: toolGatewayToolSchema.default({ enabled: false }),
+      file_read: toolGatewayToolSchema.default({ enabled: true }),
+      file_write: toolGatewayToolSchema.default({ enabled: false }),
       image_generate: toolGatewayToolSchema.default({ enabled: false }),
       text_to_speech: toolGatewayToolSchema.default({ enabled: false }),
       browser: toolGatewayToolSchema.default({ enabled: false }),

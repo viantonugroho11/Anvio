@@ -8,6 +8,7 @@ export type RuntimeProviderId =
   | 'claude-code'
   | 'codex'
   | 'ssh'
+  | 'docker'
   | 'daytona'
   | 'modal';
 
@@ -50,6 +51,7 @@ export interface RuntimeFactoryOptions {
   codexBinary?: string;
   sshHost?: string;
   sshUser?: string;
+  dockerImage?: string;
   daytonaApiKey?: string;
   modalTokenId?: string;
   modalTokenSecret?: string;
