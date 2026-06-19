@@ -156,6 +156,92 @@ spec:
     expect(harness.shouldSuppressRawOutput('slack')).toBe(true);
     expect(harness.shouldSuppressRawOutput('cli')).toBe(false);
   });
+
+  it('regression: multi-channel engagement profiles', async () => {
+    const tmp = await fsMkdtemp();
+    const hub = new ChannelHub();
+    const policy = parseSoulMd(SOUL_MD, 'architect-soul');
+    policy.allowedZones = [{ channel: '*', ids: ['C_PUBLIC'] }];
+    const harness = createHarnessGateway({
+      defaults: parseHarnessConfig(
+        parseYaml(`apiVersion: anvio.io/v1
+kind: HarnessDefaults
+metadata: { name: default }
+spec:
+  enabled: true
+  suppressRawOutput: true
+  idleMinutes: 15
+  resumeSessions: true
+  connectBroker: { enabled: false }`),
+      ).spec,
+      profiles: [
+        {
+          name: 'telegram-like',
+          channels: ['telegram'],
+          engageOn: 'mention',
+          disengageOn: 'never',
+          dmPolicy: 'anyone',
+        },
+        {
+          name: 'discord-like',
+          channels: ['discord'],
+          engageOn: 'mention',
+          disengageOn: 'never',
+          dmPolicy: 'anyone',
+        },
+        {
+          name: 'web-like',
+          channels: ['web-chat'],
+          engageOn: 'always',
+          disengageOn: 'never',
+          dmPolicy: 'anyone',
+        },
+      ],
+      policy,
+      channelHub: hub,
+      sessions: (await Workspace.open(tmp)).sessions,
+    });
+
+    const results = await runSimulationScenario(harness, [
+      {
+        channel: 'telegram',
+        threadId: 'tg-1',
+        userId: 'U_MANAGER01',
+        content: 'ping',
+        zoneId: 'C_PUBLIC',
+      },
+      {
+        channel: 'telegram',
+        threadId: 'tg-2',
+        userId: 'U_MANAGER01',
+        content: '@bot help',
+        zoneId: 'C_PUBLIC',
+        mentionedBot: true,
+      },
+      {
+        channel: 'discord',
+        threadId: 'dc-1',
+        userId: 'U_MANAGER01',
+        content: 'hello',
+        zoneId: 'C_PUBLIC',
+        mentionedBot: true,
+      },
+      {
+        channel: 'web-chat',
+        threadId: 'web-1',
+        userId: 'U_RANDOM',
+        content: 'question',
+        zoneId: 'C_PUBLIC',
+      },
+    ]);
+
+    expect(results[0]?.result.decision).toBe('disengage');
+    expect(results[1]?.result.decision).toBe('allow');
+    expect(results[2]?.result.decision).toBe('allow');
+    expect(results[3]?.result.decision).toBe('allow');
+    expect(harness.shouldSuppressRawOutput('telegram')).toBe(true);
+    expect(harness.shouldSuppressRawOutput('web-chat')).toBe(false);
+  });
 });
 
 async function fsMkdtemp(): Promise<string> {
