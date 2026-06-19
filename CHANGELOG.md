@@ -7,12 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- `anvio channels status [--json]` — probe channel credentials and connectivity without starting the worker
-- Channel health reports with `healthy`, `degraded`, `disabled`, `misconfigured`, and `unreachable` states
-- GitHub Actions release workflow — auto-publish GitHub Releases from `v*` tags using this changelog
-
 ---
 
 ## [1.0.0] - 2026-06-19
@@ -69,6 +63,11 @@ First stable release — **local-first, file-first, CLI-first** AI Agent Operati
 
 #### CI
 - GitHub Actions: lint, typecheck, test, build on `main` and PRs
+- Release workflow — auto-publish GitHub Releases from `v*` tags using `CHANGELOG.md`
+
+#### Channel health
+- `anvio channels status [--json]` — probe credentials and connectivity without starting the worker
+- Health states: `healthy`, `degraded`, `disabled`, `misconfigured`, `unreachable`
 
 ### Changed
 
