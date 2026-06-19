@@ -16,6 +16,21 @@ export const EventSubjects = {
   ARTIFACT_CREATED: 'anvio.artifact.created.v1',
   ORCHESTRATION_STARTED: 'anvio.orchestration.started.v1',
   ORCHESTRATION_COMPLETED: 'anvio.orchestration.completed.v1',
+  GOAL_CREATED: 'anvio.goal.created.v1',
+  GOAL_PROGRESS_UPDATED: 'anvio.goal.progress.updated.v1',
+  GOAL_COMPLETED: 'anvio.goal.completed.v1',
+  GOAL_PAUSED: 'anvio.goal.paused.v1',
+  GOAL_RESUMED: 'anvio.goal.resumed.v1',
+  SOUL_UPDATED: 'anvio.soul.updated.v1',
+  AUTOMATION_STARTED: 'anvio.automation.started.v1',
+  AUTOMATION_COMPLETED: 'anvio.automation.completed.v1',
+  AUTOMATION_FAILED: 'anvio.automation.failed.v1',
+  WORKFLOW_COMPLETED: 'anvio.workflow.completed.v1',
+  TASK_ASSIGNED: 'anvio.task.assigned.v1',
+  TASK_COMPLETED: 'anvio.task.completed.v1',
+  DELEGATION_TASK_STARTED: 'anvio.delegation.task.started.v1',
+  DELEGATION_TASK_COMPLETED: 'anvio.delegation.task.completed.v1',
+  DELEGATION_TASK_FAILED: 'anvio.delegation.task.failed.v1',
 } as const;
 
 export type EventSubject = (typeof EventSubjects)[keyof typeof EventSubjects];
@@ -145,4 +160,30 @@ export interface OrchestrationCompletedData {
   managerSessionId: string;
   status: string;
   resultCount: number;
+}
+
+export interface GoalCreatedData {
+  goalSlug: string;
+  title: string;
+}
+
+export interface GoalProgressUpdatedData {
+  goalSlug: string;
+  percent: number;
+}
+
+export interface GoalCompletedData {
+  goalSlug: string;
+}
+
+export interface GoalPausedData {
+  goalSlug: string;
+}
+
+export interface GoalResumedData {
+  goalSlug: string;
+}
+
+export interface SoulUpdatedData {
+  soulSlug: string;
 }
