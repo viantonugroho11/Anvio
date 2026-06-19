@@ -24,6 +24,7 @@ export * from './schemas/connection.schema.js';
 export * from './schemas/tool-gateway.schema.js';
 export * from './schemas/knowledge.schema.js';
 export * from './schemas/workflow.schema.js';
+export * from './markdown/index.js';
 export * from './ports/harness.port.js';
 export * from './ports/storage.port.js';
 export * from './ports/auth.port.js';
