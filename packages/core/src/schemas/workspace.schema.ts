@@ -73,11 +73,45 @@ export const whatsappChannelSchema = channelProviderSchema.extend({
   verifyToken: z.string().optional(),
 });
 
+export const teamsChannelSchema = channelProviderSchema.extend({
+  appId: z.string().optional(),
+  appPassword: z.string().optional(),
+  serviceUrl: z.string().optional(),
+});
+
+export const matrixChannelSchema = channelProviderSchema.extend({
+  homeserverUrl: z.string().optional(),
+  accessToken: z.string().optional(),
+  userId: z.string().optional(),
+});
+
+export const emailChannelSchema = channelProviderSchema.extend({
+  imapHost: z.string().optional(),
+  smtpHost: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+});
+
+export const signalChannelSchema = channelProviderSchema.extend({
+  signalCliPath: z.string().optional(),
+  phoneNumber: z.string().optional(),
+});
+
+export const googleChatChannelSchema = channelProviderSchema.extend({
+  webhookUrl: z.string().optional(),
+  serviceAccountPath: z.string().optional(),
+});
+
 export const channelsConfigSchema = z.object({
   telegram: channelProviderSchema.optional(),
   discord: channelProviderSchema.optional(),
   whatsapp: whatsappChannelSchema.optional(),
   slack: slackChannelSchema.optional(),
+  teams: teamsChannelSchema.optional(),
+  matrix: matrixChannelSchema.optional(),
+  email: emailChannelSchema.optional(),
+  signal: signalChannelSchema.optional(),
+  googleChat: googleChatChannelSchema.optional(),
 });
 
 export const worktreesConfigSchema = z.object({

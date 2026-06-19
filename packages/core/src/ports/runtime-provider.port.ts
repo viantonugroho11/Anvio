@@ -2,7 +2,14 @@ import type { AgentDefinition } from '../schemas/agent.schema.js';
 import type { AgentRunStatus, TokenUsage } from '../types/common.js';
 import type { AgentStreamEvent, Session, UserInput } from './agent-runtime.port.js';
 
-export type RuntimeProviderId = 'local' | 'cursor' | 'claude-code' | 'codex';
+export type RuntimeProviderId =
+  | 'local'
+  | 'cursor'
+  | 'claude-code'
+  | 'codex'
+  | 'ssh'
+  | 'daytona'
+  | 'modal';
 
 export interface RuntimeCapabilities {
   supportsTools: boolean;
@@ -41,6 +48,11 @@ export interface RuntimeFactoryOptions {
   acpEndpoint?: string;
   claudeCodeBinary?: string;
   codexBinary?: string;
+  sshHost?: string;
+  sshUser?: string;
+  daytonaApiKey?: string;
+  modalTokenId?: string;
+  modalTokenSecret?: string;
 }
 
 export interface AgentRuntimeBinding {

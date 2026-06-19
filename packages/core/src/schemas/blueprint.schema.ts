@@ -11,6 +11,7 @@ export type BlueprintStep = {
   type:
     | 'agent'
     | 'blueprint'
+    | 'workflow'
     | 'parallel'
     | 'conditional'
     | 'transform'
@@ -20,6 +21,7 @@ export type BlueprintStep = {
     | 'mcp';
   agent?: string;
   blueprint?: string;
+  workflow?: string;
   input?: string;
   template?: string;
   channel?: string;
@@ -41,6 +43,7 @@ export const blueprintStepSchema: z.ZodType<BlueprintStep> = z.lazy(() =>
     type: z.enum([
       'agent',
       'blueprint',
+      'workflow',
       'parallel',
       'conditional',
       'transform',
@@ -51,6 +54,7 @@ export const blueprintStepSchema: z.ZodType<BlueprintStep> = z.lazy(() =>
     ]),
     agent: z.string().optional(),
     blueprint: z.string().optional(),
+    workflow: z.string().optional(),
     input: z.string().optional(),
     template: z.string().optional(),
     channel: z.string().optional(),

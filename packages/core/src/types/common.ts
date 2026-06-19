@@ -4,7 +4,11 @@ export type ChannelType =
   | 'whatsapp'
   | 'discord'
   | 'slack'
+  | 'teams'
+  | 'matrix'
   | 'email'
+  | 'signal'
+  | 'google-chat'
   | 'rest'
   | 'cli';
 
