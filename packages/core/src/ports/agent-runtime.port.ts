@@ -50,16 +50,20 @@ export interface AgentRuntimeContext {
   messages: ChatMessage[];
 }
 
+export type AgentStreamEvent =
+  | { type: 'chunk'; delta?: string }
+  | { type: 'progress'; phase: string; status: 'running' | 'completed' | 'failed' }
+  | { type: 'done'; usage?: TokenUsage }
+  | { type: 'error'; error?: string }
+  | { type: 'approval_required'; request: ApprovalRequest };
+
 export interface AgentRuntime {
   run(session: Session, agent: AgentDefinition, input: UserInput): Promise<AgentResult>;
-  stream(
-    session: Session,
-    agent: AgentDefinition,
-    input: UserInput,
-  ): AsyncIterable<{ type: 'chunk' | 'done' | 'error'; delta?: string; usage?: TokenUsage; error?: string }>;
+  stream(session: Session, agent: AgentDefinition, input: UserInput): AsyncIterable<AgentStreamEvent>;
   resume(
     session: Session,
     agent: AgentDefinition,
     approval: ApprovalDecision,
   ): Promise<AgentResult>;
+  stop?(sessionId: string): Promise<void>;
 }

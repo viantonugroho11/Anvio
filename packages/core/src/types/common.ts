@@ -1,4 +1,12 @@
-export type ChannelType = 'web-chat' | 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'email' | 'rest';
+export type ChannelType =
+  | 'web-chat'
+  | 'telegram'
+  | 'whatsapp'
+  | 'discord'
+  | 'slack'
+  | 'email'
+  | 'rest'
+  | 'cli';
 
 export type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
 
