@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "outDir": "./dist", "rootDir": "./src" },
+  "include": ["src/**/*"],
+  "exclude": ["src/postgres-long-term.ts", "src/redis-short-term.ts"],
+  "references": [{ "path": "../core" }, { "path": "../storage" }]
+}
