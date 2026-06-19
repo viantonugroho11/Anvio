@@ -9,7 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.1.0] - 2026-06-19
+## [1.2.0] - 2026-06-19
+
+**Platform layer & multi-model** — credential pools, provider routing, skills catalog, MCP integrations, and 18 model providers.
+
+### Added
+
+#### Platform (Phase E)
+- **Credential Pools** (`@anvio/credentials`) — AES-256-GCM encrypted store with round-robin and failover
+- **Provider Routing** (`@anvio/models`) — task classifier, fallback chain, and `routing.yaml` router
+- **Skills Catalog** (`@anvio/skills`) — bundled + workspace override resolver and installer
+- **Integration Framework** (`@anvio/integrations`) — MCP registry, bridge, and blueprint `mcp` step wiring
+- 9 additional bundled skills in `configs/skills/`
+
+#### Multi-model providers
+- OpenAI-compatible drivers: OpenAI, OpenRouter, DeepSeek, Groq, Mistral, Together, xAI, Fireworks, Moonshot, Cerebras, SambaNova, Perplexity, Cohere, Hugging Face, Ollama
+- Gemini provider via Google Generative AI API
+- `ModelProviderRegistry` — agents resolve provider from `spec.model.provider`
+- `custom` provider for arbitrary OpenAI-compatible endpoints (`baseUrl` + `apiKeyEnv`)
+
+#### CLI & workspace (U19)
+- `anvio credentials`, `anvio routing`, `anvio skill`, `anvio mcp`, `anvio workspace validate`
+- `anvio routing catalog|providers` — list supported and configured providers
+- Workspace init scaffolds `providers/routing.yaml`, `mcp/servers.yaml`, `hooks/hooks.yaml`
+
+#### Core schemas
+- `credential`, `routing`, `mcp`, `model-provider` schemas and credential port
+
+#### Tests
+- Integration tests for credentials, routing, skills catalog, and MCP integrations
+
+### Changed
+- `DefaultAgentRuntime` uses per-agent model provider from registry
+- `createPlatform()` registers all configured providers from environment
+- Documentation and roadmap mark Advanced Agent OS Phases A–F complete
+
+[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/viantonugroho11/Anvio/compare/v1.1.0...v1.2.0
 
 **Advanced Agent OS** — long-lived identity, goals, automation, coordination, and pluggable execution on the local-first foundation.
 

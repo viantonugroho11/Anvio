@@ -301,19 +301,31 @@ Your entire agent configuration is a folder:
 workspace/
 ├── anvio.yaml           # Platform config (storage, memory, channels, auth)
 ├── agents/              # Agent definitions
-│   └── architect.yaml
-├── personas/            # Persona profiles
-│   └── architect.yaml
-├── skills/              # Reusable skill modules
-│   ├── architecture.yaml
-│   └── code-review.yaml
+├── souls/               # Persistent agent identities (Advanced OS)
+├── personas/            # Persona bootstrap templates
+├── skills/              # Installed skills
+├── goals/               # Persistent goals (Advanced OS)
+├── kanban/              # Kanban boards (Advanced OS)
+├── automations/         # Automation definitions + scheduler state
+├── blueprints/          # User workflow templates
+├── hooks/hooks.yaml     # Event hook registry
+├── providers/routing.yaml  # Model routing config
+├── mcp/servers.yaml     # MCP server registry
+├── credentials/         # Encrypted credential pools
+├── batch/               # Batch job state
+├── audit/               # Execution audit logs
 ├── sessions/            # Session state (runtime, gitignored)
 ├── memory/              # Long-term memory (runtime, gitignored)
 ├── inbox/               # Agent inbox messages (runtime)
 ├── artifacts/           # Agent output files
-├── worktrees/           # Git worktree isolation (optional)
-├── mcp/                 # MCP server bindings (Phase 2)
-└── workflows/           # Workflow definitions (Phase 3)
+└── worktrees/           # Git worktree isolation (optional)
+```
+
+Fresh workspaces include starter configs for routing, MCP, and hooks:
+
+```bash
+anvio init ~/my-workspace
+anvio workspace validate
 ```
 
 **Example `anvio.yaml`:**
@@ -364,9 +376,14 @@ spec:
 
 ## CLI Reference
 
+Run `anvio help` for the full grouped command list.
+
+### Core
+
 | Command | Description |
 |---------|-------------|
 | `anvio init [path]` | Create a new workspace |
+| `anvio workspace validate` | Validate workspace structure and config |
 | `anvio agents list` | List configured agents |
 | `anvio chat [--agent NAME]` | Interactive chat session |
 | `anvio run <agent> [msg]` | Run a task (`--detach` for background) |
@@ -379,12 +396,34 @@ spec:
 | `anvio worktree list\|create\|remove` | Manage git worktree isolation |
 | `anvio channels status [--json]` | Health check all channel adapters |
 
+### Advanced Agent OS
+
+| Command | Description |
+|---------|-------------|
+| `anvio soul list\|show\|create` | Persistent agent souls |
+| `anvio goal list\|create\|progress\|complete\|pause\|resume` | Goal tracking |
+| `anvio blueprint catalog\|run` | Workflow blueprints |
+| `anvio automation list\|run\|enable` | Scheduled and event automations |
+| `anvio cron list\|next-runs` | Cron schedule utilities |
+| `anvio hooks test <event>` | Test event hook handlers |
+| `anvio kanban list\|create\|move` | Kanban board tasks |
+| `anvio batch run\|status\|resume` | Parallel batch jobs |
+| `anvio runtime list\|test` | Runtime providers |
+| `anvio exec run\|audit` | Sandboxed code execution |
+| `anvio acp serve\|status` | ACP editor integration |
+| `anvio credentials list\|add\|test` | Encrypted credential pools |
+| `anvio routing show\|test` | Provider routing and fallback |
+| `anvio skill catalog\|install\|validate` | Skills catalog |
+| `anvio mcp list\|test` | MCP integration servers |
+
 **Environment variables:**
 
 | Variable | Purpose |
 |----------|---------|
 | `ANVIO_WORKSPACE` | Path to workspace (default: `./workspace`) |
 | `ANTHROPIC_API_KEY` | Anthropic API key for real model responses |
+| `ANVIO_CREDENTIALS_PASSPHRASE` | Passphrase for encrypted credential pools |
+| `GITHUB_TOKEN` | GitHub MCP server (when enabled in `mcp/servers.yaml`) |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token |
 | `DISCORD_BOT_TOKEN` | Discord bot token |
 | `SLACK_BOT_TOKEN` | Slack bot token |
@@ -496,13 +535,15 @@ Docker and PostgreSQL are optional — only needed for Level 3+ workflows.
 
 | Doc | Topic |
 |-----|-------|
+| [`docs/24-advanced-agent-os-overview.md`](docs/24-advanced-agent-os-overview.md) | Advanced Agent OS overview & CLI |
 | [`docs/02-architecture.md`](docs/02-architecture.md) | System architecture |
+| [`docs/23-roadmap.md`](docs/23-roadmap.md) | Roadmap & doc index |
 | [`docs/10-channels.md`](docs/10-channels.md) | Channel hub & adapters |
 | [`docs/21-development-guide.md`](docs/21-development-guide.md) | Contributor setup |
 | [`docs/adr/0007-local-first-architecture.md`](docs/adr/0007-local-first-architecture.md) | Local-first ADR |
 | [`docs/adr/0008-channel-hub-architecture.md`](docs/adr/0008-channel-hub-architecture.md) | Channel hub ADR |
 
-Full index: [`docs/`](docs/)
+Full Advanced OS docs: [`docs/24-advanced-agent-os-overview.md`](docs/24-advanced-agent-os-overview.md) (links to docs 25–40).
 
 See also: [`CHANGELOG.md`](CHANGELOG.md)
 

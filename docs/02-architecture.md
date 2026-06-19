@@ -44,6 +44,9 @@ packages/
   hooks/        Event hook dispatcher (Advanced OS)
   batch/        Batch processing engine (Advanced OS)
   credentials/  Credential pools (Advanced OS)
+  models/       Provider routing & fallback (Advanced OS)
+  skills/       Skills catalog & registry (Advanced OS)
+  personas/     Persona profiles (bootstrap templates)
   integrations/ MCP-first integration registry
   acp/          Editor integration (ACP server)
 ```

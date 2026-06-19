@@ -64,27 +64,27 @@ flowchart TB
 
 ## Feature Index
 
-| Feature | Doc | Package (planned) |
-|---------|-----|-------------------|
-| Soul System | [25-soul-system.md](./25-soul-system.md) | `packages/souls` |
-| Goal System | [26-goal-system.md](./26-goal-system.md) | `packages/goals` |
-| Memory Providers | [29-memory-providers.md](./29-memory-providers.md) | `packages/memory` |
-| Automation Engine | [27-automation-engine.md](./27-automation-engine.md) | `packages/automation` |
-| Cron Scheduler | [27-automation-engine.md](./27-automation-engine.md#cron-scheduler) | `packages/automation` |
-| Blueprint Catalog | [34-blueprint-catalog.md](./34-blueprint-catalog.md) | `workspace/blueprints/` |
-| Subagent Delegation | [40-subagent-delegation.md](./40-subagent-delegation.md) | `packages/agents` |
-| Kanban System | [28-kanban-system.md](./28-kanban-system.md) | `packages/kanban` |
-| Worker Lanes | [28-kanban-system.md](./28-kanban-system.md#worker-lanes) | `packages/kanban` |
-| Runtime Providers | [30-runtime-providers.md](./30-runtime-providers.md) | `packages/runtimes` |
-| Code Execution | [30-runtime-providers.md](./30-runtime-providers.md#code-execution-engine) | `packages/execution` |
-| Event Hooks | [31-event-hooks.md](./31-event-hooks.md) | `packages/hooks` |
-| Batch Processing | [32-batch-processing.md](./32-batch-processing.md) | `packages/batch` |
-| Credential Pools | [33-credential-pools.md](./33-credential-pools.md) | `packages/credentials` |
-| Provider Routing | [36-provider-routing.md](./36-provider-routing.md) | `packages/models` |
-| Skills Catalog | [37-skills-catalog.md](./37-skills-catalog.md) | `packages/skills` |
-| Integrations | [38-integration-architecture.md](./38-integration-architecture.md) | `packages/integrations` |
-| Editor Integration | [39-editor-integration.md](./39-editor-integration.md) | `packages/acp` |
-| Workspace Layout | [35-workspace-architecture.md](./35-workspace-architecture.md) | `packages/workspace` |
+| Feature | Doc | Package |
+|---------|-----|---------|
+| Soul System | [25-soul-system.md](./25-soul-system.md) | `@anvio/souls` |
+| Goal System | [26-goal-system.md](./26-goal-system.md) | `@anvio/goals` |
+| Memory Providers | [29-memory-providers.md](./29-memory-providers.md) | `@anvio/memory` |
+| Automation Engine | [27-automation-engine.md](./27-automation-engine.md) | `@anvio/automation` |
+| Cron Scheduler | [27-automation-engine.md](./27-automation-engine.md#cron-scheduler) | `@anvio/automation` |
+| Blueprint Catalog | [34-blueprint-catalog.md](./34-blueprint-catalog.md) | `@anvio/blueprints` |
+| Subagent Delegation | [40-subagent-delegation.md](./40-subagent-delegation.md) | `@anvio/agents` |
+| Kanban System | [28-kanban-system.md](./28-kanban-system.md) | `@anvio/kanban` |
+| Worker Lanes | [28-kanban-system.md](./28-kanban-system.md#worker-lanes) | `@anvio/kanban` |
+| Runtime Providers | [30-runtime-providers.md](./30-runtime-providers.md) | `@anvio/runtimes` |
+| Code Execution | [30-runtime-providers.md](./30-runtime-providers.md#code-execution-engine) | `@anvio/execution` |
+| Event Hooks | [31-event-hooks.md](./31-event-hooks.md) | `@anvio/hooks` |
+| Batch Processing | [32-batch-processing.md](./32-batch-processing.md) | `@anvio/batch` |
+| Credential Pools | [33-credential-pools.md](./33-credential-pools.md) | `@anvio/credentials` |
+| Provider Routing | [36-provider-routing.md](./36-provider-routing.md) | `@anvio/models` |
+| Skills Catalog | [37-skills-catalog.md](./37-skills-catalog.md) | `@anvio/skills` |
+| Integrations | [38-integration-architecture.md](./38-integration-architecture.md) | `@anvio/integrations` |
+| Editor Integration | [39-editor-integration.md](./39-editor-integration.md) | `@anvio/acp` |
+| Workspace Layout | [35-workspace-architecture.md](./35-workspace-architecture.md) | `@anvio/workspace` |
 
 ## Relationship to Existing Concepts
 
@@ -122,27 +122,42 @@ gantt
 
 See [plans/2026-06-19-001-feat-advanced-agent-os-plan.md](./plans/2026-06-19-001-feat-advanced-agent-os-plan.md) for implementation units.
 
-## CLI Surface (Target)
+## CLI Surface
+
+All commands are available via `anvio help`. Grouped reference:
 
 ```bash
+# Core
+anvio init [path]
+anvio chat [--agent NAME]
+anvio run <agent> [message] [--detach]
+anvio workspace validate
+
 # Identity & goals
-anvio soul list | show | edit
-anvio goal list | create | progress | complete | pause
+anvio soul list | show <slug> [--context] | create --slug <slug> --name <name>
+anvio goal list | create | progress | complete | pause | resume
 
-# Automation
+# Automation & workflows
+anvio blueprint catalog | run <slug> [--dry-run]
 anvio automation list | run | enable
-anvio cron list | add | remove
+anvio cron list | next-runs
+anvio hooks test <event>
+anvio batch run | status | resume
 
-# Kanban
-anvio kanban board | move | assign
+# Coordination
+anvio kanban list | create | move | assign
 
-# Batch
-anvio batch run <blueprint> --input repos.txt
-
-# Providers
-anvio providers memory | runtime | model
-anvio credentials rotate --provider anthropic
+# Execution & platform
+anvio runtime list | test
+anvio exec run | audit
+anvio acp serve | status
+anvio credentials list | add | test
+anvio routing show | test
+anvio skill catalog | install | validate
+anvio mcp list | test
 ```
+
+See [35-workspace-architecture.md](./35-workspace-architecture.md) for scaffold files created by `anvio init`.
 
 ## Non-Goals
 

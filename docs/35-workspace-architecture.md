@@ -156,13 +156,22 @@ No workspace restructure required — only config change + optional data migrati
 
 | Scenario | Action |
 |----------|--------|
-| Fresh workspace | `anvio init` creates scaffold |
+| Fresh workspace | `anvio init` creates scaffold + starter YAML configs |
 | Validate workspace | `anvio workspace validate` |
 | Export workspace | `tar czf anvio-workspace.tar.gz workspace/` |
 | Import workspace | Extract + `anvio workspace validate` |
+
+### Files Created by `anvio init`
+
+| File | Purpose |
+|------|---------|
+| `anvio.yaml` | Workspace configuration |
+| `providers/routing.yaml` | Model routing & fallback |
+| `mcp/servers.yaml` | MCP server registry |
+| `hooks/hooks.yaml` | Event hook registry |
 
 ## Package Boundaries
 
 - **Loader:** `packages/workspace/src/workspace-loader.ts`
 - **Schema:** `packages/core/src/schemas/workspace.schema.ts`
-- **Init CLI:** `apps/cli/src/commands/workspace-init.ts`
+- **Init CLI:** `apps/cli/src/main.ts` (`anvio init`, `anvio workspace validate`)
