@@ -1,25 +1,33 @@
 import type { MemoryEntry, MemoryProvider, SoulContext, SoulDefinition, SoulStore } from '@anvio/core';
-import { AnvioError, parseSoulDefinition } from '@anvio/core';
+import { AnvioError, parseSoulDefinition, parseSoulDefinitionMd } from '@anvio/core';
 import type { FilesystemStorageProvider } from '@anvio/storage';
-import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { parse as parseYaml } from 'yaml';
 
 export class FilesystemSoulStore implements SoulStore {
   constructor(private readonly storage: FilesystemStorageProvider) {}
 
-  private soulKey(slug: string): string {
-    return `souls/${slug}.yaml`;
-  }
-
   async list(): Promise<string[]> {
     const files = await this.storage.list('souls');
-    return files
-      .filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'))
-      .map((f) => f.replace(/^souls\//, '').replace(/\.(yaml|yml)$/, ''));
+    const slugs = new Set<string>();
+    for (const file of files) {
+      if (file.endsWith('/SOUL.md')) {
+        slugs.add(file.split('/').at(-2)!);
+      } else if (file.endsWith('.md')) {
+        slugs.add(file.replace(/^souls\//, '').replace(/\.md$/, ''));
+      } else if (file.endsWith('.yaml') || file.endsWith('.yml')) {
+        slugs.add(file.replace(/^souls\//, '').replace(/\.(yaml|yml)$/, ''));
+      }
+    }
+    return [...slugs].filter((s) => !s.startsWith('_'));
   }
 
   async get(slug: string): Promise<SoulDefinition | null> {
+    for (const key of [`souls/${slug}/SOUL.md`, `souls/${slug}.md`]) {
+      const raw = await this.storage.read(key);
+      if (raw) return parseSoulDefinitionMd(raw, slug);
+    }
     for (const ext of ['yaml', 'yml']) {
-      const raw = await this.storage.read(this.soulKey(slug).replace('.yaml', `.${ext}`));
+      const raw = await this.storage.read(`souls/${slug}.${ext}`);
       if (raw) return parseSoulDefinition(parseYaml(raw));
     }
     return null;
@@ -35,20 +43,56 @@ export class FilesystemSoulStore implements SoulStore {
         updatedAt: now,
       },
     };
-    await this.storage.write(this.soulKey(toSave.metadata.slug), stringifyYaml(toSave));
+    const slug = toSave.metadata.slug;
+    const md = renderSoulMd(toSave);
+    await this.storage.write(`souls/${slug}/SOUL.md`, md);
     return toSave;
   }
 
   async delete(slug: string): Promise<boolean> {
-    for (const ext of ['yaml', 'yml']) {
-      const key = `souls/${slug}.${ext}`;
+    let deleted = false;
+    for (const key of [`souls/${slug}/SOUL.md`, `souls/${slug}.md`, `souls/${slug}.yaml`, `souls/${slug}.yml`]) {
       if (await this.storage.exists(key)) {
         await this.storage.delete(key);
-        return true;
+        deleted = true;
       }
     }
-    return false;
+    return deleted;
   }
+}
+
+function renderSoulMd(definition: SoulDefinition): string {
+  const { spec, metadata } = definition;
+  return `# ${spec.name}
+
+## Identity
+- Name: ${spec.name}
+${spec.identity.role ? `- Role: ${spec.identity.role}` : ''}
+${spec.identity.description ? `- Description: ${spec.identity.description}` : ''}
+
+## Values
+${spec.values.map((v) => `- ${v}`).join('\n')}
+
+## Personality
+${spec.personality.map((v) => `- ${v}`).join('\n')}
+
+## Preferences
+${Object.entries(spec.preferences)
+  .map(([k, v]) => `- ${k}: ${v}`)
+  .join('\n')}
+
+## Communication
+- Tone: ${spec.communicationStyle.tone}
+- Format: ${spec.communicationStyle.format}
+
+## Long-term goals
+${spec.longTermGoals.map((v) => `- ${v}`).join('\n')}
+
+## Behavioral tendencies
+${spec.behavioralTendencies.map((v) => `- ${v}`).join('\n')}
+
+<!-- anvio soul slug: ${metadata.slug} -->
+`;
 }
 
 export class SoulEngineImpl {
