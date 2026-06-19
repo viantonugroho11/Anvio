@@ -1,0 +1,22 @@
+apiVersion: anvio.io/v1
+kind: Blueprint
+metadata:
+  slug: security-audit
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  description: Run security checks on codebase
+  inputs:
+    scope:
+      type: string
+      default: full
+  steps:
+    - id: audit
+      type: agent
+      agent: architect
+      input: |
+        Perform a security audit with scope {{inputs.scope}}.
+        Check auth, secrets, dependencies, and input validation.
+  outputs:
+    report:
+      from: steps.audit.output

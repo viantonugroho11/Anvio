@@ -1,0 +1,22 @@
+apiVersion: anvio.io/v1
+kind: Blueprint
+metadata:
+  slug: github-triage
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  description: Triage open GitHub issues and pull requests
+  inputs:
+    repository:
+      type: string
+      required: true
+  steps:
+    - id: triage
+      type: agent
+      agent: architect
+      input: |
+        Triage open issues and PRs for repository {{inputs.repository}}.
+        Prioritize by severity and suggest next actions.
+  outputs:
+    report:
+      from: steps.triage.output

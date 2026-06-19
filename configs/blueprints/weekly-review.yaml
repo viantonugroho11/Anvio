@@ -1,0 +1,27 @@
+apiVersion: anvio.io/v1
+kind: Blueprint
+metadata:
+  slug: weekly-review
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  description: Review project progress and goals for the week
+  inputs:
+    userId:
+      type: string
+      default: local-user
+  steps:
+    - id: review
+      type: agent
+      agent: architect
+      input: |
+        Review all active goals and project progress for user {{inputs.userId}}.
+        Provide a weekly status summary with blockers and next steps.
+    - id: format
+      type: transform
+      template: |
+        # Weekly Review — {{date}}
+        {{steps.review.output}}
+  outputs:
+    summary:
+      from: steps.format.output

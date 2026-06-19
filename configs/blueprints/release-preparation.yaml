@@ -1,0 +1,22 @@
+apiVersion: anvio.io/v1
+kind: Blueprint
+metadata:
+  slug: release-preparation
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  description: Release readiness checklist
+  inputs:
+    version:
+      type: string
+      required: true
+  steps:
+    - id: checklist
+      type: agent
+      agent: architect
+      input: |
+        Prepare a release checklist for version {{inputs.version}}.
+        Cover tests, docs, changelog, migrations, and rollback plan.
+  outputs:
+    checklist:
+      from: steps.checklist.output

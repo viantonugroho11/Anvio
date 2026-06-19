@@ -1,0 +1,22 @@
+apiVersion: anvio.io/v1
+kind: Blueprint
+metadata:
+  slug: documentation-generator
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  description: Generate or update documentation from codebase
+  inputs:
+    targetPath:
+      type: string
+      default: docs/
+  steps:
+    - id: generate
+      type: agent
+      agent: architect
+      input: |
+        Review the codebase and generate documentation updates for {{inputs.targetPath}}.
+        Focus on architecture, setup, and API reference gaps.
+  outputs:
+    doc:
+      from: steps.generate.output

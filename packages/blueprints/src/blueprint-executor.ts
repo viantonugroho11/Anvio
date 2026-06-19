@@ -1,0 +1,191 @@
+import type { BlueprintDefinition, BlueprintStep } from '@anvio/core';
+import type { BlueprintCatalogRegistry } from './catalog-registry.js';
+import { buildDefaultInputs, renderTemplate, type TemplateContext } from './template-engine.js';
+
+export interface BlueprintRunOptions {
+  dryRun?: boolean;
+}
+
+export interface BlueprintStepResult {
+  id: string;
+  type: string;
+  output: string;
+  status: 'completed' | 'skipped' | 'failed';
+  error?: string;
+}
+
+export interface BlueprintRunResult {
+  slug: string;
+  status: 'completed' | 'failed' | 'dry_run';
+  steps: BlueprintStepResult[];
+  outputs: Record<string, string>;
+}
+
+export interface BlueprintExecutionDeps {
+  catalog: BlueprintCatalogRegistry;
+  runAgent?: (agentId: string, input: string) => Promise<string>;
+  runHook?: (hookPath: string, payload: Record<string, unknown>) => Promise<void>;
+}
+
+export class BlueprintExecutor {
+  constructor(private readonly deps: BlueprintExecutionDeps) {}
+
+  async run(
+    slug: string,
+    inputs: Record<string, unknown> = {},
+    options: BlueprintRunOptions = {},
+  ): Promise<BlueprintRunResult> {
+    const blueprint = await this.deps.catalog.load(slug);
+    return this.executeDefinition(blueprint, inputs, options);
+  }
+
+  async executeDefinition(
+    blueprint: BlueprintDefinition,
+    inputs: Record<string, unknown> = {},
+    options: BlueprintRunOptions = {},
+  ): Promise<BlueprintRunResult> {
+    const resolvedInputs = buildDefaultInputs(blueprint.spec.inputs, inputs);
+    const context: TemplateContext = { inputs: resolvedInputs, steps: {} };
+    const steps: BlueprintStepResult[] = [];
+
+    if (options.dryRun) {
+      for (const step of blueprint.spec.steps) {
+        steps.push({
+          id: step.id,
+          type: step.type,
+          output: `[dry-run] ${step.type}`,
+          status: 'skipped',
+        });
+      }
+      return {
+        slug: blueprint.metadata.slug,
+        status: 'dry_run',
+        steps,
+        outputs: this.collectOutputs(blueprint, context),
+      };
+    }
+
+    try {
+      for (const step of blueprint.spec.steps) {
+        const result = await this.executeStep(step, context);
+        steps.push(result);
+        context.steps[step.id] = { output: result.output };
+        if (result.status === 'failed' && step.onFailure === 'halt') {
+          return {
+            slug: blueprint.metadata.slug,
+            status: 'failed',
+            steps,
+            outputs: {},
+          };
+        }
+      }
+
+      return {
+        slug: blueprint.metadata.slug,
+        status: 'completed',
+        steps,
+        outputs: this.collectOutputs(blueprint, context),
+      };
+    } catch (error) {
+      return {
+        slug: blueprint.metadata.slug,
+        status: 'failed',
+        steps,
+        outputs: {},
+      };
+    }
+  }
+
+  private async executeStep(step: BlueprintStep, context: TemplateContext): Promise<BlueprintStepResult> {
+    try {
+      switch (step.type) {
+        case 'transform': {
+          const input = step.input ? renderTemplate(step.input, context) : '';
+          const output = step.template ? renderTemplate(step.template, context) : input;
+          return { id: step.id, type: step.type, output, status: 'completed' };
+        }
+        case 'agent': {
+          if (!step.agent) throw new Error(`Agent step ${step.id} missing agent`);
+          const input = renderTemplate(step.input ?? '', context);
+          if (!this.deps.runAgent) {
+            return { id: step.id, type: step.type, output: `[no-agent-runner] ${input}`, status: 'completed' };
+          }
+          const output = await this.deps.runAgent(step.agent, input);
+          return { id: step.id, type: step.type, output, status: 'completed' };
+        }
+        case 'blueprint': {
+          if (!step.blueprint) throw new Error(`Blueprint step ${step.id} missing blueprint`);
+          const nested = await this.run(step.blueprint, context.inputs);
+          const output = nested.outputs.summary ?? nested.steps.at(-1)?.output ?? '';
+          return { id: step.id, type: step.type, output, status: nested.status === 'failed' ? 'failed' : 'completed' };
+        }
+        case 'channel': {
+          const message = renderTemplate(step.message ?? step.input ?? '', context);
+          return { id: step.id, type: step.type, output: message, status: 'completed' };
+        }
+        case 'hook': {
+          const hookPath = step.hook ?? step.input ?? '';
+          if (this.deps.runHook && hookPath) {
+            await this.deps.runHook(hookPath, { step: step.id, context });
+          }
+          return { id: step.id, type: step.type, output: hookPath, status: 'completed' };
+        }
+        case 'parallel': {
+          const nested = step.steps ?? [];
+          const results = await Promise.all(nested.map((s) => this.executeStep(s, context)));
+          for (const r of results) context.steps[r.id] = { output: r.output };
+          const output = results.map((r) => r.output).join('\n');
+          const failed = results.some((r) => r.status === 'failed');
+          return { id: step.id, type: step.type, output, status: failed ? 'failed' : 'completed' };
+        }
+        case 'conditional': {
+          const condition = renderTemplate(step.condition ?? 'false', context);
+          const branch = condition === 'true' || condition === '1' ? step.then : step.else;
+          const results: BlueprintStepResult[] = [];
+          for (const s of branch ?? []) {
+            const r = await this.executeStep(s, context);
+            results.push(r);
+            context.steps[r.id] = { output: r.output };
+          }
+          return {
+            id: step.id,
+            type: step.type,
+            output: results.map((r) => r.output).join('\n'),
+            status: results.some((r) => r.status === 'failed') ? 'failed' : 'completed',
+          };
+        }
+        case 'mcp':
+        case 'batch':
+          return {
+            id: step.id,
+            type: step.type,
+            output: `[${step.type} stub — configure MCP/batch in Phase C+]`,
+            status: 'completed',
+          };
+        default: {
+          const _exhaustive: never = step.type;
+          throw new Error(`Unknown step type: ${_exhaustive}`);
+        }
+      }
+    } catch (error) {
+      return {
+        id: step.id,
+        type: step.type,
+        output: '',
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  private collectOutputs(blueprint: BlueprintDefinition, context: TemplateContext): Record<string, string> {
+    const outputs: Record<string, string> = {};
+    if (!blueprint.spec.outputs) return outputs;
+
+    for (const [key, spec] of Object.entries(blueprint.spec.outputs)) {
+      const value = renderTemplate(`{{${spec.from}}}`, context);
+      outputs[key] = value;
+    }
+    return outputs;
+  }
+}

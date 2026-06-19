@@ -1,0 +1,27 @@
+apiVersion: anvio.io/v1
+kind: Blueprint
+metadata:
+  slug: research-report
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  description: Deep research report on a topic
+  inputs:
+    topic:
+      type: string
+      required: true
+  steps:
+    - id: research
+      type: agent
+      agent: architect
+      input: |
+        Research the topic "{{inputs.topic}}" and produce a structured report
+        with findings, tradeoffs, and recommendations.
+    - id: format
+      type: transform
+      template: |
+        # Research Report: {{inputs.topic}}
+        {{steps.research.output}}
+  outputs:
+    report:
+      from: steps.format.output

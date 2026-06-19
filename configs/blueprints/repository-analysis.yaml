@@ -1,0 +1,27 @@
+apiVersion: anvio.io/v1
+kind: Blueprint
+metadata:
+  slug: repository-analysis
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  description: Analyze repository structure and health
+  inputs:
+    repository:
+      type: string
+      required: true
+  steps:
+    - id: analyze
+      type: agent
+      agent: architect
+      input: |
+        Analyze repository {{inputs.repository}} for architecture quality,
+        test coverage gaps, security concerns, and documentation completeness.
+    - id: report
+      type: transform
+      template: |
+        # Repository Analysis: {{inputs.repository}}
+        {{steps.analyze.output}}
+  outputs:
+    summary:
+      from: steps.report.output

@@ -1,0 +1,36 @@
+apiVersion: anvio.io/v1
+kind: Blueprint
+metadata:
+  slug: daily-summary
+  version: "1.0.0"
+  catalog: bundled
+spec:
+  description: Summarize notifications and recent activity
+  inputs:
+    userId:
+      type: string
+      required: true
+      default: local-user
+    channel:
+      type: string
+      default: cli
+  steps:
+    - id: gather
+      type: agent
+      agent: architect
+      input: |
+        Summarize all notifications and activity for user {{inputs.userId}}
+        from the last 24 hours. Be concise.
+    - id: format
+      type: transform
+      input: "{{steps.gather.output}}"
+      template: |
+        # Daily Summary — {{date}}
+        {{steps.gather.output}}
+    - id: deliver
+      type: channel
+      channel: "{{inputs.channel}}"
+      message: "{{steps.format.output}}"
+  outputs:
+    summary:
+      from: steps.format.output
