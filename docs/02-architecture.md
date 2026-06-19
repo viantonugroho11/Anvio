@@ -26,14 +26,26 @@ apps/
   gateway/    Optional WebSocket
 
 packages/
-  core/       Schemas, ports
-  workspace/  Workspace loader, session store
-  storage/    Pluggable storage (filesystem default)
-  auth/       Optional auth plugin (disabled by default)
-  platform/   Composition factory (wires everything from anvio.yaml)
-  agents/     Runtime engine
-  memory/     Pluggable memory (filesystem default)
-  events/     Local bus + NATS (optional)
+  core/         Schemas, ports
+  workspace/    Workspace loader, session store
+  storage/      Pluggable storage (filesystem default)
+  auth/         Optional auth plugin (disabled by default)
+  platform/     Composition factory (wires everything from anvio.yaml)
+  agents/       Runtime engine + orchestration
+  memory/       Pluggable memory providers (filesystem default)
+  events/       Local bus + NATS (optional)
+  souls/        Soul identity engine (Advanced OS)
+  goals/        Persistent goal system (Advanced OS)
+  automation/   Cron + automation engine (Advanced OS)
+  blueprints/   Workflow template executor (Advanced OS)
+  kanban/       Kanban + worker lanes (Advanced OS)
+  runtimes/     Runtime providers (local, cursor, etc.)
+  execution/    Code execution sandbox (Advanced OS)
+  hooks/        Event hook dispatcher (Advanced OS)
+  batch/        Batch processing engine (Advanced OS)
+  credentials/  Credential pools (Advanced OS)
+  integrations/ MCP-first integration registry
+  acp/          Editor integration (ACP server)
 ```
 
 ## Dependency Rule
@@ -53,3 +65,9 @@ Auth is an **optional plugin**. Default: `auth.enabled: false`.
 OAuth/JWT only activated when external MCP providers require it (GitHub, Google, Slack).
 
 Local tools (filesystem, browser, memory, sessions) work without authentication.
+
+## Advanced Agent OS
+
+See [24-advanced-agent-os-overview.md](./24-advanced-agent-os-overview.md) for the full feature map: Soul System, Goals, Automation, Kanban, Runtime Providers, and more.
+
+Implementation plan: [plans/2026-06-19-001-feat-advanced-agent-os-plan.md](./plans/2026-06-19-001-feat-advanced-agent-os-plan.md).
