@@ -1,11 +1,19 @@
 #!/usr/bin/env node
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
+import { parse as parseYaml } from 'yaml';
 import { EventSubjects } from '@anvio/events';
 import { CliChannel, probeAllChannels, summarizeChannelHealth } from '@anvio/channels';
 import type { ChannelHealthReport, GoalStatus, SoulDefinition, StoredSession } from '@anvio/core';
+import { parseSkillDefinition } from '@anvio/core';
 import { nextCronRuns } from '@anvio/automation';
 import { BlueprintExecutor, createCatalogRegistry } from '@anvio/blueprints';
+import { createBatchEngine } from '@anvio/batch';
+import { createCredentialPoolManager } from '@anvio/credentials';
+import { createIntegrationRegistry, createMcpBridge } from '@anvio/integrations';
+import { createModelRouter, MODEL_PROVIDER_IDS, OPENAI_COMPATIBLE_PROVIDER_SPECS } from '@anvio/models';
+import { createSkillCatalogResolver, createSkillInstaller } from '@anvio/skills';
 import { createAcpServer } from '@anvio/acp';
 import { createCodeExecutor, ExecutionAuditLog } from '@anvio/execution';
 import { createRuntimeFactory } from '@anvio/runtimes';
@@ -15,7 +23,7 @@ import { createMemoryProvider } from '@anvio/memory';
 import { createPlatform, findRepoRoot, loadAgent, storedSessionToRuntime } from '@anvio/platform';
 import { createSoulService } from '@anvio/souls';
 import { FilesystemStorageProvider } from '@anvio/storage';
-import { Workspace } from '@anvio/workspace';
+import { Workspace, WORKSPACE_DIRS } from '@anvio/workspace';
 
 const args = process.argv.slice(2);
 const command = args[0] ?? 'help';
@@ -92,6 +100,21 @@ async function main() {
     case 'acp':
       await cmdAcp(args.slice(1));
       break;
+    case 'credentials':
+      await cmdCredentials(args.slice(1));
+      break;
+    case 'routing':
+      await cmdRouting(args.slice(1));
+      break;
+    case 'skill':
+      await cmdSkill(args.slice(1));
+      break;
+    case 'mcp':
+      await cmdMcp(args.slice(1));
+      break;
+    case 'workspace':
+      await cmdWorkspace(args.slice(1));
+      break;
     case 'help':
     default:
       printHelp();
@@ -101,43 +124,66 @@ async function main() {
 function printHelp() {
   console.log(`Anvio — Local-First AI Agent Operating System
 
-Usage:
-  anvio init [path]              Initialize a new workspace
-  anvio agents list              List available agents
-  anvio chat [--agent NAME]      Interactive chat
-  anvio run <agent> [message]    Run agent task (--detach for background)
-  anvio sessions [list]          List agent sessions
-  anvio status [sessionId]       Show session or platform status
-  anvio logs <sessionId>         Show session message log
-  anvio approve <session> <id>   Approve pending tool request
-  anvio stop <sessionId>         Stop running agent session
-  anvio inbox <sessionId> <msg>  Inject instruction into running agent
-  anvio worktree list|create|remove  Manage git worktree isolation
-  anvio channels status [--json]     Health check all channel adapters
-  anvio soul list|show|create        Manage persistent agent souls
-  anvio goal list|create|progress    Manage persistent goals
-  anvio blueprint catalog|run        Workflow blueprint catalog
-  anvio automation list|run          Scheduled and event automations
-  anvio cron list|next-runs          Cron schedule utilities
-  anvio hooks test <event>           Test event hook handlers
-  anvio kanban list|create|move      Kanban board task management
-  anvio batch run|status|resume      Parallel batch job execution
-  anvio runtime list|test            Runtime provider management
-  anvio exec run|audit               Sandboxed code execution
-  anvio acp serve|status             ACP editor integration server
+Core
+  anvio init [path]                    Initialize workspace scaffold
+  anvio agents list                    List configured agents
+  anvio chat [--agent NAME]            Interactive chat session
+  anvio run <agent> [message]          Run task (--detach for background)
+  anvio sessions list                  List agent sessions
+  anvio status [sessionId]             Platform or session status
+  anvio logs <sessionId>               Session message log
+  anvio approve <session> <id>         Approve pending tool request
+  anvio stop <sessionId>               Stop running session
+  anvio inbox <sessionId> <msg>        Inject instruction into running agent
+  anvio worktree list|create|remove    Git worktree isolation
+  anvio channels status [--json]       Channel adapter health check
 
-Environment:
-  ANTHROPIC_API_KEY              Model provider API key
-  ANVIO_WORKSPACE                Workspace path (default: ./workspace)
-  TELEGRAM_BOT_TOKEN             Telegram bot token
-  DISCORD_BOT_TOKEN              Discord bot token
-  SLACK_BOT_TOKEN                Slack bot token (xoxb-...)
-  SLACK_APP_TOKEN                Slack app token for Socket Mode (xapp-...)
-  WHATSAPP_ACCESS_TOKEN          Meta Cloud API access token
-  WHATSAPP_PHONE_NUMBER_ID       WhatsApp Business phone number ID
-  WHATSAPP_VERIFY_TOKEN          Webhook verify token (default: anvio-verify)
+Advanced Agent OS — Identity & Goals
+  anvio soul list|show|create          Persistent agent souls
+  anvio goal list|create|progress      Goal tracking
+  anvio goal complete|pause|resume     Goal lifecycle
 
-Priority: CLI > API > Web UI — entire platform usable without Web UI`);
+Automation & Workflows
+  anvio blueprint catalog|run          Workflow blueprint catalog
+  anvio automation list|run|enable     Event and scheduled automations
+  anvio cron list|next-runs            Cron schedule utilities
+  anvio hooks test <event>             Test event hook handlers
+  anvio batch run|status|resume        Parallel batch jobs
+
+Coordination
+  anvio kanban list|create|move        Kanban board tasks
+
+Execution & Providers
+  anvio runtime list|test              Runtime providers (local, cursor, …)
+  anvio exec run|audit                 Sandboxed code execution
+  anvio acp serve|status               ACP editor integration server
+  anvio credentials list|add|test      Encrypted credential pools
+  anvio routing show|providers|catalog|test  Provider routing and fallback
+  anvio skill catalog|install|validate Skills catalog management
+  anvio mcp list|test                  MCP integration servers
+  anvio workspace validate             Validate workspace structure
+
+Environment
+  ANVIO_WORKSPACE                      Workspace path (default: ./workspace)
+  ANTHROPIC_API_KEY                    Anthropic (Claude)
+  OPENAI_API_KEY                       OpenAI (GPT)
+  GEMINI_API_KEY / GOOGLE_API_KEY      Google Gemini
+  OPENROUTER_API_KEY                   OpenRouter (100+ models)
+  DEEPSEEK_API_KEY                     DeepSeek (deepseek-chat, deepseek-reasoner)
+  GROQ_API_KEY / MISTRAL_API_KEY       Groq, Mistral
+  TOGETHER_API_KEY / XAI_API_KEY        Together, xAI Grok
+  FIREWORKS_API_KEY / MOONSHOT_API_KEY  Fireworks, Moonshot/Kimi
+  CEREBRAS_API_KEY / SAMBANOVA_API_KEY  Cerebras, SambaNova
+  PERPLEXITY_API_KEY / COHERE_API_KEY   Perplexity, Cohere
+  HF_TOKEN                             Hugging Face Inference
+  OLLAMA_BASE_URL / OLLAMA_ENABLED     Local Ollama models
+  ANVIO_CREDENTIALS_PASSPHRASE         Credential pool encryption passphrase
+  TELEGRAM_BOT_TOKEN / DISCORD_BOT_TOKEN / SLACK_BOT_TOKEN / SLACK_APP_TOKEN
+  WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_VERIFY_TOKEN
+  GITHUB_TOKEN                         MCP GitHub server (when enabled)
+
+Docs: docs/24-advanced-agent-os-overview.md
+Priority: CLI > API > Web UI`);
 }
 
 async function cmdInit(targetPath?: string) {
@@ -1088,6 +1134,238 @@ async function cmdAcp(sub: string[]) {
     }
     default:
       console.error('Usage: anvio acp serve|status');
+      process.exit(1);
+  }
+}
+
+async function cmdCredentials(sub: string[]) {
+  const action = sub[0] ?? 'list';
+  const wsPath = resolveWorkspacePath();
+  const storage = new FilesystemStorageProvider(wsPath);
+  const passphrase = process.env.ANVIO_CREDENTIALS_PASSPHRASE ?? 'local-dev-passphrase';
+  const manager = createCredentialPoolManager(storage, passphrase);
+
+  switch (action) {
+    case 'list': {
+      const pools = await manager.listPools();
+      if (pools.length === 0) {
+        console.log('No credential pools. Add: anvio credentials add anthropic --id key1 --value $KEY');
+        return;
+      }
+      for (const pool of pools) {
+        console.log(`  ${pool.metadata.slug} (${pool.spec.credentials.length} credentials)`);
+      }
+      break;
+    }
+    case 'add': {
+      const pool = sub[1];
+      const idIdx = sub.indexOf('--id');
+      const valueIdx = sub.indexOf('--value');
+      const id = idIdx >= 0 ? sub[idIdx + 1] : undefined;
+      const value = valueIdx >= 0 ? sub[valueIdx + 1] : undefined;
+      if (!pool || !id || !value) {
+        console.error('Usage: anvio credentials add <pool> --id <id> --value <secret>');
+        process.exit(1);
+      }
+      await manager.addCredential(pool, id, value);
+      console.log(`Credential added to pool ${pool}: ${id}`);
+      break;
+    }
+    case 'test': {
+      const pool = sub[1];
+      if (!pool) {
+        console.error('Usage: anvio credentials test <pool>');
+        process.exit(1);
+      }
+      const result = await manager.testPool(pool);
+      console.log(JSON.stringify(result, null, 2));
+      break;
+    }
+    default:
+      console.error('Usage: anvio credentials list|add|test');
+      process.exit(1);
+  }
+}
+
+async function cmdRouting(sub: string[]) {
+  const action = sub[0] ?? 'show';
+  const wsPath = resolveWorkspacePath();
+  const storage = new FilesystemStorageProvider(wsPath);
+  const platform = await getPlatform();
+  const router = createModelRouter({
+    storage,
+    providers: platform.modelProviders.asMap(),
+  });
+
+  switch (action) {
+    case 'show': {
+      const routing = await router.loadRouting();
+      console.log(JSON.stringify(routing, null, 2));
+      break;
+    }
+    case 'providers': {
+      console.log('Configured model providers:');
+      for (const id of platform.modelProviders.listConfigured()) {
+        console.log(`  ${id}`);
+      }
+      break;
+    }
+    case 'catalog': {
+      console.log('Supported model providers:');
+      for (const id of MODEL_PROVIDER_IDS) {
+        const spec = OPENAI_COMPATIBLE_PROVIDER_SPECS[id];
+        if (spec) {
+          console.log(`  ${id} (${spec.apiKeyEnv}) — default: ${spec.defaultModel}`);
+        } else if (id === 'anthropic') {
+          console.log('  anthropic (ANTHROPIC_API_KEY) — Claude models');
+        } else if (id === 'gemini') {
+          console.log('  gemini (GEMINI_API_KEY / GOOGLE_API_KEY)');
+        } else if (id === 'custom') {
+          console.log('  custom (baseUrl + apiKeyEnv in agent YAML)');
+        }
+      }
+      break;
+    }
+    case 'test': {
+      const route = sub[1] ?? 'coding';
+      const inputIdx = sub.indexOf('--input');
+      const message = inputIdx >= 0 ? sub.slice(inputIdx + 1).join(' ') : 'implement middleware';
+      const result = await router.chat({
+        messages: [{ role: 'user', content: message }],
+        routeOverride: route as import('@anvio/models').TaskRoute,
+      });
+      console.log(JSON.stringify({
+        route,
+        selectedProvider: result.selectedProvider,
+        failover: result.failover,
+        content: result.content.slice(0, 200),
+      }, null, 2));
+      break;
+    }
+    default:
+      console.error('Usage: anvio routing show|providers|catalog|test [route] [--input message]');
+      process.exit(1);
+  }
+}
+
+async function cmdSkill(sub: string[]) {
+  const action = sub[0] ?? 'catalog';
+  const wsPath = resolveWorkspacePath();
+  const repoRoot = findRepoRoot(wsPath);
+  const catalog = createSkillCatalogResolver(wsPath, repoRoot);
+  const installer = createSkillInstaller(catalog, wsPath);
+
+  switch (action) {
+    case 'catalog': {
+      const sourceIdx = sub.indexOf('--source');
+      const source = sourceIdx >= 0 ? sub[sourceIdx + 1] : 'all';
+      const items = source === 'bundled' ? await catalog.listBundled() : await catalog.listAll();
+      for (const item of items) {
+        if (typeof item === 'string') console.log(`  ${item}`);
+        else console.log(`  ${item.slug} [${item.source}]`);
+      }
+      break;
+    }
+    case 'install': {
+      const slug = sub[1];
+      if (!slug) {
+        console.error('Usage: anvio skill install <slug>');
+        process.exit(1);
+      }
+      const skill = await installer.install(slug);
+      console.log(`Installed skill: ${skill.metadata.slug}@${skill.metadata.version}`);
+      break;
+    }
+    case 'validate': {
+      const file = sub[1];
+      if (!file) {
+        console.error('Usage: anvio skill validate <file.yaml>');
+        process.exit(1);
+      }
+      const raw = await fs.readFile(path.resolve(file), 'utf8');
+      const skill = parseSkillDefinition(parseYaml(raw));
+      console.log(JSON.stringify({ slug: skill.metadata.slug, valid: true }, null, 2));
+      break;
+    }
+    default:
+      console.error('Usage: anvio skill catalog|install|validate');
+      process.exit(1);
+  }
+}
+
+async function cmdMcp(sub: string[]) {
+  const action = sub[0] ?? 'list';
+  const wsPath = resolveWorkspacePath();
+  const storage = new FilesystemStorageProvider(wsPath);
+  const registry = createIntegrationRegistry(storage);
+  await registry.load();
+  const bridge = createMcpBridge(registry);
+
+  switch (action) {
+    case 'list': {
+      const entries = await registry.list();
+      for (const entry of entries) {
+        console.log(`  ${entry.id} [${entry.enabled ? 'enabled' : 'disabled'}] ${entry.server.command}`);
+      }
+      break;
+    }
+    case 'test': {
+      const serverId = sub[1];
+      if (!serverId) {
+        console.error('Usage: anvio mcp test <serverId>');
+        process.exit(1);
+      }
+      const result = await bridge.testServer(serverId);
+      console.log(JSON.stringify(result, null, 2));
+      break;
+    }
+    default:
+      console.error('Usage: anvio mcp list|test');
+      process.exit(1);
+  }
+}
+
+async function cmdWorkspace(sub: string[]) {
+  const action = sub[0] ?? 'validate';
+  const wsPath = resolveWorkspacePath();
+
+  switch (action) {
+    case 'validate': {
+      const issues: string[] = [];
+      try {
+        await Workspace.open(wsPath);
+      } catch (error) {
+        issues.push(`anvio.yaml: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      for (const dir of WORKSPACE_DIRS) {
+        try {
+          await fs.access(path.join(wsPath, dir));
+        } catch {
+          issues.push(`missing directory: ${dir}/`);
+        }
+      }
+
+      const configFiles = ['providers/routing.yaml', 'mcp/servers.yaml', 'hooks/hooks.yaml'] as const;
+      for (const file of configFiles) {
+        try {
+          await fs.access(path.join(wsPath, file));
+        } catch {
+          issues.push(`missing config: ${file}`);
+        }
+      }
+
+      if (issues.length > 0) {
+        console.error(`Workspace validation failed (${wsPath}):`);
+        for (const issue of issues) console.error(`  - ${issue}`);
+        process.exit(1);
+      }
+
+      console.log(`Workspace OK: ${wsPath}`);
+      break;
+    }
+    default:
+      console.error('Usage: anvio workspace validate');
       process.exit(1);
   }
 }
