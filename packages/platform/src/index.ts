@@ -27,6 +27,7 @@ import { SkillRegistry, createSkillCatalogResolver } from '@anvio/skills';
 import { createHarnessFromWorkspace, type HarnessGateway } from '@anvio/harness';
 import { LearningEngine } from '@anvio/learning';
 import { ToolGateway } from '@anvio/tools';
+import { createCodeExecutor } from '@anvio/execution';
 import { DagExecutor, createWorkflowRegistry } from '@anvio/workflows';
 import { Workspace } from '@anvio/workspace';
 import { findRepoRoot, findWorkspacePath } from './find-workspace.js';
@@ -228,7 +229,15 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   await automationEngine.start();
 
   const learningEngine = new LearningEngine(memoryProvider, workspacePath);
-  const toolGateway = await ToolGateway.load(workspacePath);
+  const codeExecutor = createCodeExecutor({
+    storage: workspace.storage,
+    workspaceRoot: workspacePath,
+    allowedRuntimes: ['shell', 'python', 'node', 'go', 'docker'],
+  });
+  const toolGateway = await ToolGateway.load(workspacePath, {
+    codeExecutor,
+    workspaceRoot: workspacePath,
+  });
 
   await eventBus.subscribeCore(EventSubjects.AGENT_RUN_COMPLETED, async (event) => {
     const data = event.data as {

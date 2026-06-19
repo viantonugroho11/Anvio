@@ -719,6 +719,9 @@ importers:
       '@anvio/events':
         specifier: workspace:*
         version: link:../events
+      '@anvio/execution':
+        specifier: workspace:*
+        version: link:../execution
       '@anvio/harness':
         specifier: workspace:*
         version: link:../harness

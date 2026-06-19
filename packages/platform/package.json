@@ -19,6 +19,7 @@
     "@anvio/blueprints": "workspace:*",
     "@anvio/channels": "workspace:*",
     "@anvio/core": "workspace:*",
+    "@anvio/execution": "workspace:*",
     "@anvio/events": "workspace:*",
     "@anvio/hooks": "workspace:*",
     "@anvio/integrations": "workspace:*",
