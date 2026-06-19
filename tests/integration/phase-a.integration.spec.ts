@@ -37,14 +37,15 @@ describe('Phase A — Advanced Agent OS Foundation', () => {
       parseSoulDefinition({
         apiVersion: 'anvio.io/v1',
         kind: 'Soul',
-        metadata: { slug: 'cela', version: '1.0.0' },
+        metadata: { slug: 'architect-soul', version: '1.0.0' },
         spec: {
-          name: 'Cela',
-          values: ['honesty', 'kindness'],
-          personality: ['playful'],
-          preferences: { conversation: 'casual' },
-          longTermGoals: ['help the user grow'],
-          behavioralTendencies: ['ask clarifying questions'],
+          name: 'Architect Soul',
+          identity: { role: 'Senior Software Architect' },
+          values: ['simplicity', 'maintainability'],
+          personality: ['thoughtful', 'structured'],
+          preferences: { conversation: 'professional' },
+          longTermGoals: ['help build maintainable systems'],
+          behavioralTendencies: ['consider tradeoffs before recommending'],
         },
       }),
     );
@@ -53,17 +54,17 @@ describe('Phase A — Advanced Agent OS Foundation', () => {
       sessionId: 's1',
       userId: 'local-user',
       type: 'fact',
-      content: 'User prefers morning summaries',
+      content: 'User prefers architecture diagrams in reviews',
     });
 
-    const context = await souls.loadContext('cela', 'local-user');
-    expect(context.name).toBe('Cela');
-    expect(context.values).toContain('honesty');
-    expect(context.relationshipFacts.some((f) => f.content.includes('morning'))).toBe(true);
+    const context = await souls.loadContext('architect-soul', 'local-user');
+    expect(context.name).toBe('Architect Soul');
+    expect(context.values).toContain('simplicity');
+    expect(context.relationshipFacts.some((f) => f.content.includes('diagrams'))).toBe(true);
 
     const rendered = souls.renderSoulContext(context);
-    expect(rendered).toContain('Cela');
-    expect(rendered).toContain('honesty');
+    expect(rendered).toContain('Architect Soul');
+    expect(rendered).toContain('simplicity');
   });
 
   it('manages goal lifecycle on filesystem', async () => {

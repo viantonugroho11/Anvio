@@ -6,14 +6,14 @@ A **Soul** is the long-term identity of an agent. It is **not** a system prompt 
 
 | Dimension | Description | Example |
 |-----------|-------------|---------|
-| **Identity** | Name, origin story, role | `Cela`, personal assistant |
-| **Personality** | Behavioral traits | playful, supportive |
-| **Values** | Non-negotiable principles | honesty, kindness |
-| **Preferences** | Interaction defaults | casual conversation |
-| **Communication Style** | Tone, format, language | concise, uses emoji sparingly |
-| **Long-Term Goals** | Aspirations tied to the soul | help the user grow |
-| **Behavioral Tendencies** | Recurring patterns | asks clarifying questions first |
-| **Relationship Memory** | Facts about the user relationship | prefers morning summaries |
+| **Identity** | Display name, role, scope | `Architect Soul`, Senior Software Architect |
+| **Personality** | Behavioral traits | thoughtful, structured |
+| **Values** | Non-negotiable principles | simplicity, maintainability |
+| **Preferences** | Interaction defaults | professional conversation |
+| **Communication Style** | Tone, format, language | concise, structured rationale |
+| **Long-Term Goals** | Aspirations tied to the soul | help build maintainable systems |
+| **Behavioral Tendencies** | Recurring patterns | consider tradeoffs before recommending |
+| **Relationship Memory** | Facts about the user relationship | prefers diagrams in architecture reviews |
 
 ## Soul vs Persona vs Agent
 
@@ -37,8 +37,8 @@ flowchart LR
 
 ```
 workspace/souls/
-  cela.yaml              # Soul definition
-  cela/
+  architect-soul.yaml    # Soul definition
+  architect-soul/
     relationship/        # Relationship memory entries
       local-user.yaml
     journal/             # Optional reflective entries (append-only)
@@ -51,36 +51,36 @@ workspace/souls/
 apiVersion: anvio.io/v1
 kind: Soul
 metadata:
-  slug: cela
+  slug: architect-soul
   version: "1.0.0"
   createdAt: "2026-06-19T00:00:00Z"
   updatedAt: "2026-06-19T00:00:00Z"
 spec:
-  name: Cela
+  name: Architect Soul
   identity:
-    role: personal assistant
-    description: Long-term companion focused on growth
+    role: Senior Software Architect
+    description: Long-term architectural thinking partner
   values:
-    - honesty
-    - kindness
+    - simplicity
+    - maintainability
   personality:
-    - playful
-    - supportive
+    - thoughtful
+    - structured
   preferences:
-    conversation: casual
-    language: id
+    conversation: professional
+    diagrams: when helpful
   communicationStyle:
-    tone: warm
-    format: conversational
+    tone: professional and thoughtful
+    format: structured with clear rationale
   longTermGoals:
-    - help the user grow
-    - maintain consistent trust
+    - help build maintainable systems
+    - improve architecture over time
   behavioralTendencies:
-    - ask clarifying questions before acting
-    - summarize decisions at end of session
+    - consider tradeoffs before recommending
+    - prefer simplicity over cleverness
   relationshipMemory:
     provider: filesystem          # or memory provider ref
-    path: cela/relationship
+    path: architect-soul/relationship
   evolution:
     allowAutoUpdate: true         # soul can evolve from sessions
     requireApproval: false        # gate changes behind approval hook
@@ -97,7 +97,7 @@ sequenceDiagram
   participant Runtime
 
   CLI->>SoulEngine: loadSoul(slug)
-  SoulEngine->>SoulStore: read workspace/souls/cela.yaml
+  SoulEngine->>SoulStore: read workspace/souls/architect-soul.yaml
   SoulEngine->>MemoryProvider: loadRelationshipMemory(soul, userId)
   SoulEngine->>Runtime: assembleSoulContext(soul)
   Runtime->>Runtime: merge soul context (not raw system prompt)
@@ -147,9 +147,9 @@ interface SoulContext {
 
 ```bash
 anvio soul list
-anvio soul show cela
-anvio soul create --from-persona assistant --name Cela
-anvio soul edit cela --add-value honesty
+anvio soul show architect-soul
+anvio soul create --slug architect-soul --name "Architect Soul" --from-persona architect
+anvio soul show architect-soul --context
 ```
 
 ## Extension Guide
@@ -165,7 +165,7 @@ anvio soul edit cela --add-value honesty
 | Backup souls | `git add workspace/souls && git commit` |
 | Migrate workspace | Copy `workspace/souls/` to new machine |
 | Reset relationship memory | Delete `workspace/souls/{slug}/relationship/` |
-| Debug context | `anvio soul show cela --verbose` dumps assembled context |
+| Debug context | `anvio soul show architect-soul --context` dumps assembled context |
 
 ## Package Boundaries
 

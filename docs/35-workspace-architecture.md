@@ -82,7 +82,7 @@ spec:
     encryption: enabled
   defaultAgent: architect
   defaultUserId: local-user
-  defaultSoul: cela
+  defaultSoul: architect-soul
 ```
 
 ## Path Resolution

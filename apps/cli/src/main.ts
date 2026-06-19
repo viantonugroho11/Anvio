@@ -505,7 +505,7 @@ async function cmdSoul(sub: string[]) {
     case 'list': {
       const items = await souls.list();
       if (items.length === 0) {
-        console.log('No souls found. Create one: anvio soul create --slug cela --name Cela');
+        console.log('No souls found. Create one: anvio soul create --slug architect-soul --name "Architect Soul"');
         return;
       }
       console.log('Souls:');

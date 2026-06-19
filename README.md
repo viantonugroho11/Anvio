@@ -258,11 +258,11 @@ anvio goal complete ship-v2
 ### Souls (long-lived identity)
 
 ```bash
-anvio soul create --slug cela --name Cela --from-persona architect
-anvio soul show cela --context
+anvio soul create --slug architect-soul --name "Architect Soul" --from-persona architect
+anvio soul show architect-soul --context
 ```
 
-Bind a soul in an agent YAML with `spec.soul: cela`.
+Bind a soul in an agent YAML with `spec.soul: architect-soul`.
 
 ### Blueprints (workflow templates)
 
