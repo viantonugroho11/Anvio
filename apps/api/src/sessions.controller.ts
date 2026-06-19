@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
+import type { ChannelType } from '@anvio/core';
 import { EventSubjects } from '@anvio/events';
 import { AppService } from './app.service.js';
 
@@ -17,7 +18,7 @@ export class SessionsController {
   @Post()
   async create(
     @Headers('authorization') authHeader: string | undefined,
-    @Body() body: { agentName: string; channel?: string },
+    @Body() body: { agentName: string; channel?: string; detached?: boolean; channelThreadId?: string },
   ) {
     const ctx = await this.resolveAuth(authHeader);
     const { workspace } = this.appService.platform;
@@ -34,6 +35,10 @@ export class SessionsController {
       channel: body.channel ?? 'rest',
       messages: [],
       status: 'idle',
+      detached: body.detached,
+      channelThread: body.channelThreadId
+        ? { channel: (body.channel ?? 'rest') as ChannelType, threadId: body.channelThreadId }
+        : undefined,
     });
 
     await this.appService.platform.eventBus.publish(
@@ -79,6 +84,7 @@ export class SessionsController {
       agentId: session.agentName,
       content: body.content,
       channel: session.channel,
+      detached: session.detached,
     });
 
     return { status: 'queued', sessionId: session.id };
