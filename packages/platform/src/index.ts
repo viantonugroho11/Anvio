@@ -25,6 +25,8 @@ import { PersonaService } from '@anvio/personas';
 import { createSoulService } from '@anvio/souls';
 import { SkillRegistry, createSkillCatalogResolver } from '@anvio/skills';
 import { createHarnessFromWorkspace, type HarnessGateway } from '@anvio/harness';
+import { LearningEngine } from '@anvio/learning';
+import { ToolGateway } from '@anvio/tools';
 import { Workspace } from '@anvio/workspace';
 import { findRepoRoot, findWorkspacePath } from './find-workspace.js';
 
@@ -42,6 +44,8 @@ export interface PlatformContext {
   automationEngine: AutomationEngine;
   hookEngine: HookEngine;
   harness: HarnessGateway;
+  learningEngine: LearningEngine;
+  toolGateway: ToolGateway;
 }
 
 export interface PlatformOptions {
@@ -189,6 +193,35 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   await hookEngine.start();
   await automationEngine.start();
 
+  const learningEngine = new LearningEngine(memoryProvider, workspacePath);
+  const toolGateway = await ToolGateway.load(workspacePath);
+
+  await eventBus.subscribeCore(EventSubjects.AGENT_RUN_COMPLETED, async (event) => {
+    const data = event.data as {
+      sessionId: string;
+      content?: string;
+      channel?: string;
+    };
+    const stored = await workspace.sessions.get(data.sessionId);
+    if (!stored) return;
+    const soulSlug = spec.defaultSoul;
+    let soul;
+    if (soulSlug) {
+      try {
+        soul = await soulService.get(soulSlug);
+      } catch {
+        soul = undefined;
+      }
+    }
+    await learningEngine.onSessionCompleted({
+      sessionId: stored.id,
+      userId: stored.userId,
+      agentId: stored.agentName,
+      messages: stored.messages,
+      soul,
+    });
+  });
+
   return {
     workspace,
     auth,
@@ -203,6 +236,8 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     automationEngine,
     hookEngine,
     harness,
+    learningEngine,
+    toolGateway,
   };
 }
 

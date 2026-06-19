@@ -123,6 +123,12 @@ importers:
       '@anvio/kanban':
         specifier: workspace:*
         version: link:../../packages/kanban
+      '@anvio/knowledge':
+        specifier: workspace:*
+        version: link:../../packages/knowledge
+      '@anvio/learning':
+        specifier: workspace:*
+        version: link:../../packages/learning
       '@anvio/memory':
         specifier: workspace:*
         version: link:../../packages/memory
@@ -147,6 +153,9 @@ importers:
       '@anvio/storage':
         specifier: workspace:*
         version: link:../../packages/storage
+      '@anvio/tools':
+        specifier: workspace:*
+        version: link:../../packages/tools
       '@anvio/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
@@ -567,6 +576,38 @@ importers:
         specifier: ^3.1.4
         version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
 
+  packages/knowledge:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/learning:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
   packages/memory:
     dependencies:
       '@anvio/core':
@@ -678,6 +719,9 @@ importers:
       '@anvio/integrations':
         specifier: workspace:*
         version: link:../integrations
+      '@anvio/learning':
+        specifier: workspace:*
+        version: link:../learning
       '@anvio/memory':
         specifier: workspace:*
         version: link:../memory
@@ -696,6 +740,9 @@ importers:
       '@anvio/souls':
         specifier: workspace:*
         version: link:../souls
+      '@anvio/tools':
+        specifier: workspace:*
+        version: link:../tools
       '@anvio/workspace':
         specifier: workspace:*
         version: link:../workspace
@@ -789,6 +836,9 @@ importers:
       '@anvio/db':
         specifier: workspace:*
         version: link:../db
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -872,12 +922,21 @@ importers:
       '@anvio/kanban':
         specifier: workspace:*
         version: link:../../packages/kanban
+      '@anvio/knowledge':
+        specifier: workspace:*
+        version: link:../../packages/knowledge
+      '@anvio/learning':
+        specifier: workspace:*
+        version: link:../../packages/learning
       '@anvio/memory':
         specifier: workspace:*
         version: link:../../packages/memory
       '@anvio/models':
         specifier: workspace:*
         version: link:../../packages/models
+      '@anvio/platform':
+        specifier: workspace:*
+        version: link:../../packages/platform
       '@anvio/runtimes':
         specifier: workspace:*
         version: link:../../packages/runtimes
@@ -893,6 +952,9 @@ importers:
       '@anvio/storage':
         specifier: workspace:*
         version: link:../../packages/storage
+      '@anvio/tools':
+        specifier: workspace:*
+        version: link:../../packages/tools
       '@anvio/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace

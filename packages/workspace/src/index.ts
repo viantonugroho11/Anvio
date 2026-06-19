@@ -48,6 +48,7 @@ export const WORKSPACE_DIRS = [
   'inbox',
   'harness',
   'connections',
+  'knowledge',
 ] as const;
 
 export class Workspace {
@@ -95,6 +96,8 @@ export class Workspace {
     await fs.mkdir(path.join(rootDir, 'credentials', 'encrypted'), { recursive: true });
     await fs.mkdir(path.join(rootDir, 'souls', '_cache'), { recursive: true });
     await fs.mkdir(path.join(rootDir, 'connections', '_state'), { recursive: true });
+    await fs.mkdir(path.join(rootDir, 'skills', '_drafts'), { recursive: true });
+    await fs.mkdir(path.join(rootDir, 'knowledge'), { recursive: true });
     await fs.writeFile(path.join(rootDir, 'anvio.yaml'), defaultAnvioYaml(), 'utf-8');
     await fs.writeFile(path.join(rootDir, 'providers/routing.yaml'), defaultRoutingYaml(), 'utf-8');
     await fs.writeFile(path.join(rootDir, 'mcp/servers.yaml'), defaultMcpServersYaml(), 'utf-8');
@@ -105,6 +108,7 @@ export class Workspace {
       defaultHarnessProfilesYaml(),
       'utf-8',
     );
+    await fs.writeFile(path.join(rootDir, 'tools/gateway.yaml'), defaultToolGatewayYaml(), 'utf-8');
     return Workspace.open(rootDir);
   }
 }
@@ -263,6 +267,33 @@ spec:
       engageOn: always
       disengageOn: never
       dmPolicy: anyone
+`;
+}
+
+function defaultToolGatewayYaml(): string {
+  return `# Built-in tool gateway — Phase H
+apiVersion: anvio.io/v1
+kind: ToolGateway
+metadata:
+  name: default
+spec:
+  enabled: true
+  tools:
+    web_fetch:
+      enabled: true
+    web_search:
+      enabled: false
+    execute_code:
+      enabled: false
+    browser:
+      enabled: false
+    image_generate:
+      enabled: false
+    text_to_speech:
+      enabled: false
+  webSearch:
+    provider: brave
+    apiKeyEnv: WEB_SEARCH_API_KEY
 `;
 }
 

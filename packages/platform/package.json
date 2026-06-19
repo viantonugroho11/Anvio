@@ -27,6 +27,8 @@
     "@anvio/personas": "workspace:*",
     "@anvio/skills": "workspace:*",
     "@anvio/souls": "workspace:*",
+    "@anvio/learning": "workspace:*",
+    "@anvio/tools": "workspace:*",
     "@anvio/harness": "workspace:*",
     "@anvio/soul-gate": "workspace:*",
     "@anvio/workspace": "workspace:*"

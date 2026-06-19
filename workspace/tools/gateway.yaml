@@ -1,0 +1,22 @@
+apiVersion: anvio.io/v1
+kind: ToolGateway
+metadata:
+  name: default
+spec:
+  enabled: true
+  tools:
+    web_fetch:
+      enabled: true
+    web_search:
+      enabled: false
+    execute_code:
+      enabled: false
+    browser:
+      enabled: false
+    image_generate:
+      enabled: false
+    text_to_speech:
+      enabled: false
+  webSearch:
+    provider: brave
+    apiKeyEnv: WEB_SEARCH_API_KEY

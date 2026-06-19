@@ -17,6 +17,8 @@
     { "path": "../events" },
     { "path": "../channels" },
     { "path": "../harness" },
+    { "path": "../learning" },
+    { "path": "../tools" },
     { "path": "../integrations" },
     { "path": "../souls" }
   ]
