@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-06-19
+
+**Phase P1 — Channel harness depth & contextual connections**
+
+### Added
+- Connection broker: per-user isolation, thread grants, list/revoke APIs
+- OAuth login-host callback capture (`startLoginHost`)
+- CLI: `anvio connect list|put|revoke|login-host`
+- Multi-channel harness regression tests (telegram, discord, web-chat)
+- Connection isolation integration tests
+
+### Changed
+- Harness enabled by default in workspace (`enabled: true`)
+- Connect broker enabled by default (requires `ANVIO_CONNECTION_ENCRYPTION_KEY`)
+
+---
+
 ## [1.4.0] - 2026-06-19
 
 **Phase K+ — Memory search, browser sandbox, ACP production path**
