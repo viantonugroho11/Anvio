@@ -3,7 +3,7 @@ import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import type { BuiltinToolCall, BuiltinToolResult, ToolGatewaySpec } from '@anvio/core';
 import { parseToolGatewayConfig } from '@anvio/core';
-import { runBuiltinTool } from './builtins/index.js';
+import { runBuiltinTool, type BuiltinToolContext } from './builtins/index.js';
 
 export const DEFAULT_TOOL_GATEWAY_YAML = `# Built-in tool gateway — Phase H
 apiVersion: anvio.io/v1
@@ -32,18 +32,23 @@ spec:
 
 export class ToolGateway {
   readonly spec: ToolGatewaySpec;
+  private readonly ctx: BuiltinToolContext;
 
-  constructor(spec: ToolGatewaySpec) {
+  constructor(spec: ToolGatewaySpec, ctx: BuiltinToolContext = {}) {
     this.spec = spec;
+    this.ctx = ctx;
   }
 
-  static async load(workspaceRoot: string): Promise<ToolGateway> {
+  static async load(workspaceRoot: string, ctx: BuiltinToolContext = {}): Promise<ToolGateway> {
     const filePath = path.join(workspaceRoot, 'tools/gateway.yaml');
     try {
       const raw = parseYaml(await fs.readFile(filePath, 'utf-8'));
-      return new ToolGateway(parseToolGatewayConfig(raw).spec);
+      return new ToolGateway(parseToolGatewayConfig(raw).spec, { workspaceRoot, ...ctx });
     } catch {
-      return new ToolGateway(parseToolGatewayConfig(parseYaml(DEFAULT_TOOL_GATEWAY_YAML)).spec);
+      return new ToolGateway(parseToolGatewayConfig(parseYaml(DEFAULT_TOOL_GATEWAY_YAML)).spec, {
+        workspaceRoot,
+        ...ctx,
+      });
     }
   }
 
@@ -55,7 +60,7 @@ export class ToolGateway {
   }
 
   async call(call: BuiltinToolCall): Promise<BuiltinToolResult> {
-    return runBuiltinTool(this.spec, call);
+    return runBuiltinTool(this.spec, call, this.ctx);
   }
 }
 

@@ -1,4 +1,10 @@
-import type { BuiltinToolCall, BuiltinToolResult, ToolGatewaySpec } from '@anvio/core';
+import type { BuiltinToolCall, BuiltinToolResult, CodeExecutor, ToolGatewaySpec } from '@anvio/core';
+import { executeCodeWithExecutor, fileRead, fileWrite } from './filesystem.js';
+
+export interface BuiltinToolContext {
+  workspaceRoot?: string;
+  codeExecutor?: CodeExecutor;
+}
 
 export async function webFetch(url: string, maxChars = 8000): Promise<BuiltinToolResult> {
   try {
@@ -82,6 +88,7 @@ export async function executeCode(code: string, language = 'javascript'): Promis
 export async function runBuiltinTool(
   spec: ToolGatewaySpec,
   call: BuiltinToolCall,
+  ctx: BuiltinToolContext = {},
 ): Promise<BuiltinToolResult> {
   const toolKey = call.name.replace(/^anvio_tools__/, '') as keyof ToolGatewaySpec['tools'];
   const toolConfig = spec.tools[toolKey];
@@ -98,7 +105,65 @@ export async function runBuiltinTool(
         process.env[spec.webSearch.apiKeyEnv],
       );
     case 'execute_code':
+      if (ctx.codeExecutor) {
+        try {
+          const out = await executeCodeWithExecutor(
+            ctx.codeExecutor,
+            String(call.arguments.code ?? ''),
+            String(call.arguments.language ?? 'javascript'),
+          );
+          return {
+            name: call.name,
+            output: out,
+            status: out.exitCode === 0 ? 'completed' : 'failed',
+            error: out.exitCode === 0 ? undefined : out.stderr,
+          };
+        } catch (error) {
+          return {
+            name: call.name,
+            output: null,
+            status: 'failed',
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }
       return executeCode(String(call.arguments.code ?? ''), String(call.arguments.language ?? 'javascript'));
+    case 'file_read': {
+      if (!ctx.workspaceRoot) {
+        return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
+      }
+      try {
+        const out = await fileRead(ctx.workspaceRoot, String(call.arguments.path ?? ''));
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    case 'file_write': {
+      if (!ctx.workspaceRoot) {
+        return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
+      }
+      try {
+        const out = await fileWrite(
+          ctx.workspaceRoot,
+          String(call.arguments.path ?? ''),
+          String(call.arguments.content ?? ''),
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
     default:
       return { name: call.name, output: null, status: 'skipped', error: 'Not implemented' };
   }
