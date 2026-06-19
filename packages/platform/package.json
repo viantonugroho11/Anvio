@@ -1,0 +1,27 @@
+{
+  "name": "@anvio/platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@anvio/agents": "workspace:*",
+    "@anvio/auth": "workspace:*",
+    "@anvio/core": "workspace:*",
+    "@anvio/events": "workspace:*",
+    "@anvio/memory": "workspace:*",
+    "@anvio/models": "workspace:*",
+    "@anvio/personas": "workspace:*",
+    "@anvio/skills": "workspace:*",
+    "@anvio/workspace": "workspace:*"
+  },
+  "devDependencies": { "typescript": "^5.8.3", "vitest": "^3.1.4" }
+}
