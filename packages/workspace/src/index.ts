@@ -8,6 +8,7 @@ import {
   parseWorkspaceDefinition,
   parseAgentMd,
   parseSkillMd,
+  parsePersonaMd,
   type AgentDefinition,
   type ConfigLoader,
   type PersonaProfile,
@@ -315,6 +316,11 @@ export class WorkspaceConfigLoader implements ConfigLoader {
   }
 
   async loadPersona(slug: string): Promise<PersonaProfile> {
+    const md = await this.readText(`personas/${slug}.md`, `personas/${slug}/PERSONA.md`);
+    if (md) {
+      const def = parsePersonaMd(md, slug);
+      return personaProfileSchema.parse(def.spec);
+    }
     const yaml = await this.readYaml(`personas/${slug}.yaml`, `personas/${slug}.yml`);
     const def = parsePersonaDefinition(yaml);
     return personaProfileSchema.parse(def.spec);
@@ -334,9 +340,7 @@ export class WorkspaceConfigLoader implements ConfigLoader {
 
   async listPersonas(): Promise<string[]> {
     const files = await this.storage.list('personas');
-    return files
-      .filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'))
-      .map((f) => path.basename(f, path.extname(f)));
+    return this.listArtifactSlugs(files, ['.yaml', '.yml', '.md'], ['PERSONA.md']);
   }
 
   private async readText(...candidates: string[]): Promise<string | null> {
