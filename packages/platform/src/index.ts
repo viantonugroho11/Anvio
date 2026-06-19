@@ -1,7 +1,22 @@
 import { DefaultAgentRuntime } from '@anvio/agents';
+import {
+  ChannelHub,
+  CliChannel,
+  LocalAgentInbox,
+  RestApiChannel,
+  WebChatChannel,
+  createStubAdapters,
+} from '@anvio/channels';
 import { createAuthProvider } from '@anvio/auth';
-import type { AgentDefinition, AuthProvider, ModelProvider, Session } from '@anvio/core';
-import { createEventBus, type EventBusLike } from '@anvio/events';
+import type {
+  AgentDefinition,
+  AuthProvider,
+  ChannelHubPort,
+  AgentInbox,
+  ModelProvider,
+  Session,
+} from '@anvio/core';
+import { createEventBus, EventSubjects, type EventBusLike } from '@anvio/events';
 import { createMemoryStore } from '@anvio/memory';
 import { createModelProvider } from '@anvio/models';
 import { PersonaService } from '@anvio/personas';
@@ -15,6 +30,8 @@ export interface PlatformContext {
   runtime: DefaultAgentRuntime;
   eventBus: EventBusLike;
   modelProvider: ModelProvider;
+  channelHub: ChannelHubPort;
+  inbox: AgentInbox;
 }
 
 export interface PlatformOptions {
@@ -41,19 +58,39 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     ? createModelProvider('anthropic', apiKey)
     : createMockModelProvider();
 
-  const runtime = new DefaultAgentRuntime({
-    personaService,
-    skillRegistry,
-    memoryStore,
-    modelProvider,
-  });
-
   const eventBus = await createEventBus(spec.events.provider, {
     url: spec.events.url ?? process.env.NATS_URL,
     source: '/anvio/platform',
   });
 
-  return { workspace, auth, runtime, eventBus, modelProvider };
+  const channelHub = new ChannelHub();
+  const inbox = new LocalAgentInbox();
+
+  const runtime = new DefaultAgentRuntime({
+    personaService,
+    skillRegistry,
+    memoryStore,
+    modelProvider,
+    onProgress: (sessionId, phase) => {
+      void eventBus.publishCore(EventSubjects.AGENT_RUN_PROGRESS, 'anvio.agent.run.progress', {
+        sessionId,
+        phase,
+        status: 'running' as const,
+        channel: 'cli',
+      });
+    },
+  });
+
+  channelHub.register(new WebChatChannel());
+  channelHub.register(new CliChannel());
+  channelHub.register(new RestApiChannel());
+  for (const adapter of createStubAdapters()) {
+    channelHub.register(adapter);
+  }
+
+  await channelHub.startAll();
+
+  return { workspace, auth, runtime, eventBus, modelProvider, channelHub, inbox };
 }
 
 function createMockModelProvider(): ModelProvider {
@@ -102,3 +139,5 @@ export function storedSessionToRuntime(session: {
 export async function loadAgent(workspace: Workspace, name: string): Promise<AgentDefinition> {
   return workspace.loader.loadAgent(name);
 }
+
+export type { ChannelHubPort, AgentInbox };

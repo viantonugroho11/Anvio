@@ -21,7 +21,8 @@
     "@anvio/models": "workspace:*",
     "@anvio/personas": "workspace:*",
     "@anvio/skills": "workspace:*",
-    "@anvio/workspace": "workspace:*"
+    "@anvio/workspace": "workspace:*",
+    "@anvio/channels": "workspace:*"
   },
   "devDependencies": { "typescript": "^5.8.3", "vitest": "^3.1.4" }
 }
