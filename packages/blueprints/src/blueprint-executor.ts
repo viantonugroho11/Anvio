@@ -25,6 +25,13 @@ export interface BlueprintExecutionDeps {
   catalog: BlueprintCatalogRegistry;
   runAgent?: (agentId: string, input: string) => Promise<string>;
   runHook?: (hookPath: string, payload: Record<string, unknown>) => Promise<void>;
+  mcpBridge?: {
+    callTool(call: {
+      serverId: string;
+      toolName: string;
+      arguments?: Record<string, unknown>;
+    }): Promise<{ output: unknown; status: string; error?: string }>;
+  };
 }
 
 export class BlueprintExecutor {
@@ -154,14 +161,36 @@ export class BlueprintExecutor {
             status: results.some((r) => r.status === 'failed') ? 'failed' : 'completed',
           };
         }
-        case 'mcp':
-        case 'batch':
+        case 'mcp': {
+          if (!this.deps.mcpBridge || !step.server || !step.tool) {
+            return {
+              id: step.id,
+              type: step.type,
+              output: '[mcp not configured]',
+              status: 'skipped',
+            };
+          }
+          const result = await this.deps.mcpBridge.callTool({
+            serverId: step.server,
+            toolName: step.tool,
+            arguments: step.args,
+          });
           return {
             id: step.id,
             type: step.type,
-            output: `[${step.type} stub — configure MCP/batch in Phase C+]`,
-            status: 'completed',
+            output: JSON.stringify(result.output),
+            status: result.status === 'completed' ? 'completed' : 'failed',
+            error: result.error,
           };
+        }
+        case 'batch': {
+          return {
+            id: step.id,
+            type: step.type,
+            output: '[batch not configured]',
+            status: 'skipped',
+          };
+        }
         default: {
           const _exhaustive: never = step.type;
           throw new Error(`Unknown step type: ${_exhaustive}`);
