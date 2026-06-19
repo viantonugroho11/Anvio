@@ -6,6 +6,7 @@ import {
   type AgentRunStopRequestedData,
   type ApprovalDecidedData,
 } from '@anvio/events';
+import type { ChannelType } from '@anvio/core';
 import { createPlatform, loadAgent, storedSessionToRuntime } from '@anvio/platform';
 
 async function main() {
@@ -21,7 +22,7 @@ async function main() {
     EventSubjects.AGENT_RUN_PROGRESS,
     async (event) => {
       const { sessionId, phase, status, channel } = event.data;
-      await channelHub.sendProgress(channel as Parameters<typeof channelHub.sendProgress>[0], sessionId, {
+      await channelHub.sendProgress(channel as ChannelType, sessionId, {
         sessionId,
         phase,
         status,

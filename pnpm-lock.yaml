@@ -134,6 +134,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@anvio/events':
         specifier: workspace:*
         version: link:../../packages/events
