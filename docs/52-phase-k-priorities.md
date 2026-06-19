@@ -124,6 +124,18 @@ See [53-phase-p1-priorities.md](./53-phase-p1-priorities.md).
 
 ---
 
+## Phase P2 — Voice & channels (no desktop)
+
+See [54-phase-p2-priorities.md](./54-phase-p2-priorities.md). Desktop (DT) optional / deferred.
+
+| ID | Deliverable | Status |
+|----|-------------|--------|
+| C1 | Mattermost adapter | ✅ Phase P2 |
+| V2 | Telegram voice notes | ✅ Phase P2 |
+| V3 | Discord audio attachments | ✅ Phase P2 |
+
+---
+
 ## Success criteria (Phase K)
 
 1. Session end produces **summary + recall hits** in next chat turn

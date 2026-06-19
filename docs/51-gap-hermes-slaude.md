@@ -41,7 +41,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 
 | #   | Gap                                   | Hermes  | slaude     | Anvio hari ini                          | Target                                |
 | --- | ------------------------------------- | ------- | ---------- | --------------------------------------- | ------------------------------------- |
-| C1  | Jumlah platform                       | 20+     | Slack      | 🟡 ~12 type                             | Mattermost, Feishu, SMS, … per demand |
+| C1  | Jumlah platform                       | 20+     | Slack      | ✅ ~13 types (+ Mattermost)             | Feishu, SMS per demand          |
 | C2  | Harness depth (engagement, format)    | partial | Slack deep | 🟡 general stack                        | Snapshot tests per adapter            |
 | C3  | Harness default on                    | —       | —          | ✅ enabled + regression           | —                                 |
 | C4  | Microsoft Teams live                  | ✅       | —          | 🟡 in-memory + Bot Framework when creds | E2E dengan `TEAMS_`*                  |
@@ -107,9 +107,9 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 
 | #   | Gap                     | Hermes | slaude | Anvio hari ini   | Target                   |
 | --- | ----------------------- | ------ | ------ | ---------------- | ------------------------ |
-| V1  | CLI STT/TTS             | ✅      | —      | 🟡 OpenAI + stub | —                        |
-| V2  | Telegram voice note     | ✅      | —      | ❌                | Channel adapter hook     |
-| V3  | Discord voice / VC      | ✅      | —      | ❌                | Discord voice pipeline   |
+| V1  | CLI STT/TTS             | ✅      | —      | ✅ OpenAI + stub | —                        |
+| V2  | Telegram voice note     | ✅      | —      | ✅ Whisper hook  | —                        |
+| V3  | Discord voice / VC      | ✅      | —      | ✅ audio attach  | Full VC deferred         |
 | V4  | Real-time streaming STT | ✅      | —      | ❌                | WebSocket stream adapter |
 
 
