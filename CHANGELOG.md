@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-06-19
+
+**Phase K — Priority pillars:** Learning & memory, Automation & workflows, Authoring (Phase J), Tooling, Runtime.
+
+### Added
+
+#### Learning & memory
+- Session summarizer stores compact summaries on session end
+- Filesystem cross-session recall index (keyword-based)
+- `LearningEngine.proposeFromToolUse()` for runtime skill drafts
+
+#### Automation & workflows
+- `PlanExecuteReviewEngine` — PLAN → EXECUTE → REVIEW planner
+- `configs/planner/plan-execute-review.yaml`
+
+#### Authoring & workspace (Phase J)
+- `parsePersonaMd()` — personas load from `personas/*.md`
+- Example `workspace/personas/architect.md`
+- `scripts/import-hermes-skills.sh` for hermes-tech skill import
+
+#### Tooling & execution
+- Built-in `file_read` and `file_write` tools
+- `execute_code` routes through audited `CodeExecutor` when wired from platform
+
+#### Runtime
+- Docker sandbox in `@anvio/execution`
+- First-class `DockerRuntimeProvider` in `@anvio/runtimes`
+
+#### Documentation
+- [52-phase-k-priorities.md](docs/52-phase-k-priorities.md) — five-pillar priority stack
+- Updated gap register and roadmap for Phase K focus
+
+### Changed
+- `FilesystemMemoryProvider` injects recall hits into memory context
+- Platform wires `createCodeExecutor` into `ToolGateway`
+
+---
+
 ## [1.2.0] - 2026-06-19
 
 **Platform layer & multi-model** — credential pools, provider routing, skills catalog, MCP integrations, and 18 model providers.
@@ -44,10 +82,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `createPlatform()` registers all configured providers from environment
 - Documentation and roadmap mark Advanced Agent OS Phases A–F complete
 
-[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v1.2.0...HEAD
-[1.2.0]: https://github.com/viantonugroho11/Anvio/compare/v1.1.0...v1.2.0
+---
 
-**Advanced Agent OS** — long-lived identity, goals, automation, coordination, and pluggable execution on the local-first foundation.
+## [1.1.0] - 2026-06-19
 
 ### Added
 
@@ -95,11 +132,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Agent schema supports `spec.soul` alongside persona fallback
 - Workspace schema extended for advanced OS configuration
 
-[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/viantonugroho11/Anvio/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/viantonugroho11/Anvio/releases/tag/v1.0.0
+---
 
-First stable release — **local-first, file-first, CLI-first** AI Agent Operating System.
+## [1.0.0] - 2026-06-19
 
 ### Added
 
@@ -182,5 +217,8 @@ First stable release — **local-first, file-first, CLI-first** AI Agent Operati
 
 4. GitHub Actions **Release** workflow validates the build and publishes a GitHub Release with notes extracted from this file.
 
-[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/viantonugroho11/Anvio/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/viantonugroho11/Anvio/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/viantonugroho11/Anvio/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/viantonugroho11/Anvio/releases/tag/v1.0.0
