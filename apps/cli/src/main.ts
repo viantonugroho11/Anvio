@@ -4,7 +4,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { parse as parseYaml } from 'yaml';
 import { EventSubjects } from '@anvio/events';
-import { CliChannel, probeAllChannels, summarizeChannelHealth } from '@anvio/channels';
+import { ChannelHub, CliChannel, probeAllChannels, summarizeChannelHealth } from '@anvio/channels';
 import type { ChannelHealthReport, GoalStatus, SoulDefinition, StoredSession } from '@anvio/core';
 import { parseSkillDefinition } from '@anvio/core';
 import { nextCronRuns } from '@anvio/automation';
@@ -23,8 +23,10 @@ import { createMemoryProvider } from '@anvio/memory';
 import { createPlatform, findRepoRoot, loadAgent, storedSessionToRuntime } from '@anvio/platform';
 import { createSoulService } from '@anvio/souls';
 import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
+import { ToolGateway } from '@anvio/tools';
+import { KnowledgeBaseStore, KnowledgeIngestEngine } from '@anvio/knowledge';
+import { LearningEngine } from '@anvio/learning';
 import { createHarnessGateway, loadHarnessConfig, loadHarnessProfiles, runSimulationScenario } from '@anvio/harness';
-import { ChannelHub } from '@anvio/channels';
 import { FilesystemStorageProvider } from '@anvio/storage';
 import { Workspace, WORKSPACE_DIRS } from '@anvio/workspace';
 
@@ -118,6 +120,15 @@ async function main() {
     case 'mcp':
       await cmdMcp(args.slice(1));
       break;
+    case 'tools':
+      await cmdTools(args.slice(1));
+      break;
+    case 'kb':
+      await cmdKb(args.slice(1));
+      break;
+    case 'learning':
+      await cmdLearning(args.slice(1));
+      break;
     case 'workspace':
       await cmdWorkspace(args.slice(1));
       break;
@@ -169,6 +180,9 @@ Execution & Providers
   anvio routing show|providers|catalog|test  Provider routing and fallback
   anvio skill catalog|install|validate Skills catalog management
   anvio mcp list|test                  MCP integration servers
+  anvio tools list|test                Built-in tool gateway (Phase H)
+  anvio kb list|ingest|sync            Knowledge base raw→wiki pipeline
+  anvio learning drafts|promote        Skill evolution drafts
   anvio workspace validate             Validate workspace structure
 
 Environment
@@ -1393,6 +1407,91 @@ async function cmdSkill(sub: string[]) {
     }
     default:
       console.error('Usage: anvio skill catalog|install|validate');
+      process.exit(1);
+  }
+}
+
+async function cmdTools(sub: string[]) {
+  const action = sub[0] ?? 'list';
+  const wsPath = resolveWorkspacePath();
+  const gateway = await ToolGateway.load(wsPath);
+
+  switch (action) {
+    case 'list': {
+      const tools = gateway.listTools();
+      console.log(tools.length ? tools.join('\n') : 'No tools enabled in workspace/tools/gateway.yaml');
+      break;
+    }
+    case 'test': {
+      const tool = sub[1] ?? 'anvio_tools__web_fetch';
+      const url = sub[2] ?? 'https://example.com';
+      const result = await gateway.call({
+        name: tool,
+        arguments: tool.includes('web_search') ? { query: url } : { url, code: 'return 1+1' },
+      });
+      console.log(JSON.stringify(result, null, 2));
+      break;
+    }
+    default:
+      console.error('Usage: anvio tools list|test [tool] [arg]');
+      process.exit(1);
+  }
+}
+
+async function cmdKb(sub: string[]) {
+  const action = sub[0] ?? 'list';
+  const wsPath = resolveWorkspacePath();
+  const store = new KnowledgeBaseStore(wsPath);
+  const ingest = new KnowledgeIngestEngine(store);
+
+  switch (action) {
+    case 'list': {
+      const bases = await store.listBases();
+      console.log(bases.length ? bases.join('\n') : 'No knowledge bases yet');
+      break;
+    }
+    case 'ingest':
+    case 'sync': {
+      const slug = sub[1];
+      if (!slug) {
+        console.error(`Usage: anvio kb ${action} <slug>`);
+        process.exit(1);
+      }
+      const result = await ingest.ingest(slug);
+      console.log(JSON.stringify(result, null, 2));
+      break;
+    }
+    default:
+      console.error('Usage: anvio kb list|ingest|sync');
+      process.exit(1);
+  }
+}
+
+async function cmdLearning(sub: string[]) {
+  const action = sub[0] ?? 'drafts';
+  const wsPath = resolveWorkspacePath();
+  const workspace = await Workspace.open(wsPath);
+  const memory = createMemoryProvider(workspace.config.spec.memory.provider, workspace.storage);
+  const engine = new LearningEngine(memory, wsPath);
+
+  switch (action) {
+    case 'drafts': {
+      const drafts = await engine.listDrafts();
+      console.log(drafts.length ? drafts.join('\n') : 'No skill drafts in workspace/skills/_drafts/');
+      break;
+    }
+    case 'promote': {
+      const slug = sub[1];
+      if (!slug) {
+        console.error('Usage: anvio learning promote <draft-slug>');
+        process.exit(1);
+      }
+      const dest = await engine.promoteDraft(slug, wsPath);
+      console.log(`Promoted to ${dest}`);
+      break;
+    }
+    default:
+      console.error('Usage: anvio learning drafts|promote');
       process.exit(1);
   }
 }
