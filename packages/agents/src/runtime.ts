@@ -4,13 +4,13 @@ import type {
   AgentRuntime,
   ApprovalDecision,
   ChatMessage,
-  ModelProvider,
   Session,
   TokenUsage,
   UserInput,
 } from '@anvio/core';
 import type { MemoryStore } from '@anvio/core';
 import type { SoulService } from '@anvio/souls';
+import type { ModelProviderRegistry } from '@anvio/models';
 import { PersonaService } from '@anvio/personas';
 import { SkillRegistry } from '@anvio/skills';
 
@@ -18,7 +18,7 @@ export interface AgentRuntimeDeps {
   personaService: PersonaService;
   skillRegistry: SkillRegistry;
   memoryStore: MemoryStore;
-  modelProvider: ModelProvider;
+  modelProviders: ModelProviderRegistry;
   soulService?: SoulService;
   onProgress?: (sessionId: string, phase: string) => void;
 }
@@ -70,8 +70,9 @@ export class DefaultAgentRuntime implements AgentRuntime {
       yield { type: 'progress' as const, phase: 'Calling model', status: 'running' as const };
       this.deps.onProgress?.(session.id, 'Calling model');
 
+      const modelProvider = this.deps.modelProviders.resolveForAgent(agent);
       let fullContent = '';
-      for await (const chunk of this.deps.modelProvider.stream({
+      for await (const chunk of modelProvider.stream({
         systemPrompt,
         messages,
         maxTokens: agent.spec.model.maxTokens,

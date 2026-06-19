@@ -15,7 +15,9 @@
   },
   "dependencies": {
     "@anvio/core": "workspace:*",
-    "@anthropic-ai/sdk": "^0.52.0"
+    "@anvio/storage": "workspace:*",
+    "@anthropic-ai/sdk": "^0.52.0",
+    "yaml": "^2.8.0"
   },
   "devDependencies": { "typescript": "^5.8.3", "vitest": "^3.1.4" }
 }

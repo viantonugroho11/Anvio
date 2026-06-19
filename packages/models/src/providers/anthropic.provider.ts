@@ -95,16 +95,3 @@ export class AnthropicProvider implements ModelProvider {
     }
   }
 }
-
-export function createModelProvider(
-  provider: string,
-  apiKey: string,
-  model?: string,
-): ModelProvider {
-  switch (provider) {
-    case 'anthropic':
-      return new AnthropicProvider({ apiKey, defaultModel: model });
-    default:
-      throw new AnvioError('VALIDATION_ERROR', `Unsupported provider: ${provider}`);
-  }
-}
