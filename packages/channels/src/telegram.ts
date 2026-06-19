@@ -4,6 +4,8 @@ import type {
   OutboundMessage,
   SessionStore,
 } from '@anvio/core';
+import type { ChannelVoiceOptions, VoicePipeline } from '@anvio/voice';
+import { isChannelVoiceEnabled, transcribeInboundAudio, voiceInboundContent } from '@anvio/voice';
 import { BaseChannelAdapter } from './base-channel-adapter.js';
 import { ChannelSessionBridge } from './channel-session-bridge.js';
 
@@ -12,6 +14,8 @@ export interface TelegramChannelOptions {
   sessionBridge: ChannelSessionBridge;
   sessions: SessionStore;
   defaultAgent?: string;
+  voice?: ChannelVoiceOptions;
+  voicePipeline?: VoicePipeline;
   onApproval?: (sessionId: string, requestId: string, approved: boolean) => Promise<void>;
 }
 
@@ -25,6 +29,7 @@ interface TelegramUpdate {
   message?: {
     message_id: number;
     text?: string;
+    voice?: { file_id: string; mime_type?: string; duration?: number };
     chat: { id: number; type: string };
     message_thread_id?: number;
     from?: { id: number; username?: string };
@@ -174,7 +179,7 @@ export class TelegramChannel extends BaseChannelAdapter {
       return;
     }
     const msg = update.message;
-    if (!msg?.text || !msg.from) return;
+    if (!msg?.from) return;
 
     const chatId = msg.chat.id;
     const topicId = msg.message_thread_id;
@@ -197,6 +202,13 @@ export class TelegramChannel extends BaseChannelAdapter {
       });
     }
 
+    if (msg.voice && isChannelVoiceEnabled(this.options)) {
+      await this.handleVoiceMessage(msg, session.id, userId, threadId);
+      return;
+    }
+
+    if (!msg.text) return;
+
     const normalized = msg.text.trim().toLowerCase();
     if (normalized === 'approve' || normalized === 'reject') {
       const pending = session.pendingApproval;
@@ -213,6 +225,51 @@ export class TelegramChannel extends BaseChannelAdapter {
       channel: 'telegram',
       channelThreadId: threadId,
     });
+  }
+
+  private async handleVoiceMessage(
+    msg: NonNullable<TelegramUpdate['message']>,
+    sessionId: string,
+    userId: string,
+    threadId: string,
+  ): Promise<void> {
+    const voice = msg.voice;
+    if (!voice || !this.options.voicePipeline) return;
+
+    try {
+      const file = await this.api<{ file_path: string }>('getFile', { file_id: voice.file_id });
+      const fileRes = await fetch(
+        `https://api.telegram.org/file/bot${this.options.botToken}/${file.file_path}`,
+      );
+      if (!fileRes.ok) throw new Error(`Telegram file download failed: ${fileRes.status}`);
+      const audio = Buffer.from(await fileRes.arrayBuffer());
+      const transcript = await transcribeInboundAudio(
+        this.options.voicePipeline,
+        audio,
+        voice.mime_type ?? 'audio/ogg',
+      );
+      await this.dispatchInbound({
+        sessionId,
+        userId,
+        content: voiceInboundContent(transcript),
+        channel: 'telegram',
+        channelThreadId: threadId,
+        metadata: { voice: true, transcript },
+      });
+    } catch (error) {
+      console.error(
+        '[Telegram] Voice transcribe failed:',
+        error instanceof Error ? error.message : error,
+      );
+      await this.dispatchInbound({
+        sessionId,
+        userId,
+        content: '[voice] (transcription failed)',
+        channel: 'telegram',
+        channelThreadId: threadId,
+        metadata: { voice: true, error: true },
+      });
+    }
   }
 
   private async handleCallback(cq: NonNullable<TelegramUpdate['callback_query']>): Promise<void> {

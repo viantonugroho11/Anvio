@@ -17,6 +17,9 @@ import { TeamsChannel } from './teams.js';
 import { TelegramChannel } from './telegram.js';
 import { WebChatChannel } from './web-chat.js';
 import { WhatsAppChannel } from './whatsapp.js';
+import { MattermostChannel } from './mattermost.js';
+import { VoicePipeline } from '@anvio/voice';
+import type { ChannelVoiceOptions } from '@anvio/voice';
 
 export interface SlackChannelConfig {
   enabled?: boolean;
@@ -34,8 +37,9 @@ export interface WhatsAppChannelConfig {
 }
 
 export interface ChannelConfig {
-  telegram?: { enabled?: boolean; botToken?: string; defaultAgent?: string };
-  discord?: { enabled?: boolean; botToken?: string; defaultAgent?: string };
+  voice?: ChannelVoiceOptions;
+  telegram?: { enabled?: boolean; botToken?: string; defaultAgent?: string; voice?: ChannelVoiceOptions };
+  discord?: { enabled?: boolean; botToken?: string; defaultAgent?: string; voice?: ChannelVoiceOptions };
   slack?: SlackChannelConfig;
   whatsapp?: WhatsAppChannelConfig;
   teams?: {
@@ -69,6 +73,12 @@ export interface ChannelConfig {
   googleChat?: {
     enabled?: boolean;
     webhookUrl?: string;
+    defaultAgent?: string;
+  };
+  mattermost?: {
+    enabled?: boolean;
+    serverUrl?: string;
+    botToken?: string;
     defaultAgent?: string;
   };
 }
@@ -109,6 +119,8 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
       });
     });
 
+  const voicePipeline = resolveVoicePipeline(options.channels);
+
   registerAdapter(hub, new WebChatChannel(), onInbound);
   registerAdapter(hub, new CliChannel(), onInbound);
   registerAdapter(hub, new RestApiChannel(), onInbound);
@@ -123,6 +135,8 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
         sessionBridge: bridge,
         sessions: options.sessions,
         defaultAgent: options.channels.telegram.defaultAgent ?? options.defaultAgent,
+        voice: mergeVoiceOptions(options.channels, options.channels.telegram.voice),
+        voicePipeline,
         onApproval,
       }),
       onInbound,
@@ -138,6 +152,8 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
         sessionBridge: bridge,
         sessions: options.sessions,
         defaultAgent: options.channels.discord.defaultAgent ?? options.defaultAgent,
+        voice: mergeVoiceOptions(options.channels, options.channels.discord.voice),
+        voicePipeline,
         onApproval,
       }),
       onInbound,
@@ -251,7 +267,52 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
     );
   }
 
+  const mattermostUrl =
+    options.channels?.mattermost?.serverUrl ?? process.env.MATTERMOST_SERVER_URL;
+  const mattermostToken =
+    options.channels?.mattermost?.botToken ?? process.env.MATTERMOST_BOT_TOKEN;
+  if (options.channels?.mattermost?.enabled && mattermostUrl && mattermostToken) {
+    registerAdapter(
+      hub,
+      new MattermostChannel({
+        serverUrl: mattermostUrl,
+        botToken: mattermostToken,
+        sessionBridge: bridge,
+        sessions: options.sessions,
+        defaultAgent: options.channels.mattermost.defaultAgent ?? options.defaultAgent,
+        onApproval,
+      }),
+      onInbound,
+    );
+  }
+
   return { hub, whatsapp };
+}
+
+function resolveVoicePipeline(channels?: ChannelConfig): VoicePipeline | undefined {
+  const globalVoice = channels?.voice?.enabled === true;
+  const telegramVoice = channels?.telegram?.voice?.enabled === true;
+  const discordVoice = channels?.discord?.voice?.enabled === true;
+  const envVoice = process.env.ANVIO_CHANNEL_VOICE === '1';
+  if (globalVoice || telegramVoice || discordVoice || envVoice) {
+    return new VoicePipeline();
+  }
+  return undefined;
+}
+
+function mergeVoiceOptions(
+  channels: ChannelConfig | undefined,
+  channelVoice?: ChannelVoiceOptions,
+): ChannelVoiceOptions | undefined {
+  const enabled =
+    channelVoice?.enabled === true ||
+    channels?.voice?.enabled === true ||
+    process.env.ANVIO_CHANNEL_VOICE === '1';
+  if (!enabled) return undefined;
+  return {
+    enabled: true,
+    replyWithAudio: channelVoice?.replyWithAudio ?? channels?.voice?.replyWithAudio,
+  };
 }
 
 function registerAdapter(

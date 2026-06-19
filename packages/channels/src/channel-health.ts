@@ -13,6 +13,7 @@ const OPTIONAL_CHANNELS: ChannelType[] = [
   'email',
   'signal',
   'google-chat',
+  'mattermost',
 ];
 
 function report(
@@ -51,6 +52,7 @@ export async function probeAllChannels(config?: ChannelConfig): Promise<ChannelH
   results.push(probeEmail(config));
   results.push(probeSignal(config));
   results.push(probeGoogleChat(config));
+  results.push(await probeMattermost(config));
 
   return results;
 }
@@ -291,6 +293,42 @@ function probeGoogleChat(config?: ChannelConfig): ChannelHealthReport {
     return report(channel, 'misconfigured', 'Missing GOOGLE_CHAT_WEBHOOK_URL');
   }
   return report(channel, 'healthy', 'Webhook URL configured');
+}
+
+async function probeMattermost(config?: ChannelConfig): Promise<ChannelHealthReport> {
+  const channel: ChannelType = 'mattermost';
+  if (!isEnabled(config, 'mattermost')) {
+    return report(channel, 'disabled', 'Not enabled — set spec.channels.mattermost.enabled: true');
+  }
+
+  const serverUrl = config?.mattermost?.serverUrl ?? process.env.MATTERMOST_SERVER_URL;
+  const token = config?.mattermost?.botToken ?? process.env.MATTERMOST_BOT_TOKEN;
+  if (!serverUrl) {
+    return report(channel, 'misconfigured', 'Missing MATTERMOST_SERVER_URL');
+  }
+  if (!token) {
+    return report(channel, 'misconfigured', 'Missing MATTERMOST_BOT_TOKEN');
+  }
+
+  try {
+    const { result, latencyMs } = await timed(async () => {
+      const base = serverUrl.replace(/\/$/, '');
+      const res = await fetch(`${base}/api/v4/users/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`${res.status} ${err}`);
+      }
+      return res.json() as Promise<{ id?: string; username?: string }>;
+    });
+    return report(channel, 'healthy', `Connected as ${result.username ?? result.id ?? 'bot'}`, {
+      latencyMs,
+      details: { userId: result.id, username: result.username },
+    });
+  } catch (error) {
+    return report(channel, 'unreachable', error instanceof Error ? error.message : 'Probe failed');
+  }
 }
 
 export { OPTIONAL_CHANNELS, BUILTIN_CHANNELS };

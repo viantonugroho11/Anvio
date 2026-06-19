@@ -19,3 +19,4 @@ export * from './matrix.js';
 export * from './email.js';
 export * from './signal.js';
 export * from './webhook-channel-base.js';
+export * from './mattermost.js';

@@ -4,6 +4,8 @@ import type {
   OutboundMessage,
   SessionStore,
 } from '@anvio/core';
+import type { ChannelVoiceOptions, VoicePipeline } from '@anvio/voice';
+import { isChannelVoiceEnabled, transcribeInboundAudio, voiceInboundContent } from '@anvio/voice';
 import { BaseChannelAdapter } from './base-channel-adapter.js';
 import { ChannelSessionBridge } from './channel-session-bridge.js';
 
@@ -12,6 +14,8 @@ export interface DiscordChannelOptions {
   sessionBridge: ChannelSessionBridge;
   sessions: SessionStore;
   defaultAgent?: string;
+  voice?: ChannelVoiceOptions;
+  voicePipeline?: VoicePipeline;
   onApproval?: (sessionId: string, requestId: string, approved: boolean) => Promise<void>;
 }
 
@@ -27,6 +31,12 @@ interface DiscordMessage {
   channel_id: string;
   content: string;
   author: { id: string; bot?: boolean };
+  attachments?: Array<{
+    id: string;
+    filename: string;
+    url: string;
+    content_type?: string;
+  }>;
 }
 
 interface DiscordInteraction {
@@ -216,7 +226,7 @@ export class DiscordChannel extends BaseChannelAdapter {
   }
 
   private async handleMessage(msg: DiscordMessage): Promise<void> {
-    if (msg.author.bot || !msg.content) return;
+    if (msg.author.bot) return;
 
     const threadId = threadKey(msg.channel_id);
     const userId = `discord:${msg.author.id}`;
@@ -237,6 +247,17 @@ export class DiscordChannel extends BaseChannelAdapter {
       });
     }
 
+    const audioAttachment = isChannelVoiceEnabled(this.options)
+      ? msg.attachments?.find(isAudioAttachment)
+      : undefined;
+
+    if (audioAttachment && this.options.voicePipeline) {
+      await this.handleAudioAttachment(session.id, userId, threadId, audioAttachment);
+      return;
+    }
+
+    if (!msg.content) return;
+
     const normalized = msg.content.trim().toLowerCase();
     if (normalized === 'approve' || normalized === 'reject') {
       const pending = session.pendingApproval;
@@ -253,6 +274,45 @@ export class DiscordChannel extends BaseChannelAdapter {
       channel: 'discord',
       channelThreadId: threadId,
     });
+  }
+
+  private async handleAudioAttachment(
+    sessionId: string,
+    userId: string,
+    threadId: string,
+    attachment: NonNullable<DiscordMessage['attachments']>[number],
+  ): Promise<void> {
+    if (!this.options.voicePipeline) return;
+    try {
+      const res = await fetch(attachment.url, {
+        headers: { Authorization: `Bot ${this.options.botToken}` },
+      });
+      if (!res.ok) throw new Error(`Discord attachment download failed: ${res.status}`);
+      const audio = Buffer.from(await res.arrayBuffer());
+      const mimeType = attachment.content_type ?? guessAudioMime(attachment.filename);
+      const transcript = await transcribeInboundAudio(this.options.voicePipeline, audio, mimeType);
+      await this.dispatchInbound({
+        sessionId,
+        userId,
+        content: voiceInboundContent(transcript),
+        channel: 'discord',
+        channelThreadId: threadId,
+        metadata: { voice: true, transcript, attachmentId: attachment.id },
+      });
+    } catch (error) {
+      console.error(
+        '[Discord] Audio transcribe failed:',
+        error instanceof Error ? error.message : error,
+      );
+      await this.dispatchInbound({
+        sessionId,
+        userId,
+        content: '[voice] (transcription failed)',
+        channel: 'discord',
+        channelThreadId: threadId,
+        metadata: { voice: true, error: true },
+      });
+    }
   }
 
   private async interactionCallback(interaction: DiscordInteraction, body: unknown): Promise<void> {
@@ -295,4 +355,17 @@ function splitMessage(text: string, maxLen: number): string[] {
     remaining = remaining.slice(maxLen);
   }
   return chunks;
+}
+
+function isAudioAttachment(attachment: NonNullable<DiscordMessage['attachments']>[number]): boolean {
+  if (attachment.content_type?.startsWith('audio/')) return true;
+  return /\.(ogg|oga|mp3|wav|m4a|webm|flac)$/i.test(attachment.filename);
+}
+
+function guessAudioMime(filename: string): string {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith('.mp3')) return 'audio/mpeg';
+  if (lower.endsWith('.wav')) return 'audio/wav';
+  if (lower.endsWith('.webm')) return 'audio/webm';
+  return 'audio/ogg';
 }
