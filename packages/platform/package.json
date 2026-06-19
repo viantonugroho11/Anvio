@@ -21,6 +21,7 @@
     "@anvio/core": "workspace:*",
     "@anvio/events": "workspace:*",
     "@anvio/hooks": "workspace:*",
+    "@anvio/integrations": "workspace:*",
     "@anvio/memory": "workspace:*",
     "@anvio/models": "workspace:*",
     "@anvio/personas": "workspace:*",

@@ -1,5 +1,6 @@
 import { ActionExecutor, createAutomationEngine, type AutomationEngine } from '@anvio/automation';
 import { BlueprintExecutor, createCatalogRegistry } from '@anvio/blueprints';
+import { createIntegrationRegistry, createMcpBridge } from '@anvio/integrations';
 import { createHookEngine, type HookEngine } from '@anvio/hooks';
 import { DefaultAgentRuntime } from '@anvio/agents';
 import { createChannelHub, FilesystemAgentInbox, type WhatsAppChannel } from '@anvio/channels';
@@ -14,10 +15,15 @@ import type {
 } from '@anvio/core';
 import { createEventBus, EventSubjects, type EventBusLike } from '@anvio/events';
 import { createMemoryProvider } from '@anvio/memory';
-import { createModelProvider } from '@anvio/models';
+import {
+  createModelProviderRegistryFromEnv,
+  createModelProviderRegistryInstance,
+  allKnownProviderIds,
+  type ModelProviderRegistry,
+} from '@anvio/models';
 import { PersonaService } from '@anvio/personas';
 import { createSoulService } from '@anvio/souls';
-import { SkillRegistry } from '@anvio/skills';
+import { SkillRegistry, createSkillCatalogResolver } from '@anvio/skills';
 import { Workspace } from '@anvio/workspace';
 import { findRepoRoot, findWorkspacePath } from './find-workspace.js';
 
@@ -27,6 +33,7 @@ export interface PlatformContext {
   runtime: DefaultAgentRuntime;
   eventBus: EventBusLike;
   modelProvider: ModelProvider;
+  modelProviders: ModelProviderRegistry;
   channelHub: ChannelHubPort;
   inbox: AgentInbox;
   whatsapp?: WhatsAppChannel;
@@ -52,14 +59,26 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   });
 
   const memoryProvider = createMemoryProvider(spec.memory.provider, workspace.storage);
+  const repoRoot = findRepoRoot(workspacePath);
   const personaService = new PersonaService(workspace.loader);
-  const skillRegistry = new SkillRegistry(workspace.loader);
+  const skillCatalog = createSkillCatalogResolver(workspacePath, repoRoot);
+  const skillRegistry = new SkillRegistry(workspace.loader, skillCatalog);
   const soulService = createSoulService(workspace.storage, memoryProvider);
 
-  const apiKey = options.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY ?? '';
-  const modelProvider = apiKey
-    ? createModelProvider('anthropic', apiKey)
-    : createMockModelProvider();
+  const providerMap = createModelProviderRegistryFromEnv({
+    anthropicApiKey: options.anthropicApiKey,
+  });
+  if (providerMap.size === 0) {
+    const mock = createMockModelProvider();
+    for (const id of allKnownProviderIds()) {
+      providerMap.set(id, mock);
+    }
+  }
+  const modelProviders = createModelProviderRegistryInstance(providerMap);
+  const modelProvider =
+    modelProviders.getOptional('anthropic') ??
+    modelProviders.first() ??
+    createMockModelProvider();
 
   const eventBus = await createEventBus(spec.events.provider, {
     url: spec.events.url ?? process.env.NATS_URL,
@@ -81,7 +100,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     skillRegistry,
     memoryStore: memoryProvider,
     soulService,
-    modelProvider,
+    modelProviders,
     onProgress: (sessionId, phase) => {
       void eventBus.publishCore(EventSubjects.AGENT_RUN_PROGRESS, 'anvio.agent.run.progress', {
         sessionId,
@@ -94,10 +113,13 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
 
   await channelHub.startAll();
 
-  const repoRoot = findRepoRoot(workspacePath);
+  const integrationRegistry = createIntegrationRegistry(workspace.storage);
+  await integrationRegistry.load();
+  const mcpBridge = createMcpBridge(integrationRegistry);
   const catalog = createCatalogRegistry(workspacePath, repoRoot);
   const blueprintExecutor = new BlueprintExecutor({
     catalog,
+    mcpBridge,
     runAgent: async (agentId, input) => {
       const agent = await workspace.loader.loadAgent(agentId);
       const stored = await workspace.sessions.create({
@@ -152,6 +174,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     runtime,
     eventBus,
     modelProvider,
+    modelProviders,
     channelHub,
     inbox,
     whatsapp,
@@ -167,7 +190,7 @@ function createMockModelProvider(): ModelProvider {
     async chat(request) {
       const last = request.messages.at(-1)?.content ?? '';
       return {
-        content: `[Mock — set ANTHROPIC_API_KEY] You said: ${last}`,
+        content: `[Mock — set a model API key] You said: ${last}`,
         usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
         model: 'mock',
         finishReason: 'end_turn',
@@ -175,7 +198,7 @@ function createMockModelProvider(): ModelProvider {
     },
     async *stream(request) {
       const last = request.messages.at(-1)?.content ?? '';
-      const text = `[Mock — set ANTHROPIC_API_KEY] You said: ${last}`;
+      const text = `[Mock — set a model API key] You said: ${last}`;
       yield { type: 'text_delta', delta: text };
       yield {
         type: 'done',

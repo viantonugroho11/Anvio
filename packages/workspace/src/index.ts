@@ -90,7 +90,11 @@ export class Workspace {
     }
     await fs.mkdir(path.join(rootDir, 'automations', '_state'), { recursive: true });
     await fs.mkdir(path.join(rootDir, 'memory', 'sessions'), { recursive: true });
+    await fs.mkdir(path.join(rootDir, 'credentials', 'encrypted'), { recursive: true });
     await fs.writeFile(path.join(rootDir, 'anvio.yaml'), defaultAnvioYaml(), 'utf-8');
+    await fs.writeFile(path.join(rootDir, 'providers/routing.yaml'), defaultRoutingYaml(), 'utf-8');
+    await fs.writeFile(path.join(rootDir, 'mcp/servers.yaml'), defaultMcpServersYaml(), 'utf-8');
+    await fs.writeFile(path.join(rootDir, 'hooks/hooks.yaml'), defaultHooksYaml(), 'utf-8');
     return Workspace.open(rootDir);
   }
 }
@@ -130,6 +134,66 @@ spec:
     repoPath: ..
   defaultAgent: architect
   defaultUserId: local-user
+`;
+}
+
+function defaultRoutingYaml(): string {
+  return `# Provider routing — see docs/36-provider-routing.md
+apiVersion: anvio.io/v1
+kind: ProviderRouting
+metadata:
+  name: default
+spec:
+  defaultStrategy: highest_quality
+  routes:
+    coding:
+      strategy: coding_optimized
+      primary:
+        provider: anthropic
+        model: claude-sonnet-4-20250514
+        pool: anthropic
+      fallback:
+        - provider: openai
+          model: gpt-4o
+          pool: openai
+    chat:
+      strategy: cheapest
+      primary:
+        provider: anthropic
+        model: claude-haiku-3-5-20241022
+        pool: anthropic
+`;
+}
+
+function defaultMcpServersYaml(): string {
+  return `# MCP server registry — see docs/38-integration-architecture.md
+apiVersion: anvio.io/v1
+kind: McpConfig
+metadata:
+  name: default
+spec:
+  servers:
+    github:
+      command: npx
+      args:
+        - -y
+        - "@modelcontextprotocol/server-github"
+      env:
+        GITHUB_TOKEN: \${GITHUB_TOKEN}
+      enabled: false
+`;
+}
+
+function defaultHooksYaml(): string {
+  return `# Event hooks — see docs/31-event-hooks.md
+apiVersion: anvio.io/v1
+kind: HookRegistry
+spec:
+  hooks:
+    - event: onGoalCreated
+      handlers: []
+    - event: onGoalCompleted
+      handlers: []
 `;
 }
 
