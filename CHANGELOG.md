@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-06-19
+
+**Phase K+ — Memory search, browser sandbox, ACP production path**
+
+### Added
+
+#### Learning & memory
+- FTS5 recall layer via optional `better-sqlite3` (`memory.fts: true` in workspace)
+- Honcho dialectic context merged into `getContext` when API key configured
+
+#### Tooling
+- `browser` built-in tool with Playwright sandbox (falls back to `web_fetch` when Playwright absent)
+- Optional `playwright` dependency on `@anvio/tools`
+
+#### Runtime & editor integration
+- ACP `POST /prompt/stream` SSE endpoint for streaming agent responses
+- `CursorRuntimeProvider` delegates to local ACP server (`anvio acp serve`)
+- CLI ACP server reuses sessions and streams via `platform.runtime.stream`
+
+### Changed
+- Platform passes `memory.fts` to memory provider factory
+- Fixed `getBySession` to skip recall index JSON (non-array entries)
+
+---
+
 ## [1.3.0] - 2026-06-19
 
 **Phase K — Priority pillars:** Learning & memory, Automation & workflows, Authoring (Phase J), Tooling, Runtime.
