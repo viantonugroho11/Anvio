@@ -45,6 +45,8 @@ Slack, Telegram, Discord, and WhatsApp ship as **stub adapters** — real SDK wi
 
 - Stub adapters require per-channel integration effort before production use.
 - In-process inbox does not survive process restart (Level 3: persist to session store or Redis).
+
+**Update (implemented):** `FilesystemAgentInbox` persists to `workspace/inbox/<sessionId>.json`.
 - Approval UX varies by channel; adapters must render platform-native buttons where available.
 
 ## Alternatives Rejected
