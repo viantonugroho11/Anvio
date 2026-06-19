@@ -2,6 +2,7 @@ export * from './errors/anvio-error.js';
 export * from './errors/result.js';
 export * from './types/common.js';
 export * from './types/channel.js';
+export * from './types/channel-health.js';
 export * from './schemas/agent.schema.js';
 export * from './schemas/persona.schema.js';
 export * from './schemas/skill.schema.js';
