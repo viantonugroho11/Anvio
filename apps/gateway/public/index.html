@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anvio Web Chat</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; height: 100vh; display: flex; flex-direction: column; }
+    header { padding: 1rem 1.5rem; border-bottom: 1px solid #334155; }
+    #messages { flex: 1; overflow-y: auto; padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    .msg { max-width: 80%; padding: 0.75rem 1rem; border-radius: 0.75rem; line-height: 1.5; }
+    .user { align-self: flex-end; background: #2563eb; }
+    .assistant { align-self: flex-start; background: #1e293b; border: 1px solid #334155; }
+    .system { align-self: center; color: #94a3b8; font-size: 0.875rem; }
+    footer { padding: 1rem 1.5rem; border-top: 1px solid #334155; display: flex; gap: 0.5rem; }
+    input, button { padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 1rem; }
+    input { flex: 1; }
+    button { background: #2563eb; border-color: #2563eb; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #setup { padding: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; max-width: 480px; margin: auto; }
+    label { font-size: 0.875rem; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <header><strong>Anvio</strong> Web Chat</header>
+  <div id="setup">
+    <label>API URL <input id="apiUrl" value="http://localhost:3000/api" /></label>
+    <label>Gateway URL <input id="gwUrl" value="ws://localhost:3001/ws" /></label>
+    <label>Email <input id="email" value="admin@anvio.local" /></label>
+    <label>Password <input id="password" type="password" value="admin123" /></label>
+    <label>Agent ID <input id="agentId" placeholder="from GET /api/agents" /></label>
+    <button id="connectBtn">Connect</button>
+  </div>
+  <div id="messages" hidden></div>
+  <footer hidden id="chatFooter">
+    <input id="input" placeholder="Type a message..." disabled />
+    <button id="sendBtn" disabled>Send</button>
+  </footer>
+  <script>
+    let token, sessionId, ws, currentAssistant = null;
+
+    function addMsg(role, text) {
+      const el = document.createElement('div');
+      el.className = 'msg ' + role;
+      el.textContent = text;
+      document.getElementById('messages').appendChild(el);
+      el.scrollIntoView({ behavior: 'smooth' });
+      return el;
+    }
+
+    document.getElementById('connectBtn').onclick = async () => {
+      const api = document.getElementById('apiUrl').value;
+      const gw = document.getElementById('gwUrl').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      let agentId = document.getElementById('agentId').value;
+
+      const login = await fetch(api + '/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      }).then(r => r.json());
+      token = login.token;
+
+      if (!agentId) {
+        const agents = await fetch(api + '/agents', { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json());
+        agentId = agents[0]?.id;
+        document.getElementById('agentId').value = agentId || '';
+      }
+
+      const session = await fetch(api + '/sessions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ agentId }),
+      }).then(r => r.json());
+      sessionId = session.id;
+
+      document.getElementById('setup').hidden = true;
+      document.getElementById('messages').hidden = false;
+      document.getElementById('chatFooter').hidden = false;
+      addMsg('system', 'Connected to session ' + sessionId);
+
+      ws = new WebSocket(gw + '?token=' + token + '&sessionId=' + sessionId);
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'chunk') {
+          if (!currentAssistant) currentAssistant = addMsg('assistant', '');
+          currentAssistant.textContent += msg.delta;
+        }
+        if (msg.type === 'done') {
+          if (msg.content && !currentAssistant) addMsg('assistant', msg.content);
+          currentAssistant = null;
+          document.getElementById('input').disabled = false;
+          document.getElementById('sendBtn').disabled = false;
+        }
+        if (msg.type === 'error') addMsg('system', 'Error: ' + msg.error);
+      };
+
+      document.getElementById('input').disabled = false;
+      document.getElementById('sendBtn').disabled = false;
+    };
+
+    function send() {
+      const input = document.getElementById('input');
+      const text = input.value.trim();
+      if (!text || !ws) return;
+      addMsg('user', text);
+      ws.send(JSON.stringify({ type: 'message', sessionId, content: text }));
+      input.value = '';
+      document.getElementById('input').disabled = true;
+      document.getElementById('sendBtn').disabled = true;
+    }
+
+    document.getElementById('sendBtn').onclick = send;
+    document.getElementById('input').onkeydown = (e) => { if (e.key === 'Enter') send(); };
+  </script>
+</body>
+</html>
