@@ -21,6 +21,8 @@ import {
 } from '@anvio/core';
 import { FilesystemStorageProvider } from '@anvio/storage';
 import { v4 as uuidv4 } from 'uuid';
+import { createWorktreeManager } from './git-worktree-manager.js';
+import type { WorktreeManager } from '@anvio/core';
 
 export const WORKSPACE_DIRS = [
   'agents',
@@ -33,6 +35,7 @@ export const WORKSPACE_DIRS = [
   'mcp',
   'artifacts',
   'worktrees',
+  'inbox',
 ] as const;
 
 export class Workspace {
@@ -42,6 +45,7 @@ export class Workspace {
   readonly loader: WorkspaceConfigLoader;
   readonly sessions: FilesystemSessionStore;
   readonly artifacts: FilesystemArtifactStore;
+  readonly worktrees: WorktreeManager | null;
 
   private constructor(rootDir: string, config: WorkspaceDefinition) {
     this.rootDir = rootDir;
@@ -50,6 +54,7 @@ export class Workspace {
     this.loader = new WorkspaceConfigLoader(this.storage);
     this.sessions = new FilesystemSessionStore(this.storage);
     this.artifacts = new FilesystemArtifactStore(this.storage);
+    this.worktrees = createWorktreeManager(rootDir, config.spec.worktrees);
   }
 
   static async open(rootDir: string): Promise<Workspace> {
@@ -96,6 +101,21 @@ spec:
     basePath: memory
   events:
     provider: local
+  # channels:
+  #   telegram:
+  #     enabled: true
+  #   discord:
+  #     enabled: true
+  #   slack:
+  #     enabled: true
+  #     # SLACK_BOT_TOKEN + SLACK_APP_TOKEN (Socket Mode)
+  #   whatsapp:
+  #     enabled: true
+  #     # WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN
+  #     # Webhook: POST /api/channels/whatsapp/webhook
+  worktrees:
+    enabled: false
+    repoPath: ..
   defaultAgent: architect
   defaultUserId: local-user
 `;
@@ -258,3 +278,5 @@ export class FilesystemArtifactStore implements ArtifactStore {
     return artifacts;
   }
 }
+
+export { createWorktreeManager, GitWorktreeManager } from './git-worktree-manager.js';
