@@ -32,6 +32,7 @@ Cross-cutting initiative documented in [24-advanced-agent-os-overview.md](./24-a
 | **G — Channel Harness** | Generalized slaude harness (all channels), Soul Gate, approval | U20–U28, U36 | ✅ |
 | **H — Learning & Tools** | Hermes learning loop, Tool Gateway, Knowledge base | U29–U31, U37 | ✅ |
 | **I — Scale & Reach** | Workflow engine, expanded channels, remote runtimes, voice | U32–U35, U38 | ✅ |
+| **J — Docs & Polish** | MD-first artifacts, parity audit, product docs | U39 | ✅ |
 
 Full plan (Phase G+): [plans/2026-06-19-002-feat-unified-agent-product-plan.md](./plans/2026-06-19-002-feat-unified-agent-product-plan.md).
 
@@ -57,9 +58,12 @@ Full plan (Phase G+): [plans/2026-06-19-002-feat-unified-agent-product-plan.md](
 | [39-editor-integration.md](./39-editor-integration.md) | ACP editor server |
 | [40-subagent-delegation.md](./40-subagent-delegation.md) | Subagent delegation |
 | [41-channel-harness.md](./41-channel-harness.md) | Channel harness |
+| [42-soul-gate.md](./42-soul-gate.md) | Soul Gate / SOUL.md policy |
 | [43-learning-loop.md](./43-learning-loop.md) | Learning loop |
 | [44-tool-gateway.md](./44-tool-gateway.md) | Tool gateway |
 | [45-workflow-engine.md](./45-workflow-engine.md) | Workflow DAG engine |
 | [46-expanded-channels.md](./46-expanded-channels.md) | Expanded channels |
 | [47-remote-runtimes.md](./47-remote-runtimes.md) | Remote runtimes |
 | [48-voice-mode.md](./48-voice-mode.md) | Voice mode |
+| [49-workspace-artifacts.md](./49-workspace-artifacts.md) | MD-first conventions |
+| [50-hermes-slaude-parity.md](./50-hermes-slaude-parity.md) | Hermes + slaude gap audit |

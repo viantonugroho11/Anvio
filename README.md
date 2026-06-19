@@ -6,7 +6,7 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Configure agents in **YAML**. Run them from the **CLI**. No database, no login, no Docker required to start.
+Configure agents in **Markdown** (Hermes/slaude-style) with YAML for infra only. Run from the **CLI**. No database, no login, no Docker required to start.
 
 Everything lives in a portable `workspace/` folder — back it up, commit it to git, or copy it to another machine.
 
@@ -37,7 +37,7 @@ Everything lives in a portable `workspace/` folder — back it up, commit it to 
 ```mermaid
 flowchart TB
     subgraph You["Your machine"]
-        WS["workspace/<br/>YAML configs"]
+        WS["workspace/<br/>MD + config"]
         CLI["anvio CLI"]
     end
 
@@ -63,7 +63,7 @@ flowchart TB
 
 | Layer | What it does |
 |-------|----------------|
-| **Agents** | Persona + skills + model + memory — defined in YAML |
+| **Agents** | Persona + skills + model + memory — `agents/*.md`, `skills/*.md`, `souls/*/SOUL.md` |
 | **Advanced Agent OS** | Souls, goals, kanban, batch jobs, subagent delegation |
 | **Automation** | Cron schedules, blueprints (workflows), event hooks |
 | **Platform** | Credential pools, provider routing, skills catalog, MCP bridge |
@@ -75,7 +75,7 @@ flowchart TB
 | Principle | In practice |
 |-----------|-------------|
 | **Local-first** | Runs on your machine; configs work offline |
-| **File-first** | Agents, skills, goals = human-readable YAML/JSON |
+| **File-first** | Agents, skills, souls = Markdown; infra = YAML/JSON |
 | **CLI-first** | Primary interface; API and gateway are optional |
 | **Progressive** | Start with files only; add PostgreSQL/NATS/K8s when you need scale |
 | **Portable** | Copy `workspace/` — no migration scripts at Level 1 |

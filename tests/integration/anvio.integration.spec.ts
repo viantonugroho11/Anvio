@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseAgentDefinition, parseWorkspaceDefinition } from '@anvio/core';
+import { parseAgentMd, parseWorkspaceDefinition } from '@anvio/core';
 import { FilesystemStorageProvider } from '@anvio/storage';
 import { Workspace, WorkspaceConfigLoader } from '@anvio/workspace';
 import { createAuthProvider } from '@anvio/auth';
@@ -7,7 +7,6 @@ import { createMemoryStore } from '@anvio/memory';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parse as parseYaml } from 'yaml';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '../..');
@@ -34,9 +33,9 @@ describe('Local-First Architecture', () => {
   });
 
   it('loads architect agent from workspace/', () => {
-    const configPath = path.join(root, 'workspace/agents/architect.yaml');
-    const raw = parseYaml(fs.readFileSync(configPath, 'utf-8'));
-    const agent = parseAgentDefinition(raw);
+    const configPath = path.join(root, 'workspace/agents/architect.md');
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const agent = parseAgentMd(raw, 'architect');
     expect(agent.metadata.name).toBe('architect');
   });
 
@@ -65,7 +64,9 @@ describe('Local-First Architecture', () => {
 describe('Production Readiness Checklist', () => {
   const checklist = [
     'workspace/anvio.yaml',
-    'workspace/agents/architect.yaml',
+    'workspace/agents/architect.md',
+    'workspace/skills/architecture.md',
+    'workspace/souls/architect-soul/SOUL.md',
     'packages/storage/src/filesystem.ts',
     'packages/workspace/src/index.ts',
     'packages/auth/src/index.ts',
