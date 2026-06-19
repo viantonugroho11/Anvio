@@ -42,6 +42,9 @@ async function main() {
     case 'inbox':
       await cmdInbox(args.slice(1));
       break;
+    case 'worktree':
+      await cmdWorktree(args.slice(1));
+      break;
     case 'help':
     default:
       printHelp();
@@ -62,10 +65,18 @@ Usage:
   anvio approve <session> <id>   Approve pending tool request
   anvio stop <sessionId>         Stop running agent session
   anvio inbox <sessionId> <msg>  Inject instruction into running agent
+  anvio worktree list|create|remove  Manage git worktree isolation
 
 Environment:
   ANTHROPIC_API_KEY              Model provider API key
   ANVIO_WORKSPACE                Workspace path (default: ./workspace)
+  TELEGRAM_BOT_TOKEN             Telegram bot token
+  DISCORD_BOT_TOKEN              Discord bot token
+  SLACK_BOT_TOKEN                Slack bot token (xoxb-...)
+  SLACK_APP_TOKEN                Slack app token for Socket Mode (xapp-...)
+  WHATSAPP_ACCESS_TOKEN          Meta Cloud API access token
+  WHATSAPP_PHONE_NUMBER_ID       WhatsApp Business phone number ID
+  WHATSAPP_VERIFY_TOKEN          Webhook verify token (default: anvio-verify)
 
 Priority: CLI > API > Web UI — entire platform usable without Web UI`);
 }
@@ -286,6 +297,54 @@ async function cmdInbox(sub: string[]) {
     content,
   });
   console.log(`Inbox message injected (${type})`);
+}
+
+async function cmdWorktree(sub: string[]) {
+  const action = sub[0] ?? 'list';
+  const platform = await getPlatform();
+  const { workspace } = platform;
+
+  if (!workspace.worktrees) {
+    console.error('Worktrees disabled. Enable in workspace/anvio.yaml: spec.worktrees.enabled: true');
+    process.exit(1);
+  }
+
+  switch (action) {
+    case 'list': {
+      const items = await workspace.worktrees.list();
+      if (items.length === 0) {
+        console.log('No active worktrees.');
+        return;
+      }
+      for (const wt of items) {
+        console.log(`${wt.sessionId}  ${wt.branch}  ${wt.path}`);
+      }
+      break;
+    }
+    case 'create': {
+      const sessionId = sub[1];
+      if (!sessionId) {
+        console.error('Usage: anvio worktree create <sessionId>');
+        process.exit(1);
+      }
+      const wt = await workspace.worktrees.create(sessionId);
+      console.log(`Created worktree: ${wt.path} (branch: ${wt.branch})`);
+      break;
+    }
+    case 'remove': {
+      const sessionId = sub[1];
+      if (!sessionId) {
+        console.error('Usage: anvio worktree remove <sessionId>');
+        process.exit(1);
+      }
+      await workspace.worktrees.remove(sessionId);
+      console.log(`Removed worktree for ${sessionId}`);
+      break;
+    }
+    default:
+      console.error('Usage: anvio worktree list|create|remove');
+      process.exit(1);
+  }
 }
 
 async function cmdChat(sub: string[]) {

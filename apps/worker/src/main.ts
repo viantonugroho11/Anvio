@@ -94,6 +94,23 @@ async function main() {
       await workspace.sessions.update(sessionId, { status: 'calling_model' });
 
       const agent = await loadAgent(workspace, agentId);
+
+      if (agent.spec.workspace?.isolatedWorktree && workspace.worktrees) {
+        try {
+          const wt = await workspace.worktrees.create(sessionId);
+          await workspace.sessions.update(sessionId, {
+            metadata: {
+              ...stored.metadata,
+              worktreePath: wt.path,
+              worktreeBranch: wt.branch,
+            },
+          });
+          console.log(`Worktree created: ${wt.path} (${wt.branch})`);
+        } catch (err) {
+          console.error('Worktree creation failed:', err instanceof Error ? err.message : err);
+        }
+      }
+
       const session = storedSessionToRuntime(stored);
       let fullContent = '';
 
