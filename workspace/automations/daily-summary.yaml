@@ -1,0 +1,20 @@
+apiVersion: anvio.io/v1
+kind: Automation
+metadata:
+  slug: daily-summary
+  enabled: true
+spec:
+  description: Summarize notifications every morning
+  trigger:
+    type: cron
+    schedule: "0 8 * * *"
+    timezone: UTC
+  action:
+    type: blueprint
+    blueprint: daily-summary
+    inputs:
+      userId: local-user
+      channel: cli
+  retry:
+    maxAttempts: 2
+    backoff: exponential

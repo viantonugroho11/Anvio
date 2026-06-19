@@ -1,0 +1,8 @@
+apiVersion: anvio.io/v1
+kind: HookRegistry
+spec:
+  hooks:
+    - event: onGoalCreated
+      handlers: []
+    - event: onGoalCompleted
+      handlers: []

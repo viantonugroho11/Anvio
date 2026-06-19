@@ -26,11 +26,21 @@ import type { WorktreeManager } from '@anvio/core';
 
 export const WORKSPACE_DIRS = [
   'agents',
+  'souls',
   'personas',
   'skills',
+  'goals',
   'sessions',
   'memory',
   'workflows',
+  'automations',
+  'blueprints',
+  'kanban',
+  'hooks',
+  'credentials',
+  'providers',
+  'batch',
+  'audit',
   'tools',
   'mcp',
   'artifacts',
@@ -78,6 +88,8 @@ export class Workspace {
     for (const dir of WORKSPACE_DIRS) {
       await fs.mkdir(path.join(rootDir, dir), { recursive: true });
     }
+    await fs.mkdir(path.join(rootDir, 'automations', '_state'), { recursive: true });
+    await fs.mkdir(path.join(rootDir, 'memory', 'sessions'), { recursive: true });
     await fs.writeFile(path.join(rootDir, 'anvio.yaml'), defaultAnvioYaml(), 'utf-8');
     return Workspace.open(rootDir);
   }
