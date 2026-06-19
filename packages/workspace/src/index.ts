@@ -6,6 +6,8 @@ import {
   parsePersonaDefinition,
   parseSkillDefinition,
   parseWorkspaceDefinition,
+  parseAgentMd,
+  parseSkillMd,
   type AgentDefinition,
   type ConfigLoader,
   type PersonaProfile,
@@ -302,12 +304,12 @@ export class WorkspaceConfigLoader implements ConfigLoader {
 
   async listAgents(): Promise<string[]> {
     const files = await this.storage.list('agents');
-    return files
-      .filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'))
-      .map((f) => path.basename(f, path.extname(f)));
+    return this.listArtifactSlugs(files, ['.yaml', '.yml', '.md']);
   }
 
   async loadAgent(name: string): Promise<AgentDefinition> {
+    const md = await this.readText(`agents/${name}.md`, `agents/${name}/AGENT.md`);
+    if (md) return parseAgentMd(md, name);
     const yaml = await this.readYaml(`agents/${name}.yaml`, `agents/${name}.yml`);
     return parseAgentDefinition(yaml);
   }
@@ -319,15 +321,15 @@ export class WorkspaceConfigLoader implements ConfigLoader {
   }
 
   async loadSkill(slug: string): Promise<SkillDefinition> {
+    const md = await this.readText(`skills/${slug}.md`, `skills/${slug}/SKILL.md`);
+    if (md) return parseSkillMd(md, slug);
     const yaml = await this.readYaml(`skills/${slug}.yaml`, `skills/${slug}.yml`);
     return parseSkillDefinition(yaml);
   }
 
   async listSkills(): Promise<string[]> {
     const files = await this.storage.list('skills');
-    return files
-      .filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'))
-      .map((f) => path.basename(f, path.extname(f)));
+    return this.listArtifactSlugs(files, ['.yaml', '.yml', '.md'], ['SKILL.md']);
   }
 
   async listPersonas(): Promise<string[]> {
@@ -335,6 +337,29 @@ export class WorkspaceConfigLoader implements ConfigLoader {
     return files
       .filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'))
       .map((f) => path.basename(f, path.extname(f)));
+  }
+
+  private async readText(...candidates: string[]): Promise<string | null> {
+    for (const key of candidates) {
+      const raw = await this.storage.read(key);
+      if (raw) return raw;
+    }
+    return null;
+  }
+
+  private listArtifactSlugs(files: string[], extensions: string[], nestedNames: string[] = []): string[] {
+    const slugs = new Set<string>();
+    for (const file of files) {
+      if (nestedNames.some((n) => file.endsWith(`/${n}`))) {
+        slugs.add(file.split('/').at(-2)!);
+        continue;
+      }
+      const ext = path.extname(file);
+      if (extensions.includes(ext)) {
+        slugs.add(path.basename(file, ext));
+      }
+    }
+    return [...slugs].filter((s) => !s.startsWith('_'));
   }
 
   private async readYaml(...candidates: string[]): Promise<unknown> {
