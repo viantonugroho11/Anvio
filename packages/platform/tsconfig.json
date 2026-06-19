@@ -15,6 +15,9 @@
     { "path": "../blueprints" },
     { "path": "../hooks" },
     { "path": "../events" },
+    { "path": "../channels" },
+    { "path": "../harness" },
+    { "path": "../integrations" },
     { "path": "../souls" }
   ]
 }

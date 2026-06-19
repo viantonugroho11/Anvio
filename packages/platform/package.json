@@ -27,8 +27,9 @@
     "@anvio/personas": "workspace:*",
     "@anvio/skills": "workspace:*",
     "@anvio/souls": "workspace:*",
-    "@anvio/workspace": "workspace:*",
-    "@anvio/channels": "workspace:*"
+    "@anvio/harness": "workspace:*",
+    "@anvio/soul-gate": "workspace:*",
+    "@anvio/workspace": "workspace:*"
   },
   "devDependencies": { "typescript": "^5.8.3", "vitest": "^3.1.4" }
 }

@@ -15,7 +15,7 @@ async function main() {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   });
 
-  const { runtime, eventBus, workspace, channelHub, inbox } = platform;
+  const { runtime, eventBus, workspace, channelHub, inbox, harness } = platform;
   console.log('Worker ready — Channel Hub active, detached execution enabled');
 
   await eventBus.subscribeCore<AgentRunProgressData>(
@@ -130,11 +130,13 @@ async function main() {
             delta: chunk.delta,
             channel,
           });
-          await channelHub.sendMessage(channel as ChannelType, sessionId, {
-            sessionId,
-            type: 'chunk',
-            delta: chunk.delta,
-          });
+          if (!harness.shouldSuppressRawOutput(channel as ChannelType)) {
+            await channelHub.sendMessage(channel as ChannelType, sessionId, {
+              sessionId,
+              type: 'chunk',
+              delta: chunk.delta,
+            });
+          }
         }
         if (chunk.type === 'done' && chunk.usage) {
           await workspace.sessions.update(sessionId, {
@@ -150,11 +152,16 @@ async function main() {
             'anvio.agent.run.completed',
             { sessionId, content: fullContent, usage: chunk.usage, status: 'completed', channel },
           );
-          await channelHub.sendMessage(channel as ChannelType, sessionId, {
-            sessionId,
-            type: 'done',
-            content: fullContent,
-          });
+          if (!harness.shouldSuppressRawOutput(channel as ChannelType)) {
+            await channelHub.sendMessage(channel as ChannelType, sessionId, {
+              sessionId,
+              type: 'done',
+              content: fullContent,
+            });
+          } else if (fullContent.trim()) {
+            const output = harness.createOutputPort(sessionId, channel as ChannelType);
+            await output.reply(sessionId, fullContent);
+          }
           await channelHub.sendNotification(channel as ChannelType, sessionId, {
             sessionId,
             type: 'task_completed',

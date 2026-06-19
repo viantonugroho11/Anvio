@@ -1,4 +1,5 @@
 import type { ChannelAdapter, ChannelType, InboundMessage, SessionStore } from '@anvio/core';
+import type { HarnessGatewayPort } from '@anvio/core';
 import type { EventBusLike } from '@anvio/events';
 import { EventSubjects } from '@anvio/events';
 import type { ChannelHubBundle } from './channel-hub-bundle.js';
@@ -41,10 +42,12 @@ export interface CreateChannelHubOptions {
   defaultUserId: string;
   channels?: ChannelConfig;
   onApproval?: (sessionId: string, requestId: string, approved: boolean) => Promise<void>;
+  harness?: HarnessGatewayPort;
+  hub?: ChannelHub;
 }
 
 export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBundle {
-  const hub = new ChannelHub();
+  const hub = options.hub ?? new ChannelHub();
   let whatsapp: WhatsAppChannel | undefined;
 
   const bridge = new ChannelSessionBridge(options.sessions, {
@@ -52,7 +55,12 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
     defaultUserId: options.defaultUserId,
   });
 
-  const onInbound = createInboundHandler(options.eventBus, options.sessions, options.defaultAgent);
+  const onInbound = createInboundHandler(
+    options.eventBus,
+    options.sessions,
+    options.defaultAgent,
+    options.harness,
+  );
   const onApproval =
     options.onApproval ??
     (async (sessionId, requestId, approved) => {
@@ -153,8 +161,24 @@ function createInboundHandler(
   eventBus: EventBusLike,
   sessions: SessionStore,
   defaultAgent: string,
+  harness?: HarnessGatewayPort,
 ): (message: InboundMessage) => Promise<void> {
   return async (message) => {
+    if (harness?.enabled) {
+      const gate = await harness.handleInbound({
+        channel: message.channel,
+        threadId: message.channelThreadId ?? message.sessionId,
+        userId: message.userId,
+        content: message.content,
+        sessionId: message.sessionId,
+        zoneId: typeof message.metadata?.zoneId === 'string' ? message.metadata.zoneId : undefined,
+        mentionedBot: message.metadata?.mentionedBot === true,
+        mentionedOther: message.metadata?.mentionedOther === true,
+        metadata: message.metadata,
+      });
+      if (gate.decision !== 'allow') return;
+    }
+
     const session = await sessions.get(message.sessionId);
     await eventBus.publish(EventSubjects.AGENT_RUN_REQUESTED, 'anvio.agent.run.requested', {
       sessionId: message.sessionId,

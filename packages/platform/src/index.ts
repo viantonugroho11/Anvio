@@ -3,7 +3,7 @@ import { BlueprintExecutor, createCatalogRegistry } from '@anvio/blueprints';
 import { createIntegrationRegistry, createMcpBridge } from '@anvio/integrations';
 import { createHookEngine, type HookEngine } from '@anvio/hooks';
 import { DefaultAgentRuntime } from '@anvio/agents';
-import { createChannelHub, FilesystemAgentInbox, type WhatsAppChannel } from '@anvio/channels';
+import { createChannelHub, ChannelHub, FilesystemAgentInbox, type WhatsAppChannel } from '@anvio/channels';
 import { createAuthProvider } from '@anvio/auth';
 import type {
   AgentDefinition,
@@ -24,6 +24,7 @@ import {
 import { PersonaService } from '@anvio/personas';
 import { createSoulService } from '@anvio/souls';
 import { SkillRegistry, createSkillCatalogResolver } from '@anvio/skills';
+import { createHarnessFromWorkspace, type HarnessGateway } from '@anvio/harness';
 import { Workspace } from '@anvio/workspace';
 import { findRepoRoot, findWorkspacePath } from './find-workspace.js';
 
@@ -40,6 +41,7 @@ export interface PlatformContext {
   blueprintExecutor: BlueprintExecutor;
   automationEngine: AutomationEngine;
   hookEngine: HookEngine;
+  harness: HarnessGateway;
 }
 
 export interface PlatformOptions {
@@ -87,12 +89,31 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
 
   const inbox = new FilesystemAgentInbox(workspace.storage);
 
-  const { hub: channelHub, whatsapp } = createChannelHub({
+  let soulDefinition;
+  if (spec.defaultSoul) {
+    try {
+      soulDefinition = await soulService.get(spec.defaultSoul);
+    } catch {
+      soulDefinition = undefined;
+    }
+  }
+
+  const channelHub = new ChannelHub();
+  const harness = await createHarnessFromWorkspace({
+    workspaceRoot: workspacePath,
+    channelHub,
+    sessions: workspace.sessions,
+    soulDefinition,
+  });
+
+  const { whatsapp } = createChannelHub({
+    hub: channelHub,
     sessions: workspace.sessions,
     eventBus,
     defaultAgent,
     defaultUserId: spec.defaultUserId,
     channels: spec.channels,
+    harness,
   });
 
   const runtime = new DefaultAgentRuntime({
@@ -181,6 +202,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     blueprintExecutor,
     automationEngine,
     hookEngine,
+    harness,
   };
 }
 

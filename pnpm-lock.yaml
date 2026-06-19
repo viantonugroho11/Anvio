@@ -111,6 +111,9 @@ importers:
       '@anvio/goals':
         specifier: workspace:*
         version: link:../../packages/goals
+      '@anvio/harness':
+        specifier: workspace:*
+        version: link:../../packages/harness
       '@anvio/hooks':
         specifier: workspace:*
         version: link:../../packages/hooks
@@ -135,6 +138,9 @@ importers:
       '@anvio/skills':
         specifier: workspace:*
         version: link:../../packages/skills
+      '@anvio/soul-gate':
+        specifier: workspace:*
+        version: link:../../packages/soul-gate
       '@anvio/souls':
         specifier: workspace:*
         version: link:../../packages/souls
@@ -482,6 +488,25 @@ importers:
         specifier: ^3.1.4
         version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
 
+  packages/harness:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
+      '@anvio/soul-gate':
+        specifier: workspace:*
+        version: link:../soul-gate
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
   packages/hooks:
     dependencies:
       '@anvio/core':
@@ -644,6 +669,9 @@ importers:
       '@anvio/events':
         specifier: workspace:*
         version: link:../events
+      '@anvio/harness':
+        specifier: workspace:*
+        version: link:../harness
       '@anvio/hooks':
         specifier: workspace:*
         version: link:../hooks
@@ -662,6 +690,9 @@ importers:
       '@anvio/skills':
         specifier: workspace:*
         version: link:../skills
+      '@anvio/soul-gate':
+        specifier: workspace:*
+        version: link:../soul-gate
       '@anvio/souls':
         specifier: workspace:*
         version: link:../souls
@@ -697,6 +728,19 @@ importers:
       yaml:
         specifier: ^2.8.0
         version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/soul-gate:
+    dependencies:
+      '@anvio/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -798,6 +842,9 @@ importers:
       '@anvio/blueprints':
         specifier: workspace:*
         version: link:../../packages/blueprints
+      '@anvio/channels':
+        specifier: workspace:*
+        version: link:../../packages/channels
       '@anvio/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -813,6 +860,9 @@ importers:
       '@anvio/goals':
         specifier: workspace:*
         version: link:../../packages/goals
+      '@anvio/harness':
+        specifier: workspace:*
+        version: link:../../packages/harness
       '@anvio/hooks':
         specifier: workspace:*
         version: link:../../packages/hooks
@@ -834,6 +884,9 @@ importers:
       '@anvio/skills':
         specifier: workspace:*
         version: link:../../packages/skills
+      '@anvio/soul-gate':
+        specifier: workspace:*
+        version: link:../../packages/soul-gate
       '@anvio/souls':
         specifier: workspace:*
         version: link:../../packages/souls
