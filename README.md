@@ -12,7 +12,45 @@ Anvio is a **local-first, file-first, CLI-first** AI Agent Operating System. Cre
 | Events | In-process (no NATS required) |
 | Entry point | **CLI** > API > Web UI |
 
-## Quick Start (Level 1 — Zero Dependencies)
+## Install (One Command)
+
+Like Hermes `install.sh` — clone, build, workspace, and global `anvio` CLI:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/viantonugroho11/Anvio/main/scripts/install.sh | bash
+```
+
+Or from a cloned repo:
+
+```bash
+git clone https://github.com/viantonugroho11/Anvio.git
+cd Anvio
+./scripts/install.sh
+```
+
+Then open a new terminal (or `source ~/.anvio/env`):
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...   # optional
+anvio chat --agent architect
+```
+
+**Install options:**
+
+```bash
+./scripts/install.sh --workspace ~/my-agents
+./scripts/install.sh --bin-dir /usr/local/bin   # may need sudo for write
+```
+
+Default paths:
+
+| Path | Purpose |
+|------|---------|
+| `~/.anvio/app` | Anvio source (git clone) |
+| `~/.anvio/workspace` | Your agents, personas, skills |
+| `~/.local/bin/anvio` | CLI command |
+
+## Quick Start (Developers — from repo)
 
 ```bash
 pnpm install
