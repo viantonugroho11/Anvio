@@ -1,6 +1,7 @@
 import type {
   AgentDefinition,
   AgentRuntime,
+  CodeExecutor,
   RuntimeFactoryOptions,
   RuntimeProvider,
   RuntimeProviderId,
@@ -9,12 +10,14 @@ import { ClaudeCodeRuntimeProvider } from './claude-code/claude-code-runtime.js'
 import { CodexRuntimeProvider } from './codex/codex-runtime.js';
 import { CursorRuntimeProvider } from './cursor/cursor-runtime.js';
 import { LocalRuntimeProvider } from './local/local-runtime.js';
+import { DockerRuntimeProvider } from './docker/docker-runtime.js';
 import { DaytonaRuntimeProvider, ModalRuntimeProvider } from './remote/remote-runtime-stub.js';
 import { SshRuntimeProvider } from './ssh/ssh-runtime.js';
 
 export interface RuntimeFactoryDeps {
   agentRuntime: AgentRuntime;
   options?: RuntimeFactoryOptions;
+  codeExecutor?: CodeExecutor;
 }
 
 export class RuntimeFactory {
@@ -28,6 +31,7 @@ export class RuntimeFactory {
       ['claude-code', new ClaudeCodeRuntimeProvider({ binary: opts.claudeCodeBinary })],
       ['codex', new CodexRuntimeProvider({ binary: opts.codexBinary })],
       ['ssh', new SshRuntimeProvider({ host: opts.sshHost, user: opts.sshUser })],
+      ['docker', new DockerRuntimeProvider({ image: opts.dockerImage, codeExecutor: deps.codeExecutor })],
       ['daytona', new DaytonaRuntimeProvider({ apiKey: opts.daytonaApiKey })],
       ['modal', new ModalRuntimeProvider({})],
     ]);
