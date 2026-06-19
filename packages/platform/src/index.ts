@@ -1,12 +1,5 @@
 import { DefaultAgentRuntime } from '@anvio/agents';
-import {
-  ChannelHub,
-  CliChannel,
-  LocalAgentInbox,
-  RestApiChannel,
-  WebChatChannel,
-  createStubAdapters,
-} from '@anvio/channels';
+import { createChannelHub, FilesystemAgentInbox, type WhatsAppChannel } from '@anvio/channels';
 import { createAuthProvider } from '@anvio/auth';
 import type {
   AgentDefinition,
@@ -32,6 +25,7 @@ export interface PlatformContext {
   modelProvider: ModelProvider;
   channelHub: ChannelHubPort;
   inbox: AgentInbox;
+  whatsapp?: WhatsAppChannel;
 }
 
 export interface PlatformOptions {
@@ -43,6 +37,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   const workspacePath = options.workspacePath ?? findWorkspacePath();
   const workspace = await Workspace.open(workspacePath);
   const { spec } = workspace.config;
+  const defaultAgent = spec.defaultAgent ?? 'architect';
 
   const auth = createAuthProvider(spec.auth, {
     jwtSecret: process.env.JWT_SECRET,
@@ -63,8 +58,15 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     source: '/anvio/platform',
   });
 
-  const channelHub = new ChannelHub();
-  const inbox = new LocalAgentInbox();
+  const inbox = new FilesystemAgentInbox(workspace.storage);
+
+  const { hub: channelHub, whatsapp } = createChannelHub({
+    sessions: workspace.sessions,
+    eventBus,
+    defaultAgent,
+    defaultUserId: spec.defaultUserId,
+    channels: spec.channels,
+  });
 
   const runtime = new DefaultAgentRuntime({
     personaService,
@@ -81,16 +83,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     },
   });
 
-  channelHub.register(new WebChatChannel());
-  channelHub.register(new CliChannel());
-  channelHub.register(new RestApiChannel());
-  for (const adapter of createStubAdapters()) {
-    channelHub.register(adapter);
-  }
-
   await channelHub.startAll();
 
-  return { workspace, auth, runtime, eventBus, modelProvider, channelHub, inbox };
+  return { workspace, auth, runtime, eventBus, modelProvider, channelHub, inbox, whatsapp };
 }
 
 function createMockModelProvider(): ModelProvider {
@@ -140,4 +135,4 @@ export async function loadAgent(workspace: Workspace, name: string): Promise<Age
   return workspace.loader.loadAgent(name);
 }
 
-export type { ChannelHubPort, AgentInbox };
+export type { ChannelHubPort, AgentInbox, WhatsAppChannel };
