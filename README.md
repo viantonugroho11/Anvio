@@ -2,25 +2,27 @@
 
 **Local-First AI Agent Operating System**
 
-[![Release](https://img.shields.io/badge/release-v1.0.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.0.0)
+[![Release](https://img.shields.io/badge/release-v1.2.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.2.0)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Anvio lets you create, configure, and run AI agents from **YAML files** — no database, no login, no Docker required to get started. Everything lives in a portable `workspace/` folder you can back up, version with git, or move between machines.
+Configure agents in **YAML**. Run them from the **CLI**. No database, no login, no Docker required to start.
 
-> **CLI first.** Run agents from your terminal in seconds. Add API, workers, and chat channels only when you need them.
+Everything lives in a portable `workspace/` folder — back it up, commit it to git, or copy it to another machine.
+
+> **Priority:** CLI → API → Web UI. The full platform works from your terminal alone.
 
 ---
 
 ## Table of Contents
 
-- [Release v1.0.0](#release-v100)
-- [Why Anvio](#why-anvio)
-- [How It Works](#how-it-works)
+- [What You Get](#what-you-get)
+- [5-Minute Quick Start](#5-minute-quick-start)
+- [Usage Guide](#usage-guide)
+- [Model Providers](#model-providers)
+- [Workspace Layout](#workspace-layout)
 - [Architecture](#architecture)
 - [Install](#install)
-- [Quick Start](#quick-start)
-- [Workspace](#workspace)
 - [CLI Reference](#cli-reference)
 - [Channels](#channels)
 - [Progressive Enhancement](#progressive-enhancement)
@@ -30,305 +32,399 @@ Anvio lets you create, configure, and run AI agents from **YAML files** — no d
 
 ---
 
-## Release v1.0.0
-
-**Anvio v1.0.0** is the first stable release of the local-first agent platform.
-
-| Area | What's included |
-|------|-----------------|
-| **Runtime** | Agent engine, personas, skills, filesystem memory & sessions |
-| **CLI** | Full command set — chat, run, sessions, approve, inbox, worktrees |
-| **Channels** | CLI, REST, Web Chat, Telegram, Discord, Slack, WhatsApp |
-| **Platform** | `createPlatform()` factory wired from `anvio.yaml` |
-| **Storage** | Filesystem-first workspace (no DB required) |
-| **Auth** | Disabled by default — optional JWT/OAuth plugin |
-| **Install** | One-command `install.sh` for global `anvio` CLI |
-| **Isolation** | Optional per-agent git worktree support |
-
-```bash
-# Tag this release locally
-git checkout main && git pull
-git tag -a v1.0.0 -m "Anvio v1.0.0 — local-first AI Agent OS"
-git push origin v1.0.0
-```
-
----
-
-## Why Anvio
-
-Most agent frameworks assume cloud services, user accounts, and a database from day one. Anvio flips that:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Traditional agent stack          Anvio (Level 1)            │
-├─────────────────────────────────────────────────────────────┤
-│  PostgreSQL required      →       JSON files in workspace/  │
-│  Login / JWT required     →       Auth off by default       │
-│  Docker compose first     →       pnpm build → anvio chat   │
-│  Web UI is the product    →       CLI > API > Web UI        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-| Principle | Default |
-|-----------|---------|
-| **Local-first** | Runs on your machine, offline-capable configs |
-| **File-first** | Agents, personas, skills = human-readable YAML |
-| **CLI-first** | Primary interface; API & gateway are optional |
-| **Progressive** | Start at Level 1, grow to PostgreSQL/NATS/K8s later |
-| **Portable** | Copy `workspace/` — no migration scripts |
-
----
-
-## How It Works
-
-A typical chat session flows like this:
-
-```mermaid
-sequenceDiagram
-    participant You as You (CLI)
-    participant CLI as anvio CLI
-    participant Platform as createPlatform()
-    participant Runtime as Agent Runtime
-    participant Memory as Filesystem Memory
-    participant Model as Anthropic / Mock
-
-    You->>CLI: anvio chat --agent architect
-    CLI->>Platform: load workspace/anvio.yaml
-    Platform->>Runtime: wire persona, skills, memory
-    You->>CLI: "Review this API design"
-    CLI->>Runtime: run(session, message)
-    Runtime->>Memory: read short/long-term context
-    Runtime->>Model: completion request
-    Model-->>Runtime: response
-    Runtime->>Memory: persist turn
-    Runtime-->>CLI: stream / print reply
-    CLI-->>You: assistant message
-```
-
-**In plain terms:**
-
-1. You point Anvio at a **workspace** (folder with `anvio.yaml` + agent configs).
-2. The **platform** reads config and wires storage, memory, channels, and the model provider.
-3. The **agent runtime** loads persona + skills, calls the model, and optionally uses tools.
-4. **Sessions** and **memory** are saved as JSON under `workspace/` — inspectable anytime.
-
----
-
-## Architecture
-
-### High-level system map
+## What You Get
 
 ```mermaid
 flowchart TB
-    subgraph Entry["Entry Points (priority order)"]
-        CLI["apps/cli<br/>anvio chat"]
-        API["apps/api<br/>REST"]
-        GW["apps/gateway<br/>WebSocket"]
+    subgraph You["Your machine"]
+        WS["workspace/<br/>YAML configs"]
+        CLI["anvio CLI"]
     end
 
-    subgraph Channels["Channel Hub"]
-        CH["ChannelHub"]
-        TG["Telegram"]
-        DC["Discord"]
-        SL["Slack"]
-        WA["WhatsApp"]
-        WC["Web Chat"]
+    subgraph Anvio["Anvio Platform"]
+        RT["Agent Runtime"]
+        MEM["Memory"]
+        RTG["Model Router<br/>18+ providers"]
+        AUTO["Automation & Blueprints"]
+        MCP["MCP Integrations"]
     end
 
-    subgraph Platform["@anvio/platform"]
-        CP["createPlatform()"]
+    subgraph Optional["Optional surfaces"]
+        API["REST API"]
+        BOT["Telegram / Slack / Discord"]
     end
 
-    subgraph Core["Runtime Packages"]
-        AG["@anvio/agents"]
-        PE["@anvio/personas"]
-        SK["@anvio/skills"]
-        MO["@anvio/models"]
-        ME["@anvio/memory"]
-        EV["@anvio/events"]
-    end
-
-    subgraph Data["Local-First Data"]
-        WS["workspace/"]
-        FS["Filesystem Storage"]
-        SS["Session Store"]
-        IN["Inbox / Artifacts"]
-    end
-
-    CLI --> CP
-    API --> CP
-    GW --> CP
-    CP --> CH
-    CH --> TG & DC & SL & WA & WC
-    CP --> AG
-    AG --> PE & SK & MO & ME
-    CP --> EV
-    CP --> WS
-    WS --> FS & SS & IN
+    WS --> CLI
+    CLI --> RT
+    RT --> MEM & RTG
+    RT --> AUTO & MCP
+    CLI -.-> API & BOT
 ```
 
-### Monorepo layout
+| Layer | What it does |
+|-------|----------------|
+| **Agents** | Persona + skills + model + memory — defined in YAML |
+| **Advanced Agent OS** | Souls, goals, kanban, batch jobs, subagent delegation |
+| **Automation** | Cron schedules, blueprints (workflows), event hooks |
+| **Platform** | Credential pools, provider routing, skills catalog, MCP bridge |
+| **Models** | Anthropic, OpenAI, DeepSeek, Groq, Gemini, OpenRouter, Ollama, and more |
+| **Channels** | Same runtime on CLI, REST, Web Chat, Telegram, Discord, Slack, WhatsApp |
+
+### Design principles
+
+| Principle | In practice |
+|-----------|-------------|
+| **Local-first** | Runs on your machine; configs work offline |
+| **File-first** | Agents, skills, goals = human-readable YAML/JSON |
+| **CLI-first** | Primary interface; API and gateway are optional |
+| **Progressive** | Start with files only; add PostgreSQL/NATS/K8s when you need scale |
+| **Portable** | Copy `workspace/` — no migration scripts at Level 1 |
+
+### Anvio vs typical agent stacks
 
 ```
-Anvio/
-├── apps/
-│   ├── cli/          ← Primary interface (anvio command)
-│   ├── api/          ← Optional NestJS REST API
-│   ├── worker/       ← Background agent run consumer
-│   └── gateway/      ← Optional WebSocket gateway
-│
-├── packages/
-│   ├── core/         ← Schemas, ports, shared types
-│   ├── platform/     ← Composition root (wires from anvio.yaml)
-│   ├── workspace/    ← Workspace loader, sessions, worktrees
-│   ├── agents/       ← Agent runtime & orchestrator
-│   ├── channels/     ← Channel hub + adapters
-│   ├── memory/       ← Pluggable memory (filesystem default)
-│   ├── storage/      ← Pluggable storage (filesystem default)
-│   ├── auth/         ← Optional auth plugin
-│   ├── events/       ← Local bus + NATS (optional)
-│   └── …             ← models, personas, skills, tools, db
-│
-├── workspace/        ← Your agents & config (portable)
-├── docs/             ← Architecture & ADRs
-└── scripts/
-    └── install.sh    ← One-command installer
+┌──────────────────────────────────────────────────────────────────┐
+│  Typical stack                         Anvio (Level 1)           │
+├──────────────────────────────────────────────────────────────────┤
+│  PostgreSQL from day one        →      JSON/YAML in workspace/   │
+│  Auth / JWT required            →      Auth disabled by default  │
+│  Docker Compose to start        →      pnpm build && anvio chat  │
+│  Web UI is the product          →      CLI > API > Web UI        │
+└──────────────────────────────────────────────────────────────────┘
 ```
-
-### Dependency rule
-
-```
-apps  →  platform  →  packages  →  core
-```
-
-Domain logic lives in packages — never in NestJS controllers.
 
 ---
 
-## Install
+## 5-Minute Quick Start
 
-### One command (recommended)
+### Step 1 — Install
+
+**Option A — one-liner (recommended)**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/viantonugroho11/Anvio/main/scripts/install.sh | bash
+source ~/.anvio/env
 ```
 
-This will:
-
-- Check Node 20+
-- Install pnpm if needed
-- Clone Anvio to `~/.anvio/app` and build
-- Seed `~/.anvio/workspace` with default agents
-- Install the `anvio` binary to `~/.local/bin`
-
-### From a cloned repo
+**Option B — from a clone (contributors)**
 
 ```bash
 git clone https://github.com/viantonugroho11/Anvio.git
 cd Anvio
-./scripts/install.sh
+pnpm install && pnpm build
+pnpm anvio --help
 ```
 
-### Install options
+### Step 2 — Set your workspace
 
 ```bash
-./scripts/install.sh --workspace ~/my-agents
-./scripts/install.sh --bin-dir /usr/local/bin
+# Use the bundled workspace in the repo, or create a fresh one:
+anvio init ~/my-agents
+export ANVIO_WORKSPACE=~/my-agents   # or ./workspace when developing in-repo
+anvio workspace validate
 ```
 
-| Path | Purpose |
-|------|---------|
-| `~/.anvio/app` | Anvio source (git clone) |
-| `~/.anvio/workspace` | Your agents, personas, skills |
-| `~/.local/bin/anvio` | Global CLI command |
-| `~/.anvio/env` | Environment hints (`source` this) |
+### Step 3 — Add a model API key (optional)
 
-### First run
+Without a key, Anvio runs in **mock mode** (echoes your message back).
 
 ```bash
-# New terminal, or:
-source ~/.anvio/env
-
-export ANTHROPIC_API_KEY=sk-ant-...   # optional — mock mode works without it
-anvio chat --agent architect
+export ANTHROPIC_API_KEY=sk-ant-...   # Claude
+# or
+export DEEPSEEK_API_KEY=sk-...        # DeepSeek
+# or
+export OPENROUTER_API_KEY=sk-or-...   # 100+ models via one key
 ```
 
----
+Copy `.env.example` to `.env` for a full list of supported providers.
 
-## Quick Start
-
-### Developers (from repo)
+### Step 4 — Chat with an agent
 
 ```bash
-pnpm install
-pnpm build
-pnpm anvio chat
-```
-
-### Create a new workspace
-
-```bash
-anvio init ~/my-workspace
-export ANVIO_WORKSPACE=~/my-workspace
 anvio agents list
 anvio chat --agent architect
 ```
 
-### Run a one-shot task
-
-```bash
-anvio run architect "Summarize the trade-offs of event-driven architecture"
-anvio run architect "Fix the bug" --detach   # background via worker events
+```
+You: Review this API design for a payment service
+Assistant: ...
 ```
 
-### Optional: API + Worker + Gateway
+### Step 5 — Run a one-shot task
 
 ```bash
-ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/api dev
-ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/worker dev
-ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/gateway dev
+anvio run architect "List the trade-offs of event-driven vs request-response architecture"
 ```
 
-No auth required by default — agents run immediately.
+**You are done.** Everything else below is optional power-user features.
 
 ---
 
-## Workspace
+## Usage Guide
 
-Your entire agent configuration is a folder:
+### Interactive chat
+
+```bash
+anvio chat --agent architect
+```
+
+Flow:
+
+```mermaid
+sequenceDiagram
+    participant U as You
+    participant C as anvio CLI
+    participant P as Platform
+    participant R as Agent Runtime
+    participant M as Model Provider
+
+    U->>C: anvio chat --agent architect
+    C->>P: load workspace/anvio.yaml
+    P->>R: wire persona, skills, memory, model
+    U->>C: your message
+    C->>R: stream(session, message)
+    R->>M: completion (with system prompt)
+    M-->>R: response tokens
+    R-->>C: stream to terminal
+    C-->>U: assistant reply
+```
+
+### Background / detached runs
+
+```bash
+anvio run architect "Refactor the auth module" --detach
+anvio sessions list
+anvio logs <sessionId>
+anvio stop <sessionId>
+```
+
+### Manage sessions & approvals
+
+| Task | Command |
+|------|---------|
+| List sessions | `anvio sessions list` |
+| Session status | `anvio status [sessionId]` |
+| Message log | `anvio logs <sessionId>` |
+| Approve a tool call | `anvio approve <session> <requestId>` |
+| Inject mid-run instruction | `anvio inbox <sessionId> "Focus on error handling"` |
+
+### Define a custom agent
+
+Create `workspace/agents/reviewer.yaml`:
+
+```yaml
+apiVersion: anvio.io/v1
+kind: Agent
+metadata:
+  name: reviewer
+  version: "1.0.0"
+spec:
+  description: Code reviewer focused on security and clarity
+  persona: architect
+  skills:
+    - code-review
+    - architecture
+  tools: []
+  model:
+    provider: deepseek          # see Model Providers
+    model: deepseek-chat
+    maxTokens: 8192
+  memory:
+    shortTerm: { enabled: true, ttlSeconds: 3600 }
+    longTerm: { enabled: true }
+    semantic: { enabled: false }
+  orchestration:
+    pattern: single
+    delegates: []
+  approvals:
+    requiredFor: [destructive]
+```
+
+Then:
+
+```bash
+anvio chat --agent reviewer
+```
+
+### Goals (persistent objectives)
+
+```bash
+anvio goal create --slug ship-v2 --title "Ship v2 release"
+anvio goal progress ship-v2 --percent 40
+anvio goal list
+anvio goal complete ship-v2
+```
+
+### Souls (long-lived identity)
+
+```bash
+anvio soul create --slug cela --name Cela --from-persona architect
+anvio soul show cela --context
+```
+
+Bind a soul in an agent YAML with `spec.soul: cela`.
+
+### Blueprints (workflow templates)
+
+```bash
+anvio blueprint catalog
+anvio blueprint run daily-summary --dry-run
+anvio blueprint run github-triage
+```
+
+Bundled blueprints live in `configs/blueprints/` (daily-summary, security-audit, release-preparation, …).
+
+### Automation & cron
+
+```bash
+anvio automation list
+anvio automation run daily-summary
+anvio cron list
+anvio cron next-runs "0 9 * * *"
+```
+
+### Kanban & batch jobs
+
+```bash
+anvio kanban list
+anvio kanban create --board dev --title "Implement auth"
+anvio batch run my-batch-job.yaml
+anvio batch status <jobId>
+```
+
+### Provider routing & credentials
+
+```bash
+anvio routing catalog      # all supported providers + env vars
+anvio routing providers    # currently configured (keys set)
+anvio routing show         # your routing.yaml
+anvio routing test coding --input "implement JWT middleware"
+
+anvio credentials list
+anvio credentials add --pool anthropic --value sk-ant-...
+```
+
+### MCP integrations
+
+Edit `workspace/mcp/servers.yaml`, then:
+
+```bash
+anvio mcp list
+anvio mcp test github
+```
+
+### Sandboxed code execution
+
+```bash
+anvio exec run --lang python --code 'print("hello")'
+anvio exec audit
+```
+
+### Git worktree isolation (per-agent)
+
+```bash
+anvio worktree list
+anvio worktree create --agent architect --branch feat/auth
+```
+
+Enable in agent YAML: `spec.workspace.isolatedWorktree: true`.
+
+---
+
+## Model Providers
+
+Anvio supports **18 built-in providers**. Set the matching env var, then reference `provider` in your agent YAML.
+
+```bash
+anvio routing catalog
+```
+
+| Provider | Environment variable | Example model |
+|----------|---------------------|---------------|
+| Anthropic | `ANTHROPIC_API_KEY` | `claude-sonnet-4-20250514` |
+| OpenAI | `OPENAI_API_KEY` | `gpt-4o` |
+| Gemini | `GEMINI_API_KEY` / `GOOGLE_API_KEY` | `gemini-2.0-flash` |
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-chat`, `deepseek-reasoner` |
+| Groq | `GROQ_API_KEY` | `llama-3.3-70b-versatile` |
+| Mistral | `MISTRAL_API_KEY` | `mistral-large-latest` |
+| OpenRouter | `OPENROUTER_API_KEY` | `anthropic/claude-3.5-sonnet` |
+| Ollama (local) | `OLLAMA_BASE_URL` + `OLLAMA_ENABLED=true` | `llama3.2` |
+| Together, xAI, Fireworks, Moonshot, … | See `anvio routing catalog` | — |
+
+**OpenRouter** is the fastest way to access many models with a single API key.
+
+**Custom endpoint** (any OpenAI-compatible API):
+
+```yaml
+spec:
+  model:
+    provider: custom
+    baseUrl: https://api.example.com/v1
+    apiKeyEnv: MY_API_KEY
+    model: my-model-id
+```
+
+**Routing & fallback** — edit `workspace/providers/routing.yaml` to route by task type (coding, chat, research) with automatic failover:
+
+```yaml
+apiVersion: anvio.io/v1
+kind: ProviderRouting
+spec:
+  defaultStrategy: highest_quality
+  routes:
+    coding:
+      primary:
+        provider: anthropic
+        model: claude-sonnet-4-20250514
+      fallback:
+        - provider: deepseek
+          model: deepseek-chat
+```
+
+Test routing:
+
+```bash
+anvio routing test coding --input "implement auth middleware"
+```
+
+---
+
+## Workspace Layout
+
+`anvio init` creates this structure and starter configs:
 
 ```
 workspace/
-├── anvio.yaml           # Platform config (storage, memory, channels, auth)
-├── agents/              # Agent definitions
-├── souls/               # Persistent agent identities (Advanced OS)
-├── personas/            # Persona bootstrap templates
-├── skills/              # Installed skills
-├── goals/               # Persistent goals (Advanced OS)
-├── kanban/              # Kanban boards (Advanced OS)
-├── automations/         # Automation definitions + scheduler state
-├── blueprints/          # User workflow templates
-├── hooks/hooks.yaml     # Event hook registry
-├── providers/routing.yaml  # Model routing config
-├── mcp/servers.yaml     # MCP server registry
-├── credentials/         # Encrypted credential pools
-├── batch/               # Batch job state
-├── audit/               # Execution audit logs
-├── sessions/            # Session state (runtime, gitignored)
-├── memory/              # Long-term memory (runtime, gitignored)
-├── inbox/               # Agent inbox messages (runtime)
-├── artifacts/           # Agent output files
-└── worktrees/           # Git worktree isolation (optional)
+├── anvio.yaml                 # Platform config (required)
+├── agents/                    # Agent definitions (*.yaml)
+├── personas/                  # Persona templates
+├── skills/                    # Installed / overridden skills
+├── souls/                     # Persistent agent identities
+├── goals/                     # Persistent goals
+├── providers/routing.yaml     # Model routing & fallback
+├── mcp/servers.yaml           # MCP server registry
+├── hooks/hooks.yaml           # Event hook registry
+├── automations/               # Cron & event automations
+├── blueprints/                # User workflow templates
+├── kanban/                    # Task boards
+├── credentials/               # Encrypted credential pools
+├── batch/                     # Batch job state
+├── audit/                     # Execution audit logs
+│
+├── sessions/                  # Runtime session store (gitignore)
+├── memory/                    # Long-term memory (gitignore)
+├── inbox/                     # Agent inbox (gitignore)
+├── artifacts/                 # Agent output files
+└── worktrees/                 # Git worktree isolation
 ```
 
-Fresh workspaces include starter configs for routing, MCP, and hooks:
+**Validate anytime:**
 
 ```bash
-anvio init ~/my-workspace
 anvio workspace validate
 ```
 
-**Example `anvio.yaml`:**
+**Minimal `anvio.yaml`:**
 
 ```yaml
 apiVersion: anvio.io/v1
@@ -340,124 +436,207 @@ spec:
     enabled: false
   storage:
     provider: filesystem
+    basePath: .
   memory:
     provider: filesystem
     basePath: memory
   events:
     provider: local
   defaultAgent: architect
-  channels:
-    telegram:
-      enabled: false
-      botToken: ${TELEGRAM_BOT_TOKEN}
+  defaultUserId: local-user
 ```
 
-**Example agent (`agents/architect.yaml`):**
+> **Tip:** Run `git init` inside `workspace/` to version agents separately from the Anvio codebase.
 
-```yaml
-apiVersion: anvio.io/v1
-kind: Agent
-metadata:
-  name: architect
-spec:
-  description: Senior Software Architect
-  persona: architect
-  skills: [architecture, code-review]
-  model:
-    provider: anthropic
-    model: claude-sonnet-4-20250514
-  workspace:
-    isolatedWorktree: false   # set true for git worktree per session
+---
+
+## Architecture
+
+### System map
+
+```mermaid
+flowchart TB
+    subgraph Entry["Entry points (priority order)"]
+        CLI["CLI<br/>anvio"]
+        API["REST API"]
+        GW["WebSocket Gateway"]
+    end
+
+    subgraph Platform["@anvio/platform — createPlatform()"]
+        CH["Channel Hub"]
+        RT["Agent Runtime"]
+        RTG["Model Router"]
+        AUTO["Automation Engine"]
+        BP["Blueprint Executor"]
+        HK["Hook Engine"]
+        MCP["MCP Bridge"]
+    end
+
+    subgraph Packages["Core packages"]
+        AG["agents"]
+        SO["souls / goals"]
+        KB["kanban / batch"]
+        CR["credentials"]
+        SK["skills catalog"]
+    end
+
+    subgraph Data["Local-first data"]
+        WS["workspace/"]
+    end
+
+    CLI --> Platform
+    API --> Platform
+    GW --> Platform
+    Platform --> Packages
+    Platform --> WS
+    CH --> RT
+    RT --> RTG
 ```
 
-> Tip: `git init` inside `workspace/` to version your agents separately from the Anvio codebase.
+### Monorepo layout
+
+```
+Anvio/
+├── apps/
+│   ├── cli/           Primary interface
+│   ├── api/           Optional REST (NestJS)
+│   ├── worker/        Background job consumer
+│   └── gateway/       WebSocket gateway
+├── packages/
+│   ├── core/          Schemas & ports
+│   ├── platform/      Composition factory
+│   ├── workspace/     Loader & session store
+│   ├── agents/        Runtime & orchestration
+│   ├── models/        Providers & routing
+│   ├── souls/ goals/  Advanced Agent OS
+│   ├── automation/    Cron & blueprints
+│   ├── credentials/   Encrypted pools
+│   ├── integrations/  MCP registry
+│   └── …
+├── configs/           Bundled skills & blueprints
+├── workspace/         Default workspace (your copy)
+└── docs/              Architecture & guides
+```
+
+**Dependency rule:** `apps → platform → packages → core`
+
+---
+
+## Install
+
+### Global install (end users)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/viantonugroho11/Anvio/main/scripts/install.sh | bash
+```
+
+| Path | Purpose |
+|------|---------|
+| `~/.anvio/app` | Anvio source clone |
+| `~/.anvio/workspace` | Default workspace |
+| `~/.local/bin/anvio` | CLI binary |
+| `~/.anvio/env` | Env hints — `source ~/.anvio/env` |
+
+**Options:**
+
+```bash
+./scripts/install.sh --workspace ~/my-agents
+./scripts/install.sh --bin-dir /usr/local/bin
+```
+
+### Developer install
+
+```bash
+git clone https://github.com/viantonugroho11/Anvio.git
+cd Anvio
+pnpm install
+pnpm build
+pnpm test
+export ANVIO_WORKSPACE=./workspace
+pnpm anvio chat
+```
+
+**Requirements:** Node 20+, pnpm 9+
 
 ---
 
 ## CLI Reference
 
-Run `anvio help` for the full grouped command list.
+Run `anvio help` for the full grouped list.
 
-### Core
+### Core commands
 
 | Command | Description |
 |---------|-------------|
-| `anvio init [path]` | Create a new workspace |
-| `anvio workspace validate` | Validate workspace structure and config |
-| `anvio agents list` | List configured agents |
-| `anvio chat [--agent NAME]` | Interactive chat session |
-| `anvio run <agent> [msg]` | Run a task (`--detach` for background) |
-| `anvio sessions list` | List agent sessions |
+| `anvio init [path]` | Scaffold a new workspace |
+| `anvio workspace validate` | Check workspace structure |
+| `anvio agents list` | List agents |
+| `anvio chat [--agent NAME]` | Interactive chat |
+| `anvio run <agent> [msg]` | One-shot task (`--detach` for background) |
+| `anvio sessions list` | List sessions |
 | `anvio status [sessionId]` | Platform or session status |
-| `anvio logs <sessionId>` | Show session message log |
-| `anvio approve <session> <id>` | Approve a pending tool request |
-| `anvio stop <sessionId>` | Stop a running session |
-| `anvio inbox <sessionId> <msg>` | Inject instruction into running agent |
-| `anvio worktree list\|create\|remove` | Manage git worktree isolation |
-| `anvio channels status [--json]` | Health check all channel adapters |
+| `anvio logs <sessionId>` | Session message log |
+| `anvio channels status [--json]` | Channel health check |
 
 ### Advanced Agent OS
 
 | Command | Description |
 |---------|-------------|
-| `anvio soul list\|show\|create` | Persistent agent souls |
-| `anvio goal list\|create\|progress\|complete\|pause\|resume` | Goal tracking |
-| `anvio blueprint catalog\|run` | Workflow blueprints |
-| `anvio automation list\|run\|enable` | Scheduled and event automations |
-| `anvio cron list\|next-runs` | Cron schedule utilities |
-| `anvio hooks test <event>` | Test event hook handlers |
-| `anvio kanban list\|create\|move` | Kanban board tasks |
+| `anvio soul list\|show\|create` | Persistent identities |
+| `anvio goal list\|create\|progress\|complete` | Goal tracking |
+| `anvio blueprint catalog\|run` | Workflow templates |
+| `anvio automation list\|run\|enable` | Scheduled automations |
+| `anvio kanban list\|create\|move` | Task boards |
 | `anvio batch run\|status\|resume` | Parallel batch jobs |
-| `anvio runtime list\|test` | Runtime providers |
-| `anvio exec run\|audit` | Sandboxed code execution |
-| `anvio acp serve\|status` | ACP editor integration |
-| `anvio credentials list\|add\|test` | Encrypted credential pools |
-| `anvio routing show\|test` | Provider routing and fallback |
+| `anvio routing catalog\|providers\|test` | Model routing |
+| `anvio credentials list\|add\|test` | Encrypted API key pools |
 | `anvio skill catalog\|install\|validate` | Skills catalog |
-| `anvio mcp list\|test` | MCP integration servers |
+| `anvio mcp list\|test` | MCP servers |
+| `anvio exec run\|audit` | Sandboxed code execution |
+| `anvio acp serve\|status` | Editor integration (ACP) |
+| `anvio runtime list\|test` | Runtime providers |
 
-**Environment variables:**
+### Key environment variables
 
 | Variable | Purpose |
 |----------|---------|
-| `ANVIO_WORKSPACE` | Path to workspace (default: `./workspace`) |
-| `ANTHROPIC_API_KEY` | Anthropic API key for real model responses |
-| `ANVIO_CREDENTIALS_PASSPHRASE` | Passphrase for encrypted credential pools |
-| `GITHUB_TOKEN` | GitHub MCP server (when enabled in `mcp/servers.yaml`) |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token |
-| `DISCORD_BOT_TOKEN` | Discord bot token |
-| `SLACK_BOT_TOKEN` | Slack bot token |
-| `SLACK_APP_TOKEN` | Slack Socket Mode app token |
+| `ANVIO_WORKSPACE` | Workspace path (default: `./workspace`) |
+| `ANTHROPIC_API_KEY` | Claude models |
+| `OPENAI_API_KEY` | GPT models |
+| `DEEPSEEK_API_KEY` | DeepSeek models |
+| `OPENROUTER_API_KEY` | OpenRouter gateway |
+| `GEMINI_API_KEY` | Google Gemini |
+| `OLLAMA_BASE_URL` / `OLLAMA_ENABLED` | Local Ollama |
+| `ANVIO_CREDENTIALS_PASSPHRASE` | Credential pool encryption |
+| `GITHUB_TOKEN` | GitHub MCP server |
+
+See [`.env.example`](.env.example) for the complete list.
 
 ---
 
 ## Channels
 
-Anvio routes messages through a **Channel Hub** — one runtime, many surfaces:
+One agent runtime, many surfaces:
 
 ```mermaid
 flowchart LR
-    subgraph Inputs
-        CLI2["CLI"]
-        REST["REST API"]
+    subgraph In["Inputs"]
+        CLI["CLI"]
+        REST["REST"]
         WEB["Web Chat"]
-        TG2["Telegram"]
-        DC2["Discord"]
-        SL2["Slack"]
-        WA2["WhatsApp"]
+        TG["Telegram"]
+        DC["Discord"]
+        SL["Slack"]
+        WA["WhatsApp"]
     end
 
-    HUB["ChannelHub"]
-    BR["Session Bridge"]
-    RT["Agent Runtime"]
-
-    CLI2 & REST & WEB & TG2 & DC2 & SL2 & WA2 --> HUB
-    HUB --> BR --> RT
+    HUB["ChannelHub"] --> RT["Agent Runtime"]
     RT --> HUB
-    HUB --> CLI2 & REST & WEB & TG2 & DC2 & SL2 & WA2
+    In --> HUB
+    HUB --> In
 ```
 
-Enable channels in `anvio.yaml`:
+Enable in `anvio.yaml`:
 
 ```yaml
 spec:
@@ -472,45 +651,40 @@ spec:
       appToken: ${SLACK_APP_TOKEN}
 ```
 
-Check channel health:
-
 ```bash
 anvio channels status
 anvio channels status --json
 ```
 
-WhatsApp webhooks are served by the API at `POST /api/channels/whatsapp/webhook`.
+Optional stack (Level 2+):
+
+```bash
+ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/api dev
+ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/worker dev
+ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/gateway dev
+```
 
 ---
 
 ## Progressive Enhancement
 
-Start simple. Add infrastructure only when you outgrow files:
+Start at Level 1. Add infrastructure only when you outgrow files.
 
-| Level | Storage | Auth | Events | Channels | Use case |
-|:-----:|---------|------|--------|----------|----------|
-| **1** | Filesystem | None | In-process | CLI + optional bots | Solo dev, local CLI |
-| **2** | SQLite | Optional OAuth | Local / NATS | + REST, Web Chat | Small team |
-| **3** | PostgreSQL + Qdrant | JWT / OAuth | NATS JetStream | All adapters | Multi-user production |
-| **4** | K8s + managed DB | Full RBAC | Distributed | Enterprise integrations | Org scale |
+| Level | Storage | Auth | Events | Best for |
+|:-----:|---------|------|--------|----------|
+| **1** | Filesystem | Off | In-process | Solo dev, local CLI |
+| **2** | SQLite | Optional OAuth | Local / NATS | Small team + API |
+| **3** | PostgreSQL + Qdrant | JWT / OAuth | NATS JetStream | Multi-user production |
+| **4** | K8s + managed DB | Full RBAC | Distributed | Organization scale |
 
 ```mermaid
 flowchart LR
     L1["Level 1<br/>CLI + files"]
-    L2["Level 2<br/>+ API / SQLite"]
+    L2["Level 2<br/>+ API"]
     L3["Level 3<br/>+ PG / NATS"]
-    L4["Level 4<br/>+ K8s / RBAC"]
+    L4["Level 4<br/>+ K8s"]
 
     L1 --> L2 --> L3 --> L4
-```
-
-Enable auth only when needed (e.g. external MCP providers):
-
-```yaml
-spec:
-  auth:
-    enabled: true
-    provider: oauth2
 ```
 
 ---
@@ -518,34 +692,32 @@ spec:
 ## Development
 
 ```bash
-pnpm install          # install dependencies
-pnpm build            # build all packages
-pnpm test             # run tests
-pnpm typecheck        # TypeScript check
-pnpm anvio chat       # run CLI from source
+pnpm install
+pnpm build
+pnpm test              # 80+ integration tests
+pnpm typecheck
+pnpm anvio chat        # CLI from source
 ```
 
-**Requirements:** Node 20+, pnpm 9+
-
-Docker and PostgreSQL are optional — only needed for Level 3+ workflows.
+Contributing: see [`docs/21-development-guide.md`](docs/21-development-guide.md).
 
 ---
 
 ## Documentation
 
-| Doc | Topic |
-|-----|-------|
-| [`docs/24-advanced-agent-os-overview.md`](docs/24-advanced-agent-os-overview.md) | Advanced Agent OS overview & CLI |
-| [`docs/02-architecture.md`](docs/02-architecture.md) | System architecture |
-| [`docs/23-roadmap.md`](docs/23-roadmap.md) | Roadmap & doc index |
-| [`docs/10-channels.md`](docs/10-channels.md) | Channel hub & adapters |
-| [`docs/21-development-guide.md`](docs/21-development-guide.md) | Contributor setup |
-| [`docs/adr/0007-local-first-architecture.md`](docs/adr/0007-local-first-architecture.md) | Local-first ADR |
-| [`docs/adr/0008-channel-hub-architecture.md`](docs/adr/0008-channel-hub-architecture.md) | Channel hub ADR |
+| Document | Description |
+|----------|-------------|
+| [Advanced Agent OS overview](docs/24-advanced-agent-os-overview.md) | Feature map & CLI surface |
+| [Architecture](docs/02-architecture.md) | Package boundaries |
+| [Roadmap](docs/23-roadmap.md) | Phases A–F status & doc index |
+| [Channels](docs/10-channels.md) | Channel hub & adapters |
+| [Provider routing](docs/36-provider-routing.md) | Routing strategies & fallback |
+| [Credential pools](docs/33-credential-pools.md) | Encrypted key management |
+| [Development guide](docs/21-development-guide.md) | Contributor setup |
 
-Full Advanced OS docs: [`docs/24-advanced-agent-os-overview.md`](docs/24-advanced-agent-os-overview.md) (links to docs 25–40).
+Full doc index: [`docs/24-advanced-agent-os-overview.md`](docs/24-advanced-agent-os-overview.md) (links to docs 25–40).
 
-See also: [`CHANGELOG.md`](CHANGELOG.md)
+Changelog: [`CHANGELOG.md`](CHANGELOG.md) · Latest release: [v1.2.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.2.0)
 
 ---
 
