@@ -24,6 +24,10 @@ export interface BlueprintRunResult {
 export interface BlueprintExecutionDeps {
   catalog: BlueprintCatalogRegistry;
   runAgent?: (agentId: string, input: string) => Promise<string>;
+  runWorkflow?: (
+    slug: string,
+    inputs: Record<string, unknown>,
+  ) => Promise<{ outputs: Record<string, string>; status: string }>;
   runHook?: (hookPath: string, payload: Record<string, unknown>) => Promise<void>;
   mcpBridge?: {
     callTool(call: {
@@ -125,6 +129,20 @@ export class BlueprintExecutor {
           const nested = await this.run(step.blueprint, context.inputs);
           const output = nested.outputs.summary ?? nested.steps.at(-1)?.output ?? '';
           return { id: step.id, type: step.type, output, status: nested.status === 'failed' ? 'failed' : 'completed' };
+        }
+        case 'workflow': {
+          if (!step.workflow) throw new Error(`Workflow step ${step.id} missing workflow`);
+          if (!this.deps.runWorkflow) {
+            return { id: step.id, type: step.type, output: `[no-workflow-runner] ${step.workflow}`, status: 'skipped' };
+          }
+          const nested = await this.deps.runWorkflow(step.workflow, context.inputs);
+          const output = nested.outputs.summary ?? Object.values(nested.outputs)[0] ?? '';
+          return {
+            id: step.id,
+            type: step.type,
+            output,
+            status: nested.status === 'failed' ? 'failed' : 'completed',
+          };
         }
         case 'channel': {
           const message = renderTemplate(step.message ?? step.input ?? '', context);

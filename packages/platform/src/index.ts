@@ -27,6 +27,7 @@ import { SkillRegistry, createSkillCatalogResolver } from '@anvio/skills';
 import { createHarnessFromWorkspace, type HarnessGateway } from '@anvio/harness';
 import { LearningEngine } from '@anvio/learning';
 import { ToolGateway } from '@anvio/tools';
+import { DagExecutor, createWorkflowRegistry } from '@anvio/workflows';
 import { Workspace } from '@anvio/workspace';
 import { findRepoRoot, findWorkspacePath } from './find-workspace.js';
 
@@ -142,9 +143,42 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   await integrationRegistry.load();
   const mcpBridge = createMcpBridge(integrationRegistry);
   const catalog = createCatalogRegistry(workspacePath, repoRoot);
+  const workflowRegistry = createWorkflowRegistry(workspacePath, repoRoot);
+  const workflowExecutor = new DagExecutor({
+    registry: workflowRegistry,
+    runAgent: async (agentId, input) => {
+      const agent = await workspace.loader.loadAgent(agentId);
+      const stored = await workspace.sessions.create({
+        userId: spec.defaultUserId,
+        agentName: agentId,
+        channel: 'automation',
+        messages: [],
+        status: 'idle',
+        detached: true,
+      });
+      const session = storedSessionToRuntime(stored);
+      const result = await runtime.run(session, agent, { content: input });
+      return result.content;
+    },
+    runBlueprint: async (slug, inputs) => {
+      const bp = await catalog.load(slug);
+      const executor = new BlueprintExecutor({ catalog, mcpBridge });
+      const result = await executor.executeDefinition(bp, inputs);
+      return { outputs: result.outputs };
+    },
+    mcpBridge,
+  });
   const blueprintExecutor = new BlueprintExecutor({
     catalog,
     mcpBridge,
+    runWorkflow: async (slug, inputs) => {
+      const result = await workflowExecutor.run(slug, inputs);
+      await eventBus.publishCore(EventSubjects.WORKFLOW_COMPLETED, 'anvio.workflow.completed.v1', {
+        workflowId: slug,
+        status: result.status,
+      });
+      return { outputs: result.outputs, status: result.status };
+    },
     runAgent: async (agentId, input) => {
       const agent = await workspace.loader.loadAgent(agentId);
       const stored = await workspace.sessions.create({
