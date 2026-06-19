@@ -1,0 +1,39 @@
+{
+  "name": "anvio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Anvio AI Agent Operating System",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "vitest run --config vitest.config.mts",
+    "test:integration": "vitest run --config vitest.config.mts tests/integration",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
+    "db:generate": "pnpm --filter @anvio/db db:generate",
+    "db:migrate": "pnpm --filter @anvio/db db:migrate",
+    "db:seed": "pnpm --filter @anvio/db db:seed",
+    "anvio": "node apps/cli/dist/main.js",
+    "cli": "tsx apps/cli/src/main.ts",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "@typescript-eslint/parser": "^8.32.1",
+    "eslint": "^9.27.0",
+    "prettier": "^3.5.3",
+    "turbo": "^2.5.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.32.1",
+    "vitest": "^3.1.4"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
