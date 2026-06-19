@@ -33,9 +33,15 @@ export const agentWorkspaceSchema = z.object({
   isolatedWorktree: z.boolean().default(false),
 });
 
+export const agentRuntimeBindingSchema = z.object({
+  provider: z.enum(['local', 'cursor', 'claude-code', 'codex']).optional(),
+  fallback: z.enum(['local', 'cursor', 'claude-code', 'codex']).optional(),
+});
+
 export const agentSpecSchema = z.object({
   description: z.string().min(1),
   persona: z.string().min(1),
+  soul: z.string().optional(),
   skills: z.array(z.string()).default([]),
   tools: z.array(z.string()).default([]),
   model: agentModelSchema,
@@ -43,6 +49,7 @@ export const agentSpecSchema = z.object({
   orchestration: agentOrchestrationSchema.default({ pattern: 'single', delegates: [] }),
   approvals: agentApprovalsSchema.default({ requiredFor: ['destructive'] }),
   workspace: agentWorkspaceSchema.default({ isolatedWorktree: false }),
+  runtime: agentRuntimeBindingSchema.optional(),
 });
 
 export const agentDefinitionSchema = z.object({

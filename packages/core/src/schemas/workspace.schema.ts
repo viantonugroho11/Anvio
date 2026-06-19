@@ -27,8 +27,29 @@ export const storageConfigSchema = z.object({
 });
 
 export const memoryConfigSchema = z.object({
-  provider: z.enum(['filesystem', 'sqlite', 'postgresql', 'qdrant', 'redis']).default('filesystem'),
+  provider: z
+    .enum(['filesystem', 'sqlite', 'postgresql', 'qdrant', 'redis', 'honcho'])
+    .default('filesystem'),
   basePath: z.string().default('memory'),
+});
+
+export const runtimeConfigSchema = z.object({
+  default: z.enum(['local', 'cursor', 'claude-code', 'codex']).default('local'),
+});
+
+export const executionConfigSchema = z.object({
+  defaultTimeoutMs: z.number().int().positive().default(30000),
+  networkEnabled: z.boolean().default(false),
+});
+
+export const credentialsConfigSchema = z.object({
+  encryption: z.enum(['disabled', 'enabled']).default('disabled'),
+});
+
+export const acpConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  port: z.number().int().positive().default(8765),
+  host: z.string().default('127.0.0.1'),
 });
 
 export const eventsConfigSchema = z.object({
@@ -69,9 +90,14 @@ export const workspaceSpecSchema = z.object({
   storage: storageConfigSchema.default({ provider: 'filesystem', basePath: '.' }),
   memory: memoryConfigSchema.default({ provider: 'filesystem', basePath: 'memory' }),
   events: eventsConfigSchema.default({ provider: 'local' }),
+  runtime: runtimeConfigSchema.default({ default: 'local' }),
+  execution: executionConfigSchema.default({ defaultTimeoutMs: 30000, networkEnabled: false }),
+  credentials: credentialsConfigSchema.default({ encryption: 'disabled' }),
+  acp: acpConfigSchema.default({ enabled: false, port: 8765, host: '127.0.0.1' }),
   channels: channelsConfigSchema.optional(),
   worktrees: worktreesConfigSchema.default({ enabled: false, repoPath: '..' }),
   defaultAgent: z.string().optional(),
+  defaultSoul: z.string().optional(),
   defaultUserId: z.string().default('local-user'),
 });
 

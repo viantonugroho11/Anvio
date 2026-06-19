@@ -49,12 +49,20 @@ export interface InboxMessage {
   createdAt: string;
 }
 
-export type OrchestrationMode = 'sequential' | 'parallel' | 'fan-out' | 'fan-in';
+export type OrchestrationMode = 'sequential' | 'parallel' | 'fan-out' | 'fan-in' | 'hierarchical';
+
+export type SubAgentFailurePolicy = 'abort' | 'continue' | 'retry';
 
 export interface SubAgentTask {
+  id?: string;
   agentId: string;
   input: string;
   sessionId?: string;
+  dependsOn?: string[];
+  onFailure?: SubAgentFailurePolicy;
+  maxAttempts?: number;
+  worktree?: boolean;
+  subPlan?: OrchestrationPlan;
 }
 
 export interface OrchestrationPlan {
