@@ -17,4 +17,5 @@ spec:
   events:
     provider: local
   defaultAgent: architect
+  defaultSoul: architect-soul
   defaultUserId: local-user

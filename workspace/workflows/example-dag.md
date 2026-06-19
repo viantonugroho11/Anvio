@@ -1,4 +1,4 @@
-# Example DAG workflow — parallel gather + conditional report
+---
 apiVersion: anvio.io/v1
 kind: Workflow
 metadata:
@@ -6,21 +6,17 @@ metadata:
   version: "1.0.0"
   catalog: private
 spec:
-  description: Demonstrates dependsOn DAG with parallel branches and conditional output
+  description: Demonstrates dependsOn DAG with parallel branches
   inputs:
     topic:
       type: string
       default: architecture
-    includeSummary:
-      type: string
-      default: "true"
   nodes:
     - id: gather-a
       type: transform
       template: "Finding A for {{inputs.topic}}"
     - id: gather-b
       type: transform
-      dependsOn: []
       template: "Finding B for {{inputs.topic}}"
     - id: merge
       type: transform
@@ -29,18 +25,15 @@ spec:
         # DAG Report — {{date}}
         - {{nodes.gather-a.output}}
         - {{nodes.gather-b.output}}
-    - id: summary
-      type: conditional
-      dependsOn: [merge]
-      condition: "{{inputs.includeSummary}}"
-      then:
-        - id: summary-line
-          type: transform
-          template: "Summary: {{nodes.merge.output}}"
-      else:
-        - id: skip-line
-          type: transform
-          template: "(summary skipped)"
   outputs:
     summary:
       from: nodes.merge.output
+---
+
+# Example DAG
+
+Parallel gather nodes merge into a single report. Run with:
+
+```bash
+anvio workflow run example-dag topic=monorepo
+```
