@@ -1,13 +1,178 @@
-# Channels
+# Channels — Channel Hub Architecture
+
+Anvio treats every communication surface as a **transport layer only**. The Agent Runtime never imports channel-specific code.
+
+## Design Principles
+
+1. **Channel independence** — Telegram, WhatsApp, Discord, Slack, Web Chat, REST API, and CLI share identical runtime behavior.
+2. **Thread → Session mapping** — External threads (Telegram topic, Discord thread, Slack thread, web conversation) map 1:1 to agent sessions.
+3. **Detached execution** — Agents continue when users disconnect; completion flows through notifications.
+4. **Adapter-only extension** — New channels implement `ChannelAdapter`; runtime logic stays unchanged.
 
 ## ChannelAdapter Interface
 
-All channels implement common interface for messaging, streaming, file uploads.
+```typescript
+interface ChannelAdapter {
+  readonly channelType: ChannelType;
+  sendMessage(sessionId, message): Promise<void>;
+  sendProgress?(sessionId, update): Promise<void>;
+  sendNotification?(sessionId, notification): Promise<void>;
+  sendApprovalRequest?(sessionId, request): Promise<void>;
+  onMessage(handler): void;
+  start(): Promise<void>;
+  stop(): Promise<void>;
+}
+```
 
-## Phase 1
+Implementations live in `packages/channels/`:
 
-Web Chat only.
+| Channel   | Adapter            | Status        |
+|-----------|--------------------|---------------|
+| Web Chat  | `WebChatChannel`   | Implemented   |
+| CLI       | `CliChannel`       | Implemented   |
+| REST API  | `RestApiChannel`   | Implemented   |
+| Telegram  | `TelegramChannel`  | Stub (wire Bot API) |
+| WhatsApp  | `WhatsAppChannel`  | Stub          |
+| Discord   | `DiscordChannel`   | Stub          |
+| Slack     | `SlackChannel`     | Stub          |
 
-## Phase 3
+## Channel Hub
 
-Telegram, WhatsApp, Discord, Slack, Email, REST API. Cross-channel session handoff.
+`ChannelHub` (`packages/channels/src/channel-hub.ts`) registers adapters and routes outbound events:
+
+```
+Agent Runtime / Worker
+        ↓ events
+   Channel Hub
+   ↙ ↓ ↓ ↓ ↘
+ CLI REST Web Telegram …
+```
+
+Inbound messages flow: `ChannelAdapter → EventBus → Worker → AgentRuntime`.
+
+## Thread-Based Sessions
+
+Sessions store `channelThread` metadata:
+
+```json
+{
+  "channelThread": {
+    "channel": "discord",
+    "threadId": "1234567890"
+  }
+}
+```
+
+Resume a session via `SessionStore.getByChannelThread(channel, threadId)`.
+
+Session payload includes: context (messages), progress (status), state, attachments (artifacts), approvals (`pendingApproval`).
+
+## Background / Detached Sessions
+
+Set `detached: true` when creating a session or publishing `AGENT_RUN_REQUESTED`. The worker executes independently; the user receives progress and completion via channel adapters.
+
+```bash
+anvio run architect "Review this repository" --detach
+```
+
+## Progress Streaming
+
+Runtime emits `AGENT_RUN_PROGRESS` events. All adapters receive formatted updates:
+
+```
+🔄 Analyzing repository
+🔄 Reading documentation
+✅ Completed
+```
+
+## Agent Inbox
+
+Inject instructions into running sessions:
+
+```bash
+anvio inbox <sessionId> "Focus on security issues first"
+anvio inbox <sessionId> stop
+```
+
+Messages queue in `LocalAgentInbox` and dispatch via `AGENT_INBOX_INJECTED`.
+
+## Human Approval Workflow
+
+When a tool requires approval, runtime pauses with `awaiting_approval` status. Worker publishes `APPROVAL_REQUESTED`; adapters render Approve/Reject actions.
+
+```bash
+anvio approve <sessionId> <requestId>
+anvio approve <sessionId> <requestId> --reject
+```
+
+## Notifications
+
+| Type               | Trigger                    |
+|--------------------|----------------------------|
+| `task_completed`   | Agent run finished         |
+| `task_failed`      | Agent run error            |
+| `approval_required`| Tool needs human approval  |
+| `agent_waiting`    | Agent blocked on input     |
+| `workflow_finished`| Orchestration complete     |
+
+## Multi-Agent Coordination
+
+`SupervisorOrchestrator` supports:
+
+- **Sequential** — tasks run one after another
+- **Parallel / Fan-out** — tasks run concurrently
+- **Fan-in** — subagent results synthesized by manager
+
+```typescript
+createOrchestrationPlan('manager', 'parallel', [
+  { agentId: 'architect', input: 'Design API' },
+  { agentId: 'reviewer', input: 'Review design' },
+]);
+```
+
+## Agent Workspace Layout
+
+```
+workspace/
+  agents/
+  sessions/
+  memory/
+  artifacts/       # Generated reports, diagrams, reviews
+  worktrees/       # Git worktree isolation per agent
+```
+
+Coding agents receive isolated worktrees under `worktrees/<sessionId>/` to avoid file conflicts.
+
+## Agent Artifacts
+
+`FilesystemArtifactStore` persists markdown reports, reviews, and documentation under `artifacts/<sessionId>/`.
+
+## Agent Command Center (CLI)
+
+Entire platform usable without Web UI:
+
+```bash
+anvio run architect "Generate architecture report"
+anvio run reviewer "Review PR #42" --detach
+anvio sessions
+anvio status
+anvio logs <sessionId>
+anvio approve <sessionId> <requestId>
+anvio stop <sessionId>
+anvio inbox <sessionId> "Ignore frontend code"
+```
+
+## Adding a New Channel
+
+1. Create `packages/channels/src/<channel>.ts` implementing `ChannelAdapter`.
+2. Register in `createPlatform()` or channel config.
+3. Map inbound webhooks/polling to `InboundMessage` with `channelThreadId`.
+4. No changes to `packages/agents/` required.
+
+Examples for future channels: Microsoft Teams, Matrix, Line, Signal, custom enterprise chat.
+
+## Related
+
+- ADR: `docs/adr/0008-channel-hub-architecture.md`
+- Runtime: `docs/03-runtime.md`
+- Events: `docs/17-event-flows.md`
