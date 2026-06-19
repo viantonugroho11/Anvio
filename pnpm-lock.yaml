@@ -78,9 +78,15 @@ importers:
 
   apps/cli:
     dependencies:
+      '@anvio/channels':
+        specifier: workspace:*
+        version: link:../../packages/channels
       '@anvio/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@anvio/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@anvio/platform':
         specifier: workspace:*
         version: link:../../packages/platform
@@ -162,6 +168,9 @@ importers:
       '@anvio/skills':
         specifier: workspace:*
         version: link:../skills
+      uuid:
+        specifier: ^11.1.0
+        version: 11.1.1
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -194,6 +203,9 @@ importers:
       '@anvio/core':
         specifier: workspace:*
         version: link:../core
+      uuid:
+        specifier: ^11.1.0
+        version: 11.1.1
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -355,6 +367,9 @@ importers:
       '@anvio/auth':
         specifier: workspace:*
         version: link:../auth
+      '@anvio/channels':
+        specifier: workspace:*
+        version: link:../channels
       '@anvio/core':
         specifier: workspace:*
         version: link:../core
