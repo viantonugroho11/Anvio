@@ -32,6 +32,8 @@
     "@anvio/platform": "workspace:*",
     "@anvio/runtimes": "workspace:*",
     "@anvio/skills": "workspace:*",
+    "@anvio/harness": "workspace:*",
+    "@anvio/soul-gate": "workspace:*",
     "@anvio/souls": "workspace:*",
     "@anvio/storage": "workspace:*",
     "@anvio/workspace": "workspace:*"

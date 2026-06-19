@@ -22,6 +22,9 @@ import { createKanbanEngine } from '@anvio/kanban';
 import { createMemoryProvider } from '@anvio/memory';
 import { createPlatform, findRepoRoot, loadAgent, storedSessionToRuntime } from '@anvio/platform';
 import { createSoulService } from '@anvio/souls';
+import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
+import { createHarnessGateway, loadHarnessConfig, loadHarnessProfiles, runSimulationScenario } from '@anvio/harness';
+import { ChannelHub } from '@anvio/channels';
 import { FilesystemStorageProvider } from '@anvio/storage';
 import { Workspace, WORKSPACE_DIRS } from '@anvio/workspace';
 
@@ -65,6 +68,9 @@ async function main() {
       break;
     case 'channels':
       await cmdChannels(args.slice(1));
+      break;
+    case 'harness':
+      await cmdHarness(args.slice(1));
       break;
     case 'soul':
       await cmdSoul(args.slice(1));
@@ -137,9 +143,11 @@ Core
   anvio inbox <sessionId> <msg>        Inject instruction into running agent
   anvio worktree list|create|remove    Git worktree isolation
   anvio channels status [--json]       Channel adapter health check
+  anvio harness status|simulate        Channel harness (Phase G)
 
 Advanced Agent OS — Identity & Goals
   anvio soul list|show|create          Persistent agent souls
+  anvio soul import|validate-policy    SOUL.md policy gate
   anvio goal list|create|progress      Goal tracking
   anvio goal complete|pause|resume     Goal lifecycle
 
@@ -581,8 +589,104 @@ async function cmdSoul(sub: string[]) {
       console.log(`Soul created: ${saved.metadata.slug}`);
       break;
     }
+    case 'import': {
+      const file = sub[1];
+      const slugIdx = sub.indexOf('--slug');
+      const slug = slugIdx >= 0 ? sub[slugIdx + 1] : 'architect-soul';
+      if (!file) {
+        console.error('Usage: anvio soul import <SOUL.md> [--slug <slug>]');
+        process.exit(1);
+      }
+      const source = await fs.readFile(path.resolve(file), 'utf-8');
+      const policy = parseSoulMd(source, slug);
+      const soulDir = path.join(wsPath, 'souls', slug);
+      await fs.mkdir(soulDir, { recursive: true });
+      await fs.writeFile(path.join(soulDir, 'SOUL.md'), source, 'utf-8');
+      const cacheDir = path.join(wsPath, 'souls', '_cache');
+      await fs.mkdir(cacheDir, { recursive: true });
+      console.log(JSON.stringify({ slug, policy }, null, 2));
+      console.log(`Imported SOUL.md → workspace/souls/${slug}/SOUL.md`);
+      break;
+    }
+    case 'validate-policy': {
+      const file = sub[1];
+      if (!file) {
+        console.error('Usage: anvio soul validate-policy <SOUL.md>');
+        process.exit(1);
+      }
+      const source = await fs.readFile(path.resolve(file), 'utf-8');
+      const policy = verifyPolicyIds(source, parseSoulMd(source));
+      console.log(JSON.stringify(policy, null, 2));
+      break;
+    }
     default:
-      console.error('Usage: anvio soul list|show|create');
+      console.error('Usage: anvio soul list|show|create|import|validate-policy');
+      process.exit(1);
+  }
+}
+
+async function cmdHarness(sub: string[]) {
+  const action = sub[0] ?? 'status';
+  const wsPath = resolveWorkspacePath();
+  const workspace = await Workspace.open(wsPath);
+  const defaults = await loadHarnessConfig(wsPath);
+  const profiles = await loadHarnessProfiles(wsPath);
+
+  switch (action) {
+    case 'status': {
+      console.log('Channel Harness');
+      console.log(`  enabled: ${defaults.enabled}`);
+      console.log(`  soulSlug: ${defaults.soulSlug ?? '(none)'}`);
+      console.log(`  suppressRawOutput: ${defaults.suppressRawOutput}`);
+      console.log(`  idleMinutes: ${defaults.idleMinutes}`);
+      console.log(`  profiles: ${profiles.map((p) => p.name).join(', ')}`);
+      console.log(`  connectBroker: ${defaults.connectBroker.enabled ? 'enabled' : 'disabled'}`);
+      break;
+    }
+    case 'simulate': {
+      const hub = new ChannelHub();
+      const harness = createHarnessGateway({
+        defaults: { ...defaults, enabled: true },
+        profiles,
+        policy: parseSoulMd(
+          `## Identity
+- Name: Test Agent
+## Reporting
+- Manager: U_MANAGER
+## Mandate
+- Help the team ship safely.
+## Approvers
+- <@U_MANAGER>: anything ; catchall
+## Blocked
+- <@U_BLOCKED>
+`,
+          'test',
+        ),
+        channelHub: hub,
+        sessions: workspace.sessions,
+      });
+      const results = await runSimulationScenario(harness, [
+        {
+          channel: 'slack',
+          threadId: 'T1',
+          userId: 'U_BLOCKED',
+          content: 'hello',
+          zoneId: 'C_PUBLIC',
+        },
+        {
+          channel: 'slack',
+          threadId: 'T2',
+          userId: 'U_MANAGER',
+          content: 'hello',
+          zoneId: 'C_PUBLIC',
+          mentionedBot: true,
+        },
+      ]);
+      console.log(JSON.stringify(results, null, 2));
+      break;
+    }
+    default:
+      console.error('Usage: anvio harness status|simulate');
       process.exit(1);
   }
 }
