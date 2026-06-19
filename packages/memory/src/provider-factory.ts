@@ -7,6 +7,7 @@ import type {
   MemoryProviderHealth,
 } from '@anvio/core';
 import type { FilesystemStorageProvider } from '@anvio/storage';
+import { createHonchoProvider, type HonchoConfig } from './providers/honcho/honcho-provider.js';
 
 /** Filesystem-based memory provider — default for local-first mode. */
 export class FilesystemMemoryProvider implements MemoryProvider {
@@ -136,10 +137,23 @@ function createStubProvider(id: string): MemoryProvider {
 export function createMemoryProvider(
   provider: string,
   storage: FilesystemStorageProvider,
+  honchoConfig?: HonchoConfig,
 ): MemoryProvider {
   switch (provider) {
     case 'filesystem':
       return new FilesystemMemoryProvider(storage);
+    case 'honcho': {
+      const config =
+        honchoConfig ??
+        (process.env.HONCHO_API_KEY
+          ? {
+              baseUrl: process.env.HONCHO_BASE_URL ?? 'https://api.honcho.dev',
+              apiKey: process.env.HONCHO_API_KEY,
+              workspaceId: process.env.HONCHO_WORKSPACE_ID,
+            }
+          : undefined);
+      return createHonchoProvider(new FilesystemMemoryProvider(storage), config);
+    }
     case 'sqlite':
       return createStubProvider('sqlite');
     case 'postgresql':
@@ -147,8 +161,6 @@ export function createMemoryProvider(
       return createStubProvider(provider);
     case 'qdrant':
       return createStubProvider('qdrant');
-    case 'honcho':
-      return createStubProvider('honcho');
     default:
       return new FilesystemMemoryProvider(storage);
   }
