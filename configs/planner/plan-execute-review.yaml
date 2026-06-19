@@ -1,0 +1,21 @@
+apiVersion: anvio.io/v1
+kind: Planner
+metadata:
+  name: plan-execute-review
+  description: Hermes-tech style PLAN → EXECUTE → REVIEW gates
+spec:
+  requireReviewApproval: false
+  phases:
+    - name: plan
+      agent: architect
+      prompt: |
+        Produce a concise execution plan with numbered steps, risks, and acceptance criteria.
+        Do not implement yet — planning only.
+    - name: execute
+      agent: architect
+      prompt: |
+        Execute the plan from the prior phase. Implement changes and report what was done.
+    - name: review
+      agent: architect
+      prompt: |
+        Review the execution output against the original plan. List gaps, regressions, and follow-ups.
