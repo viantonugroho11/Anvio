@@ -58,6 +58,11 @@ spec:
       engageOn: always
       disengageOn: never
       dmPolicy: anyone
+    - name: mattermost-like
+      channels: [mattermost]
+      engageOn: mention
+      disengageOn: never
+      dmPolicy: anyone
 `;
 
 export async function loadHarnessConfig(workspaceRoot: string): Promise<HarnessDefaults> {

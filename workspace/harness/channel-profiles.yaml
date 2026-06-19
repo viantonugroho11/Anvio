@@ -34,3 +34,8 @@ spec:
       engageOn: always
       disengageOn: never
       dmPolicy: anyone
+    - name: mattermost-like
+      channels: [mattermost]
+      engageOn: mention
+      disengageOn: never
+      dmPolicy: anyone
