@@ -106,6 +106,8 @@ async function buildCommand(
         cleanup: () => fs.rm(tmpDir, { recursive: true, force: true }),
       };
     }
+    case 'docker':
+      throw new Error('Docker runtime handled at sandbox entry');
     default: {
       const _exhaustive: never = options.runtime;
       throw new Error(`Unsupported runtime: ${_exhaustive}`);
