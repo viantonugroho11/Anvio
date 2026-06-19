@@ -14,6 +14,13 @@ export class VoicePipeline {
     return this.adapter.transcribe({ audioPath });
   }
 
+  async transcribeBuffer(buffer: Buffer, mimeType = 'audio/ogg'): Promise<string> {
+    return this.adapter.transcribe({
+      audioBase64: buffer.toString('base64'),
+      mimeType,
+    });
+  }
+
   async speak(text: string): Promise<{ audioBase64: string; mimeType: string }> {
     return this.adapter.synthesize(text);
   }

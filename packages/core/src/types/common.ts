@@ -9,6 +9,7 @@ export type ChannelType =
   | 'email'
   | 'signal'
   | 'google-chat'
+  | 'mattermost'
   | 'rest'
   | 'cli';
 

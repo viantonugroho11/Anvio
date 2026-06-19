@@ -27,6 +27,10 @@ export class OpenAiSpeechAdapter implements SpeechToTextAdapter, TextToSpeechAda
     if (input.audioPath) {
       const file = await import('node:fs/promises').then((fs) => fs.readFile(input.audioPath!));
       form.append('file', new Blob([file]), 'audio.wav');
+    } else if (input.audioBase64) {
+      const bytes = Buffer.from(input.audioBase64, 'base64');
+      const ext = extensionForMime(input.mimeType ?? 'audio/ogg');
+      form.append('file', new Blob([bytes], { type: input.mimeType ?? 'audio/ogg' }), `audio.${ext}`);
     }
     form.append('model', 'whisper-1');
 
@@ -58,4 +62,11 @@ export class OpenAiSpeechAdapter implements SpeechToTextAdapter, TextToSpeechAda
     const buffer = Buffer.from(await res.arrayBuffer());
     return { audioBase64: buffer.toString('base64'), mimeType: 'audio/mpeg' };
   }
+}
+
+function extensionForMime(mimeType: string): string {
+  if (mimeType.includes('mpeg') || mimeType.includes('mp3')) return 'mp3';
+  if (mimeType.includes('wav')) return 'wav';
+  if (mimeType.includes('webm')) return 'webm';
+  return 'ogg';
 }

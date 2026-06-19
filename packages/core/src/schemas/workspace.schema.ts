@@ -113,6 +113,12 @@ export const channelsConfigSchema = z.object({
   email: emailChannelSchema.optional(),
   signal: signalChannelSchema.optional(),
   googleChat: googleChatChannelSchema.optional(),
+  mattermost: channelProviderSchema
+    .extend({
+      serverUrl: z.string().optional(),
+      botToken: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const worktreesConfigSchema = z.object({
