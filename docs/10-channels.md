@@ -285,6 +285,22 @@ anvio worktree remove <sessionId>
 
 Each session gets `workspace/worktrees/<sessionId>/` on branch `anvio/agent-<id>`.
 
+## Channel Health Check
+
+Verify credentials and connectivity without starting the worker:
+
+```bash
+anvio channels status
+anvio channels status --json
+```
+
+Status values:
+- **healthy** — probe succeeded (API reachable, token valid)
+- **degraded** — partially ready (e.g. WhatsApp API ok but webhook needs API running)
+- **disabled** — not enabled in `anvio.yaml`
+- **misconfigured** — enabled but missing env vars or config
+- **unreachable** — enabled with credentials but API probe failed
+
 ## Adding a New Channel
 
 1. Create `packages/channels/src/<channel>.ts` implementing `ChannelAdapter`.

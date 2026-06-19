@@ -2,8 +2,8 @@
 import path from 'node:path';
 import readline from 'node:readline';
 import { EventSubjects } from '@anvio/events';
-import { CliChannel } from '@anvio/channels';
-import type { StoredSession } from '@anvio/core';
+import { CliChannel, probeAllChannels, summarizeChannelHealth } from '@anvio/channels';
+import type { ChannelHealthReport, StoredSession } from '@anvio/core';
 import { createPlatform, loadAgent, storedSessionToRuntime } from '@anvio/platform';
 import { Workspace } from '@anvio/workspace';
 
@@ -45,6 +45,9 @@ async function main() {
     case 'worktree':
       await cmdWorktree(args.slice(1));
       break;
+    case 'channels':
+      await cmdChannels(args.slice(1));
+      break;
     case 'help':
     default:
       printHelp();
@@ -66,6 +69,7 @@ Usage:
   anvio stop <sessionId>         Stop running agent session
   anvio inbox <sessionId> <msg>  Inject instruction into running agent
   anvio worktree list|create|remove  Manage git worktree isolation
+  anvio channels status [--json]     Health check all channel adapters
 
 Environment:
   ANTHROPIC_API_KEY              Model provider API key
@@ -345,6 +349,48 @@ async function cmdWorktree(sub: string[]) {
       console.error('Usage: anvio worktree list|create|remove');
       process.exit(1);
   }
+}
+
+const STATUS_ICON: Record<ChannelHealthReport['status'], string> = {
+  healthy: '✅',
+  degraded: '⚠️',
+  disabled: '⏸',
+  misconfigured: '❌',
+  unreachable: '🔴',
+};
+
+async function cmdChannels(sub: string[]) {
+  const action = sub[0] ?? 'status';
+  if (action !== 'status') {
+    console.error('Usage: anvio channels status [--json]');
+    process.exit(1);
+  }
+
+  const wsPath = resolveWorkspacePath();
+  const workspace = await Workspace.open(wsPath);
+  const reports = await probeAllChannels(workspace.config.spec.channels);
+  const summary = summarizeChannelHealth(reports);
+
+  if (sub.includes('--json')) {
+    console.log(JSON.stringify({ summary, channels: reports }, null, 2));
+    return;
+  }
+
+  console.log('\nChannel Health\n');
+  console.log('Channel     Status          Latency  Message');
+  console.log('─'.repeat(72));
+
+  for (const r of reports) {
+    const latency = r.latencyMs != null ? `${r.latencyMs}ms`.padEnd(8) : ''.padEnd(8);
+    console.log(
+      `${r.channel.padEnd(11)} ${(STATUS_ICON[r.status] + ' ' + r.status).padEnd(15)} ${latency} ${r.message}`,
+    );
+  }
+
+  console.log('─'.repeat(72));
+  console.log(
+    `Summary: ${summary.healthy} healthy, ${summary.degraded} degraded, ${summary.disabled} disabled, ${summary.misconfigured} misconfigured, ${summary.unreachable} unreachable\n`,
+  );
 }
 
 async function cmdChat(sub: string[]) {
