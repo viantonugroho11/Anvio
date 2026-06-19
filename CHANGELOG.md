@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.0] - 2026-06-19
+
+**Phase P2 — Voice on channels & Mattermost (desktop deferred)**
+
+### Added
+- Mattermost channel adapter with WebSocket `posted` events and REST posts
+- Telegram voice note transcription hook (Whisper via `@anvio/voice`)
+- Discord audio attachment transcription hook
+- `VoicePipeline.transcribeBuffer()` and channel voice helpers
+- Channel health probe for Mattermost
+- Harness profile for Mattermost
+
+### Changed
+- Enable channel voice via `spec.channels.voice.enabled` or `ANVIO_CHANNEL_VOICE=1`
+- Workspace schema adds `channels.mattermost`
+
+---
+
 ## [1.5.0] - 2026-06-19
 
 **Phase P1 — Channel harness depth & contextual connections**
