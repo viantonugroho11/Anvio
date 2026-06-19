@@ -209,6 +209,9 @@ importers:
       '@anvio/core':
         specifier: workspace:*
         version: link:../core
+      '@anvio/events':
+        specifier: workspace:*
+        version: link:../events
       uuid:
         specifier: ^11.1.0
         version: 11.1.1

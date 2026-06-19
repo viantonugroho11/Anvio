@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@anvio/core": "workspace:*",
+    "@anvio/events": "workspace:*",
     "uuid": "^11.1.0"
   },
   "devDependencies": { "typescript": "^5.8.3", "vitest": "^3.1.4" }
