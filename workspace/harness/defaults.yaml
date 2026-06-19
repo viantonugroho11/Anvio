@@ -1,0 +1,15 @@
+# Channel Harness — Phase G (disabled by default)
+apiVersion: anvio.io/v1
+kind: HarnessDefaults
+metadata:
+  name: default
+spec:
+  enabled: false
+  soulSlug: architect-soul
+  suppressRawOutput: true
+  idleMinutes: 15
+  resumeSessions: true
+  connectBroker:
+    enabled: false
+    encryptionKeyEnv: ANVIO_CONNECTION_ENCRYPTION_KEY
+    defaultTtlSeconds: 3600

@@ -46,6 +46,8 @@ export const WORKSPACE_DIRS = [
   'artifacts',
   'worktrees',
   'inbox',
+  'harness',
+  'connections',
 ] as const;
 
 export class Workspace {
@@ -91,10 +93,18 @@ export class Workspace {
     await fs.mkdir(path.join(rootDir, 'automations', '_state'), { recursive: true });
     await fs.mkdir(path.join(rootDir, 'memory', 'sessions'), { recursive: true });
     await fs.mkdir(path.join(rootDir, 'credentials', 'encrypted'), { recursive: true });
+    await fs.mkdir(path.join(rootDir, 'souls', '_cache'), { recursive: true });
+    await fs.mkdir(path.join(rootDir, 'connections', '_state'), { recursive: true });
     await fs.writeFile(path.join(rootDir, 'anvio.yaml'), defaultAnvioYaml(), 'utf-8');
     await fs.writeFile(path.join(rootDir, 'providers/routing.yaml'), defaultRoutingYaml(), 'utf-8');
     await fs.writeFile(path.join(rootDir, 'mcp/servers.yaml'), defaultMcpServersYaml(), 'utf-8');
     await fs.writeFile(path.join(rootDir, 'hooks/hooks.yaml'), defaultHooksYaml(), 'utf-8');
+    await fs.writeFile(path.join(rootDir, 'harness/defaults.yaml'), defaultHarnessYaml(), 'utf-8');
+    await fs.writeFile(
+      path.join(rootDir, 'harness/channel-profiles.yaml'),
+      defaultHarnessProfilesYaml(),
+      'utf-8',
+    );
     return Workspace.open(rootDir);
   }
 }
@@ -194,6 +204,65 @@ spec:
       handlers: []
     - event: onGoalCompleted
       handlers: []
+`;
+}
+
+function defaultHarnessYaml(): string {
+  return `# Channel Harness — Phase G
+apiVersion: anvio.io/v1
+kind: HarnessDefaults
+metadata:
+  name: default
+spec:
+  enabled: false
+  soulSlug: architect-soul
+  suppressRawOutput: true
+  idleMinutes: 15
+  resumeSessions: true
+  connectBroker:
+    enabled: false
+    encryptionKeyEnv: ANVIO_CONNECTION_ENCRYPTION_KEY
+    defaultTtlSeconds: 3600
+`;
+}
+
+function defaultHarnessProfilesYaml(): string {
+  return `apiVersion: anvio.io/v1
+kind: HarnessChannelProfiles
+metadata:
+  name: default
+spec:
+  profiles:
+    - name: slack-like
+      channels: [slack]
+      engageOn: mention
+      disengageOn: mention_other
+      dmPolicy: manager_only
+    - name: telegram-like
+      channels: [telegram]
+      engageOn: mention
+      disengageOn: never
+      dmPolicy: anyone
+    - name: discord-like
+      channels: [discord]
+      engageOn: mention
+      disengageOn: never
+      dmPolicy: anyone
+    - name: web-like
+      channels: [web-chat, rest]
+      engageOn: always
+      disengageOn: never
+      dmPolicy: anyone
+    - name: cli-like
+      channels: [cli]
+      engageOn: always
+      disengageOn: never
+      dmPolicy: anyone
+    - name: whatsapp-like
+      channels: [whatsapp]
+      engageOn: always
+      disengageOn: never
+      dmPolicy: anyone
 `;
 }
 

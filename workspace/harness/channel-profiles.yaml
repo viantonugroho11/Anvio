@@ -1,0 +1,36 @@
+apiVersion: anvio.io/v1
+kind: HarnessChannelProfiles
+metadata:
+  name: default
+spec:
+  profiles:
+    - name: slack-like
+      channels: [slack]
+      engageOn: mention
+      disengageOn: mention_other
+      dmPolicy: manager_only
+    - name: telegram-like
+      channels: [telegram]
+      engageOn: mention
+      disengageOn: never
+      dmPolicy: anyone
+    - name: discord-like
+      channels: [discord]
+      engageOn: mention
+      disengageOn: never
+      dmPolicy: anyone
+    - name: web-like
+      channels: [web-chat, rest]
+      engageOn: always
+      disengageOn: never
+      dmPolicy: anyone
+    - name: cli-like
+      channels: [cli]
+      engageOn: always
+      disengageOn: never
+      dmPolicy: anyone
+    - name: whatsapp-like
+      channels: [whatsapp]
+      engageOn: always
+      disengageOn: never
+      dmPolicy: anyone

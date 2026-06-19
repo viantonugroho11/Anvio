@@ -1,0 +1,25 @@
+# Runs every Monday at 09:00 (Asia/Jakarta).
+# Test now: anvio automation run weekly-architecture-review --force
+apiVersion: anvio.io/v1
+kind: Automation
+metadata:
+  slug: weekly-architecture-review
+  enabled: true
+spec:
+  description: Weekly architecture review of the Anvio monorepo
+  trigger:
+    type: cron
+    schedule: "0 9 * * 1"
+    timezone: Asia/Jakarta
+  action:
+    type: blueprint
+    blueprint: architecture-review
+    inputs:
+      scope: monorepo
+      userId: local-user
+      channel: cli
+  retry:
+    maxAttempts: 2
+    backoff: exponential
+  onFailure:
+    notify: true
