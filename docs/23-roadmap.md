@@ -34,6 +34,18 @@ Cross-cutting initiative documented in [24-advanced-agent-os-overview.md](./24-a
 | **I — Scale & Reach** | Workflow engine, expanded channels, remote runtimes, voice | U32–U35, U38 | ✅ |
 | **J — Docs & Polish** | MD-first artifacts, parity audit, product docs | U39 | ✅ |
 
+## Phase K — Priority Pillars (active)
+
+Focus: **Learning & memory**, **Automation & workflows**, **Authoring (J)**, **Tooling**, **Runtime**.
+
+| Pillar | Key gaps closed | Doc |
+|--------|-----------------|-----|
+| Learning & memory | Summarizer, recall index, tool-use drafts | [52-phase-k-priorities.md](./52-phase-k-priorities.md) |
+| Automation & workflows | PLAN→EXECUTE→REVIEW planner | [52-phase-k-priorities.md](./52-phase-k-priorities.md) |
+| Authoring Phase J | Personas `.md`, hermes-tech import | [49-workspace-artifacts.md](./49-workspace-artifacts.md) |
+| Tooling | file_read/write, sandbox execute_code | [44-tool-gateway.md](./44-tool-gateway.md) |
+| Runtime | Docker first-class provider | [47-remote-runtimes.md](./47-remote-runtimes.md) |
+
 Full plan (Phase G+): [plans/2026-06-19-002-feat-unified-agent-product-plan.md](./plans/2026-06-19-002-feat-unified-agent-product-plan.md).
 
 ### Documentation Index
@@ -67,3 +79,5 @@ Full plan (Phase G+): [plans/2026-06-19-002-feat-unified-agent-product-plan.md](
 | [48-voice-mode.md](./48-voice-mode.md) | Voice mode |
 | [49-workspace-artifacts.md](./49-workspace-artifacts.md) | MD-first conventions |
 | [50-hermes-slaude-parity.md](./50-hermes-slaude-parity.md) | Hermes + slaude gap audit |
+| [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md) | Gap register lengkap (prioritas P0–P3) |
+| [52-phase-k-priorities.md](./52-phase-k-priorities.md) | Phase K — lima pilar prioritas |
