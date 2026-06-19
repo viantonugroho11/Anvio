@@ -9,7 +9,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2026-06-19
+## [1.1.0] - 2026-06-19
+
+**Advanced Agent OS** — long-lived identity, goals, automation, coordination, and pluggable execution on the local-first foundation.
+
+### Added
+
+#### Identity & memory
+- **Soul System** (`@anvio/souls`) — persistent agent identity in `workspace/souls/`
+- **Goal System** (`@anvio/goals`) — durable goals with progress tracking
+- **MemoryProvider** port and factory — unified memory abstraction over filesystem (default)
+
+#### Automation & workflows
+- **Automation Engine** (`@anvio/automation`) — cron scheduler with filesystem state in `workspace/automations/`
+- **Blueprint Catalog** (`@anvio/blueprints`) — DAG blueprint executor and template engine
+- 8 built-in blueprints in `configs/blueprints/` (daily-summary, github-triage, security-audit, …)
+- **Event Hooks** (`@anvio/hooks`) — script, webhook, and MCP hook handlers
+
+#### Coordination
+- **Kanban Engine** (`@anvio/kanban`) — task boards with worker lane routing
+- **Batch Processing** (`@anvio/batch`) — scheduled batch jobs with filesystem progress store
+- **Subagent Delegation v2** — task planner and delegation progress tracking in `@anvio/agents`
+
+#### Execution
+- **Runtime Providers** (`@anvio/runtimes`) — local, Claude Code, Codex, Cursor, external stub
+- **Code Execution** (`@anvio/execution`) — sandboxed process executor with audit log
+- **ACP Editor Integration** (`@anvio/acp`) — Agent Client Protocol server for editor attach
+
+#### Core schemas & ports
+- Schemas: soul, goal, automation, batch, blueprint, kanban, hook
+- Ports: soul, goal, memory-provider, runtime-provider, code-execution, kanban, batch
+
+#### CLI commands
+- `anvio soul`, `anvio goal`, `anvio blueprint`, `anvio automation`, `anvio cron`
+- `anvio hooks`, `anvio kanban`, `anvio batch`, `anvio runtime`, `anvio exec`, `anvio acp`
+
+#### Workspace templates
+- `workspace/souls/architect-soul.yaml`, `workspace/hooks/hooks.yaml`, `workspace/automations/daily-summary.yaml`
+
+#### Documentation
+- Advanced Agent OS overview (docs 24–40) and implementation plan
+- Updated architecture and roadmap for Phase A–E
+
+#### Tests
+- Integration tests for Phase A/B, delegation, kanban, and batch
+
+### Changed
+- `createPlatform()` wires soul service, blueprint executor, automation engine, and hook engine
+- Agent schema supports `spec.soul` alongside persona fallback
+- Workspace schema extended for advanced OS configuration
+
+[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/viantonugroho11/Anvio/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/viantonugroho11/Anvio/releases/tag/v1.0.0
 
 First stable release — **local-first, file-first, CLI-first** AI Agent Operating System.
 
