@@ -13,6 +13,10 @@ import {
   type StoredSession,
   type SessionStore,
   type WorkspaceDefinition,
+  type ArtifactStore,
+  type CreateArtifactInput,
+  type AgentArtifact,
+  type AgentRunStatus,
   personaProfileSchema,
 } from '@anvio/core';
 import { FilesystemStorageProvider } from '@anvio/storage';
@@ -27,6 +31,8 @@ export const WORKSPACE_DIRS = [
   'workflows',
   'tools',
   'mcp',
+  'artifacts',
+  'worktrees',
 ] as const;
 
 export class Workspace {
@@ -35,6 +41,7 @@ export class Workspace {
   readonly storage: FilesystemStorageProvider;
   readonly loader: WorkspaceConfigLoader;
   readonly sessions: FilesystemSessionStore;
+  readonly artifacts: FilesystemArtifactStore;
 
   private constructor(rootDir: string, config: WorkspaceDefinition) {
     this.rootDir = rootDir;
@@ -42,6 +49,7 @@ export class Workspace {
     this.storage = new FilesystemStorageProvider(rootDir);
     this.loader = new WorkspaceConfigLoader(this.storage);
     this.sessions = new FilesystemSessionStore(this.storage);
+    this.artifacts = new FilesystemArtifactStore(this.storage);
   }
 
   static async open(rootDir: string): Promise<Workspace> {
@@ -187,5 +195,66 @@ export class FilesystemSessionStore implements SessionStore {
       if (s && (!userId || s.userId === userId)) sessions.push(s);
     }
     return sessions;
+  }
+
+  async getByChannelThread(channel: string, threadId: string): Promise<StoredSession | null> {
+    const sessions = await this.list();
+    return (
+      sessions.find((s) => s.channelThread?.channel === channel && s.channelThread?.threadId === threadId) ??
+      null
+    );
+  }
+
+  async listActive(userId?: string): Promise<StoredSession[]> {
+    const active: AgentRunStatus[] = [
+      'assembling_context',
+      'calling_model',
+      'tool_executing',
+      'awaiting_approval',
+      'storing_memory',
+    ];
+    const sessions = await this.list(userId);
+    return sessions.filter((s) => active.includes(s.status));
+  }
+}
+
+export class FilesystemArtifactStore implements ArtifactStore {
+  constructor(private readonly storage: FilesystemStorageProvider) {}
+
+  private indexKey(id: string): string {
+    return `artifacts/${id}.json`;
+  }
+
+  async create(input: CreateArtifactInput): Promise<AgentArtifact> {
+    const id = uuidv4();
+    const filename = `${id}.md`;
+    const path = `artifacts/${input.sessionId}/${filename}`;
+    await this.storage.write(path, input.content);
+    const artifact: AgentArtifact = {
+      id,
+      sessionId: input.sessionId,
+      agentId: input.agentId,
+      kind: input.kind,
+      title: input.title,
+      path,
+      createdAt: new Date().toISOString(),
+      metadata: input.metadata,
+    };
+    await this.storage.writeJson(this.indexKey(id), artifact);
+    return artifact;
+  }
+
+  async get(id: string): Promise<AgentArtifact | null> {
+    return this.storage.readJson<AgentArtifact>(this.indexKey(id));
+  }
+
+  async list(sessionId?: string): Promise<AgentArtifact[]> {
+    const files = await this.storage.list('artifacts');
+    const artifacts: AgentArtifact[] = [];
+    for (const file of files.filter((f) => f.endsWith('.json') && !f.includes('/'))) {
+      const a = await this.storage.readJson<AgentArtifact>(file);
+      if (a && (!sessionId || a.sessionId === sessionId)) artifacts.push(a);
+    }
+    return artifacts;
   }
 }
