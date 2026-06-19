@@ -44,3 +44,6 @@ docker/data/
 # Runtime workspace data (local-first)
 workspace/memory/
 workspace/sessions/
+workspace/inbox/
+workspace/worktrees/
+workspace/artifacts/
