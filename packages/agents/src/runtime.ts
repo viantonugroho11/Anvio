@@ -18,10 +18,17 @@ export interface AgentRuntimeDeps {
   skillRegistry: SkillRegistry;
   memoryStore: MemoryStore;
   modelProvider: ModelProvider;
+  onProgress?: (sessionId: string, phase: string) => void;
 }
 
 export class DefaultAgentRuntime implements AgentRuntime {
+  private readonly stopRequests = new Set<string>();
+
   constructor(private readonly deps: AgentRuntimeDeps) {}
+
+  async stop(sessionId: string): Promise<void> {
+    this.stopRequests.add(sessionId);
+  }
 
   async run(session: Session, agent: AgentDefinition, input: UserInput): Promise<AgentResult> {
     let content = '';
@@ -36,17 +43,17 @@ export class DefaultAgentRuntime implements AgentRuntime {
     return { sessionId: session.id, content, usage, status: 'completed' };
   }
 
-  async *stream(
-    session: Session,
-    agent: AgentDefinition,
-    input: UserInput,
-  ): AsyncIterable<{
-    type: 'chunk' | 'done' | 'error';
-    delta?: string;
-    usage?: TokenUsage;
-    error?: string;
-  }> {
+  async *stream(session: Session, agent: AgentDefinition, input: UserInput) {
+    if (this.stopRequests.has(session.id)) {
+      this.stopRequests.delete(session.id);
+      yield { type: 'error' as const, error: 'Session stopped by user' };
+      return;
+    }
+
     try {
+      yield { type: 'progress' as const, phase: 'Assembling context', status: 'running' as const };
+      this.deps.onProgress?.(session.id, 'Assembling context');
+
       const systemPrompt = await this.assembleSystemPrompt(agent);
       const memoryContext = await this.deps.memoryStore.getContext(session.id, session.userId);
       const messages: ChatMessage[] = [
@@ -58,6 +65,9 @@ export class DefaultAgentRuntime implements AgentRuntime {
         { role: 'user', content: input.content },
       ]);
 
+      yield { type: 'progress' as const, phase: 'Calling model', status: 'running' as const };
+      this.deps.onProgress?.(session.id, 'Calling model');
+
       let fullContent = '';
       for await (const chunk of this.deps.modelProvider.stream({
         systemPrompt,
@@ -66,24 +76,31 @@ export class DefaultAgentRuntime implements AgentRuntime {
         temperature: agent.spec.model.temperature,
         model: agent.spec.model.model,
       })) {
+        if (this.stopRequests.has(session.id)) {
+          this.stopRequests.delete(session.id);
+          yield { type: 'error' as const, error: 'Session stopped by user' };
+          return;
+        }
         if (chunk.type === 'text_delta' && chunk.delta) {
           fullContent += chunk.delta;
-          yield { type: 'chunk', delta: chunk.delta };
+          yield { type: 'chunk' as const, delta: chunk.delta };
         }
         if (chunk.type === 'done' && chunk.usage) {
+          yield { type: 'progress' as const, phase: 'Storing memory', status: 'running' as const };
           await this.deps.memoryStore.storeConversation(session.id, session.userId, [
             ...messages,
             { role: 'assistant', content: fullContent },
           ]);
-          yield { type: 'done', usage: chunk.usage };
+          yield { type: 'progress' as const, phase: 'Completed', status: 'completed' as const };
+          yield { type: 'done' as const, usage: chunk.usage };
         }
         if (chunk.type === 'error') {
-          yield { type: 'error', error: chunk.error };
+          yield { type: 'error' as const, error: chunk.error };
         }
       }
     } catch (error) {
       yield {
-        type: 'error',
+        type: 'error' as const,
         error: error instanceof Error ? error.message : 'Agent runtime error',
       };
     }
@@ -110,4 +127,4 @@ export class DefaultAgentRuntime implements AgentRuntime {
   }
 }
 
-export * from './runtime.js';
+export * from './orchestrator.js';
