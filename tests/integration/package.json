@@ -1,0 +1,12 @@
+{
+  "devDependencies": {
+    "@anvio/auth": "workspace:*",
+    "@anvio/core": "workspace:*",
+    "@anvio/events": "workspace:*",
+    "@anvio/memory": "workspace:*",
+    "@anvio/storage": "workspace:*",
+    "@anvio/workspace": "workspace:*",
+    "yaml": "^2.8.0",
+    "vitest": "^3.1.4"
+  }
+}
