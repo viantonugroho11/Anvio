@@ -245,7 +245,6 @@ export class SlackChannel extends BaseChannelAdapter {
     const channelId = payload.channel?.id;
     if (!channelId) return;
 
-    const threadTs = payload.message?.thread_ts ?? payload.message?.ts;
     const threadId = threadKey(channelId, payload.message?.thread_ts);
     const session = await this.options.sessionBridge.resolveOrCreate('slack', threadId);
     await this.options.onApproval(session.id, requestId, verb === 'approve');
