@@ -14,10 +14,22 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@anvio/acp": "workspace:*",
+    "@anvio/automation": "workspace:*",
+    "@anvio/batch": "workspace:*",
+    "@anvio/blueprints": "workspace:*",
     "@anvio/channels": "workspace:*",
     "@anvio/core": "workspace:*",
     "@anvio/events": "workspace:*",
+    "@anvio/execution": "workspace:*",
+    "@anvio/goals": "workspace:*",
+    "@anvio/hooks": "workspace:*",
+    "@anvio/kanban": "workspace:*",
+    "@anvio/memory": "workspace:*",
     "@anvio/platform": "workspace:*",
+    "@anvio/runtimes": "workspace:*",
+    "@anvio/souls": "workspace:*",
+    "@anvio/storage": "workspace:*",
     "@anvio/workspace": "workspace:*"
   },
   "devDependencies": {
