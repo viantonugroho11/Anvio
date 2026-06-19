@@ -28,7 +28,7 @@ import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
 import { ToolGateway } from '@anvio/tools';
 import { KnowledgeBaseStore, KnowledgeIngestEngine } from '@anvio/knowledge';
 import { LearningEngine } from '@anvio/learning';
-import { createHarnessGateway, loadHarnessConfig, loadHarnessProfiles, runSimulationScenario } from '@anvio/harness';
+import { createHarnessGateway, loadHarnessConfig, loadHarnessProfiles, runSimulationScenario, ConnectionBroker, ConnectionStore, startLoginHost } from '@anvio/harness';
 import { FilesystemStorageProvider } from '@anvio/storage';
 import { Workspace, WORKSPACE_DIRS } from '@anvio/workspace';
 
@@ -75,6 +75,9 @@ async function main() {
       break;
     case 'harness':
       await cmdHarness(args.slice(1));
+      break;
+    case 'connect':
+      await cmdConnect(args.slice(1));
       break;
     case 'soul':
       await cmdSoul(args.slice(1));
@@ -163,6 +166,7 @@ Core
   anvio worktree list|create|remove    Git worktree isolation
   anvio channels status [--json]       Channel adapter health check
   anvio harness status|simulate        Channel harness (Phase G)
+  anvio connect list|put|revoke|login-host  Contextual connections broker
 
 Advanced Agent OS — Identity & Goals
   anvio soul list|show|create          Persistent agent souls
@@ -196,7 +200,7 @@ Execution & Providers
   anvio workspace validate             Validate workspace structure
 
 Environment
-  ANVIO_WORKSPACE                      Workspace path (default: ./workspace)
+  ANVIO_CONNECTION_ENCRYPTION_KEY      Encrypt contextual connection payloads
   ANTHROPIC_API_KEY                    Anthropic (Claude)
   OPENAI_API_KEY                       OpenAI (GPT)
   GEMINI_API_KEY / GOOGLE_API_KEY      Google Gemini
@@ -645,6 +649,102 @@ async function cmdSoul(sub: string[]) {
     }
     default:
       console.error('Usage: anvio soul list|show|create|import|validate-policy');
+      process.exit(1);
+  }
+}
+
+async function cmdConnect(sub: string[]) {
+  const action = sub[0] ?? 'list';
+  const wsPath = resolveWorkspacePath();
+  const workspace = await Workspace.open(wsPath);
+  const defaults = await loadHarnessConfig(wsPath);
+  const keyEnv = defaults.connectBroker.encryptionKeyEnv;
+  const key = process.env[keyEnv];
+
+  if (!defaults.connectBroker.enabled) {
+    console.error('Connect broker disabled — enable connectBroker in workspace/harness/defaults.yaml');
+    process.exit(1);
+  }
+  if (!key) {
+    console.error(`Set ${keyEnv} to use contextual connections`);
+    process.exit(1);
+  }
+
+  const store = new ConnectionStore(wsPath, key);
+  const broker = new ConnectionBroker(store, true, defaults.connectBroker.defaultTtlSeconds, wsPath);
+  const flag = (name: string) => {
+    const i = sub.indexOf(name);
+    return i >= 0 ? sub[i + 1] : undefined;
+  };
+
+  switch (action) {
+    case 'list': {
+      const userId = flag('--user') ?? workspace.config.spec.defaultUserId;
+      const items = await broker.listConnections(userId);
+      if (items.length === 0) {
+        console.log('No connections stored.');
+        return;
+      }
+      for (const item of items) {
+        console.log(`  ${item.service} (${item.channel}) user=${item.userId} threads=${item.threadIds.join(',')}`);
+      }
+      break;
+    }
+    case 'put': {
+      const service = flag('--service');
+      const payload = flag('--payload');
+      const threadId = flag('--thread') ?? 'default';
+      const channel = flag('--channel') ?? 'cli';
+      const userId = flag('--user') ?? workspace.config.spec.defaultUserId;
+      if (!service || !payload) {
+        console.error('Usage: anvio connect put --service NAME --payload JSON [--thread ID] [--channel cli]');
+        process.exit(1);
+      }
+      const stored = await broker.putConnection({
+        channel,
+        userId,
+        service,
+        payload,
+        threadId,
+      });
+      console.log(JSON.stringify(stored, null, 2));
+      break;
+    }
+    case 'revoke': {
+      const service = flag('--service');
+      const channel = flag('--channel') ?? 'cli';
+      const userId = flag('--user') ?? workspace.config.spec.defaultUserId;
+      if (!service) {
+        console.error('Usage: anvio connect revoke --service NAME [--channel cli]');
+        process.exit(1);
+      }
+      const ok = await broker.revokeConnection(channel, userId, service);
+      console.log(ok ? 'Revoked.' : 'Not found.');
+      break;
+    }
+    case 'login-host': {
+      const port = Number(flag('--port') ?? '9876');
+      const service = flag('--service') ?? 'oauth';
+      const threadId = flag('--thread') ?? 'default';
+      const channel = flag('--channel') ?? 'cli';
+      const userId = flag('--user') ?? workspace.config.spec.defaultUserId;
+      const host = await startLoginHost({ port, timeoutMs: 300_000 });
+      console.log(`Login host listening — set OAuth redirect_uri to:\n  ${host.callbackUrl}`);
+      console.log('Waiting for callback…');
+      const query = await host.waitForCallback();
+      const stored = await broker.putConnection({
+        channel,
+        userId,
+        service,
+        threadId,
+        payload: JSON.stringify(query),
+      });
+      await host.close();
+      console.log(JSON.stringify(stored, null, 2));
+      break;
+    }
+    default:
+      console.error('Usage: anvio connect list|put|revoke|login-host');
       process.exit(1);
   }
 }
