@@ -7,7 +7,7 @@ import { EventSubjects } from '@anvio/events';
 import { ChannelHub, CliChannel, probeAllChannels, summarizeChannelHealth } from '@anvio/channels';
 import type { ChannelHealthReport, GoalStatus, SoulDefinition, StoredSession } from '@anvio/core';
 import { parseSkillDefinition } from '@anvio/core';
-import { nextCronRuns } from '@anvio/automation';
+import { nextCronRuns, PlanExecuteReviewEngine } from '@anvio/automation';
 import { BlueprintExecutor, createCatalogRegistry } from '@anvio/blueprints';
 import { createBatchEngine } from '@anvio/batch';
 import { createCredentialPoolManager } from '@anvio/credentials';
@@ -122,6 +122,9 @@ async function main() {
     case 'usage':
       await cmdUsage(args.slice(1));
       break;
+    case 'planner':
+      await cmdPlanner(args.slice(1));
+      break;
     case 'skill':
       await cmdSkill(args.slice(1));
       break;
@@ -180,6 +183,7 @@ Advanced Agent OS — Identity & Goals
 Automation & Workflows
   anvio blueprint catalog|run          Workflow blueprint catalog
   anvio automation list|run|enable     Event and scheduled automations
+  anvio planner phases|run <task>      PLAN → EXECUTE → REVIEW orchestration
   anvio cron list|next-runs            Cron schedule utilities
   anvio hooks test <event>             Test event hook handlers
   anvio batch run|status|resume        Parallel batch jobs
@@ -996,6 +1000,90 @@ async function cmdBlueprint(sub: string[]) {
     }
     default:
       console.error('Usage: anvio blueprint catalog|install|run|validate');
+      process.exit(1);
+  }
+}
+
+async function loadPlannerEngine(wsPath: string): Promise<PlanExecuteReviewEngine | null> {
+  const fromWorkspace = await PlanExecuteReviewEngine.loadFromWorkspace(wsPath);
+  if (fromWorkspace) return fromWorkspace;
+  try {
+    const repoRoot = findRepoRoot(wsPath);
+    if (!repoRoot) return null;
+    return await PlanExecuteReviewEngine.load(
+      path.join(repoRoot, 'configs/planner/plan-execute-review.yaml'),
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function cmdPlanner(sub: string[]) {
+  const action = sub[0] ?? 'run';
+  const jsonOut = sub.includes('--json');
+  const wsPath = resolveWorkspacePath();
+
+  switch (action) {
+    case 'phases': {
+      const engine = await loadPlannerEngine(wsPath);
+      if (!engine) {
+        console.error(
+          'Planner config not found. Copy configs/planner/plan-execute-review.yaml to workspace/planner/',
+        );
+        process.exit(1);
+      }
+      for (const phase of engine.phases) {
+        console.log(`${phase.name}\t${phase.agent}`);
+      }
+      break;
+    }
+    case 'run': {
+      const task = sub.filter((a) => a !== '--json' && a !== 'run').join(' ').trim();
+      if (!task) {
+        console.error('Usage: anvio planner run <task description> [--json]');
+        process.exit(1);
+      }
+      const engine = await loadPlannerEngine(wsPath);
+      if (!engine) {
+        console.error('Planner config not found.');
+        process.exit(1);
+      }
+      const platform = await getPlatform();
+      const { workspace, runtime, auth } = platform;
+      const ctx = auth.getDefaultContext();
+      const runner = {
+        runAgent: async (agentId: string, prompt: string): Promise<string> => {
+          const agent = await loadAgent(workspace, agentId);
+          const stored = await workspace.sessions.create({
+            userId: ctx.userId,
+            agentName: agentId,
+            channel: 'cli',
+            messages: [],
+            status: 'idle',
+          });
+          const session = storedSessionToRuntime(stored);
+          let full = '';
+          for await (const chunk of runtime.stream(session, agent, { content: prompt })) {
+            if (chunk.type === 'chunk' && chunk.delta) full += chunk.delta;
+            if (chunk.type === 'error') throw new Error(chunk.error ?? 'Agent run failed');
+          }
+          return full;
+        },
+      };
+      console.log(`\n📋 Planner: ${engine.phases.map((p) => p.name).join(' → ')}\n`);
+      const results = await engine.run(runner, { task });
+      if (jsonOut) {
+        console.log(JSON.stringify(results, null, 2));
+        break;
+      }
+      for (const result of results) {
+        console.log(`\n=== ${result.phase.toUpperCase()} (${result.agent}) ===\n`);
+        console.log(result.output);
+      }
+      break;
+    }
+    default:
+      console.error('Usage: anvio planner phases|run <task> [--json]');
       process.exit(1);
   }
 }
