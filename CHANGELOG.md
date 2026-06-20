@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.13.0] - 2026-06-19
+
+**Phase P8 — MCP stdio, channel E2E, LLM SoulPolicy**
+
+### Added
+- `McpStdioClient` with stdio transport (`transport: stdio|stub` in mcp/servers.yaml)
+- Teams Bot Framework webhook + outbound; Matrix room webhook; Email inbound/outbound queue
+- API routes: `POST /api/channels/teams/webhook`, `POST /api/channels/matrix/webhook`
+- LLM `extractSoulPolicy` from SOUL.md with regex fallback and id verification
+- Harness profiles for teams, matrix, email channels
+
+### Docs
+- [61-phase-p8-priorities.md](./docs/61-phase-p8-priorities.md)
+
+---
+
 ## [1.12.0] - 2026-06-19
 
 **Phase P7 — Gemini native tools + MCP agent runtime**
