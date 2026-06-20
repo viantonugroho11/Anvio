@@ -101,6 +101,7 @@ export class GeminiProvider implements ModelProvider {
       let buffer = '';
       const seenToolIds = new Set<string>();
       const toolCalls: ModelToolCall[] = [];
+      let streamUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -119,6 +120,14 @@ export class GeminiProvider implements ModelProvider {
 
           const parsed = JSON.parse(data) as GeminiGenerateResponse;
           const parts = parsed.candidates?.[0]?.content?.parts;
+          const meta = parsed.usageMetadata;
+          if (meta) {
+            streamUsage = {
+              inputTokens: meta.promptTokenCount ?? streamUsage.inputTokens,
+              outputTokens: meta.candidatesTokenCount ?? streamUsage.outputTokens,
+              totalTokens: meta.totalTokenCount ?? streamUsage.totalTokens,
+            };
+          }
           const text = extractGeminiText(parts);
           if (text) {
             yield { type: 'text_delta', delta: text };
@@ -135,7 +144,7 @@ export class GeminiProvider implements ModelProvider {
 
       yield {
         type: 'done',
-        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        usage: streamUsage,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       };
     } catch (error) {

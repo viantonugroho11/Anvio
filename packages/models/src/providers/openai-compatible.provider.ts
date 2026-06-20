@@ -167,6 +167,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
       const decoder = new TextDecoder();
       let buffer = '';
       const pendingToolCalls = new Map<number, { id: string; name: string; arguments: string }>();
+      let streamUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -186,6 +187,14 @@ export class OpenAICompatibleProvider implements ModelProvider {
           const parsed = JSON.parse(data) as OpenAIChatCompletionResponse & {
             choices?: Array<{ delta?: { content?: string; tool_calls?: OpenAIToolCallDelta[] } }>;
           };
+
+          if (parsed.usage) {
+            streamUsage = {
+              inputTokens: parsed.usage.prompt_tokens ?? streamUsage.inputTokens,
+              outputTokens: parsed.usage.completion_tokens ?? streamUsage.outputTokens,
+              totalTokens: parsed.usage.total_tokens ?? streamUsage.totalTokens,
+            };
+          }
 
           const delta = parsed.choices?.[0]?.delta;
           if (delta?.content) {
@@ -220,7 +229,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
 
       yield {
         type: 'done',
-        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        usage: streamUsage,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       };
     } catch (error) {
