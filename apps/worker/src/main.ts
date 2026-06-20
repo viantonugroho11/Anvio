@@ -9,9 +9,15 @@ import {
 } from '@anvio/events';
 import type { ChannelType } from '@anvio/core';
 import { EmailChannel } from '@anvio/channels';
+import { initObservability, shutdownObservability, withSpan } from '@anvio/observability';
 import { createPlatform, loadAgent, storedSessionToRuntime, finalizeAgentRun } from '@anvio/platform';
 
 async function main() {
+  initObservability({
+    serviceName: process.env.OTEL_SERVICE_NAME ?? 'anvio-worker',
+    enabled: process.env.ANVIO_OTEL_ENABLED === 'true' || !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  });
+
   const platform = await createPlatform({
     workspacePath: process.env.ANVIO_WORKSPACE,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
@@ -104,7 +110,15 @@ async function main() {
     EventSubjects.AGENT_RUN_REQUESTED,
     'anvio-worker',
     async (event) => {
-      const { sessionId, userId, agentId, content, channel } = event.data;
+      await withSpan(
+        'agent.run',
+        {
+          sessionId: event.data.sessionId,
+          agentId: event.data.agentId,
+          channel: event.data.channel,
+        },
+        async () => {
+          const { sessionId, userId, agentId, content, channel } = event.data;
       const stored = await workspace.sessions.get(sessionId);
       if (!stored) {
         console.error('Session not found:', sessionId);
@@ -257,12 +271,15 @@ async function main() {
           });
         }
       }
+        },
+      );
     },
   );
 
   process.on('SIGINT', async () => {
     await channelHub.stopAll();
     await eventBus.close();
+    await shutdownObservability();
     process.exit(0);
   });
 }

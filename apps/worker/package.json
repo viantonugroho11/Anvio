@@ -15,6 +15,7 @@
     "@anvio/channels": "workspace:*",
     "@anvio/core": "workspace:*",
     "@anvio/events": "workspace:*",
+    "@anvio/observability": "workspace:*",
     "@anvio/platform": "workspace:*"
   },
   "devDependencies": {
