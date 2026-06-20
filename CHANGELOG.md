@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.11.0] - 2026-06-19
+
+**Phase P6 — OpenAI native tools, memory recall, strict harness, CI fixes**
+
+### Added
+- OpenAI-compatible providers: native `tool_use` / `tool_calls` streaming (`supportsNativeTools`)
+- Built-in `anvio_tools__memory_recall` wired to memory provider search (FTS5 / keyword index)
+- Strict harness: messaging channels no longer fall back to raw assistant dump; require `anvio_channel__reply`
+- Harness reply tracking (`resetReplyTracking`, `hasDeliveredReply`)
+
+### Fixed
+- Export `ChannelHealthReport` from `@anvio/core` (CI `@anvio/channels` build)
+- Type-safe `summarizeChannelHealth` exhaustive switch
+- Slack block-action payload typing for approver `user.id`
+
+### Docs
+- [59-phase-p6-priorities.md](./docs/59-phase-p6-priorities.md)
+
+---
+
 ## [1.10.0] - 2026-06-19
 
 **Phase P5 — Multi-channel harness approval loop**
