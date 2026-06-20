@@ -11,6 +11,8 @@ export interface SkillDraftInput {
   topic: string;
   instructions: string;
   sourceExcerpt: string;
+  description?: string;
+  tags?: string[];
 }
 
 export class SkillEvolutionWriter {
@@ -25,12 +27,12 @@ export class SkillEvolutionWriter {
       metadata: { slug, version: '0.1.0', catalog: 'private' },
       spec: {
         name: input.topic,
-        description: `Draft skill from session ${input.sessionId} (${input.agentId})`,
+        description: input.description ?? `Draft skill from session ${input.sessionId} (${input.agentId})`,
         instructions: `${input.instructions}\n\n## Source excerpt\n${input.sourceExcerpt}`,
         permissions: [],
         toolRequirements: [],
         contextRequirements: [],
-        tags: ['draft', 'learning-loop'],
+        tags: input.tags ?? ['draft', 'learning-loop'],
       },
     });
     const filePath = path.join(this.draftsDir, `${slug}.md`);
