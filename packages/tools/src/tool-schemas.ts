@@ -98,6 +98,63 @@ const TOOL_SCHEMAS: Record<string, Record<string, unknown>> = {
     },
     required: ['query'],
   },
+  list_dir: {
+    type: 'object',
+    properties: { path: { type: 'string', description: 'Relative directory path (default ".")' } },
+  },
+  edit_file: {
+    type: 'object',
+    properties: {
+      path: { type: 'string' },
+      old_string: { type: 'string' },
+      new_string: { type: 'string' },
+      replace_all: { type: 'boolean' },
+    },
+    required: ['path', 'old_string', 'new_string'],
+  },
+  run_shell: {
+    type: 'object',
+    properties: { command: { type: 'string' } },
+    required: ['command'],
+  },
+  http_request: {
+    type: 'object',
+    properties: {
+      url: { type: 'string' },
+      method: { type: 'string' },
+      headers: { type: 'object' },
+      body: { type: 'string' },
+      timeoutMs: { type: 'number' },
+    },
+    required: ['url'],
+  },
+  path_exists: {
+    type: 'object',
+    properties: { path: { type: 'string' } },
+    required: ['path'],
+  },
+  file_delete: {
+    type: 'object',
+    properties: { path: { type: 'string' } },
+    required: ['path'],
+  },
+  append_file: {
+    type: 'object',
+    properties: {
+      path: { type: 'string' },
+      content: { type: 'string' },
+    },
+    required: ['path', 'content'],
+  },
+  json_parse: {
+    type: 'object',
+    properties: { text: { type: 'string' } },
+    required: ['text'],
+  },
+  datetime_now: {
+    type: 'object',
+    properties: { timezone: { type: 'string', description: 'IANA timezone e.g. UTC, Asia/Jakarta' } },
+  },
 };
 
 export function buildModelToolDefinitions(toolNames: string[]): ModelToolDefinition[] {

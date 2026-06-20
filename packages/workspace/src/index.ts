@@ -274,7 +274,7 @@ spec:
 }
 
 function defaultToolGatewayYaml(): string {
-  return `# Built-in tool gateway — Phase H
+  return `# Built-in tool gateway
 apiVersion: anvio.io/v1
 kind: ToolGateway
 metadata:
@@ -286,6 +286,14 @@ spec:
       enabled: true
     web_search:
       enabled: false
+    file_read:
+      enabled: true
+    file_write:
+      enabled: false
+    glob_files:
+      enabled: true
+    grep_search:
+      enabled: true
     execute_code:
       enabled: false
     browser:
@@ -294,6 +302,26 @@ spec:
       enabled: false
     text_to_speech:
       enabled: false
+    memory_recall:
+      enabled: true
+    list_dir:
+      enabled: true
+    edit_file:
+      enabled: false
+    run_shell:
+      enabled: false
+    http_request:
+      enabled: true
+    path_exists:
+      enabled: true
+    file_delete:
+      enabled: false
+    append_file:
+      enabled: false
+    json_parse:
+      enabled: true
+    datetime_now:
+      enabled: true
   webSearch:
     provider: brave
     apiKeyEnv: WEB_SEARCH_API_KEY

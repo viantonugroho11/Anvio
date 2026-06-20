@@ -1,8 +1,10 @@
 import type { BuiltinToolCall, BuiltinToolResult, CodeExecutor, ToolGatewaySpec } from '@anvio/core';
-import { executeCodeWithExecutor, fileRead, fileWrite } from './filesystem.js';
+import { executeCodeWithExecutor, fileRead, fileWrite, listDir, editFile, pathExists, fileDelete, appendFile } from './filesystem.js';
 import { browserAction } from './browser.js';
 import { imageGenerate, textToSpeech } from './media.js';
 import { webFetch } from './web-fetch.js';
+import { httpRequest } from './network-tools.js';
+import { jsonParse, datetimeNow } from './utility-tools.js';
 import {
   executeCodePipeline,
   globFiles,
@@ -242,6 +244,148 @@ export async function runBuiltinTool(
         String(call.arguments.query ?? ''),
         Number(call.arguments.limit ?? 10),
       );
+    case 'list_dir': {
+      if (!ctx.workspaceRoot) {
+        return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
+      }
+      try {
+        const out = await listDir(ctx.workspaceRoot, String(call.arguments.path ?? '.'));
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    case 'edit_file': {
+      if (!ctx.workspaceRoot) {
+        return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
+      }
+      try {
+        const out = await editFile(
+          ctx.workspaceRoot,
+          String(call.arguments.path ?? ''),
+          String(call.arguments.old_string ?? ''),
+          String(call.arguments.new_string ?? ''),
+          Boolean(call.arguments.replace_all),
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    case 'run_shell': {
+      if (!ctx.codeExecutor) {
+        return { name: call.name, output: null, status: 'failed', error: 'codeExecutor required for run_shell' };
+      }
+      try {
+        const command = String(call.arguments.command ?? '');
+        const out = await executeCodeWithExecutor(ctx.codeExecutor, command, 'shell');
+        return {
+          name: call.name,
+          output: { command, ...out },
+          status: out.exitCode === 0 ? 'completed' : 'failed',
+          error: out.exitCode === 0 ? undefined : out.stderr,
+        };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    case 'http_request':
+      try {
+        const headers = call.arguments.headers as Record<string, string> | undefined;
+        const out = await httpRequest({
+          url: String(call.arguments.url ?? ''),
+          method: call.arguments.method ? String(call.arguments.method) : undefined,
+          headers,
+          body: call.arguments.body ? String(call.arguments.body) : undefined,
+          timeoutMs: call.arguments.timeoutMs ? Number(call.arguments.timeoutMs) : undefined,
+        });
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    case 'path_exists': {
+      if (!ctx.workspaceRoot) {
+        return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
+      }
+      try {
+        const out = await pathExists(ctx.workspaceRoot, String(call.arguments.path ?? ''));
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    case 'file_delete': {
+      if (!ctx.workspaceRoot) {
+        return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
+      }
+      try {
+        const out = await fileDelete(ctx.workspaceRoot, String(call.arguments.path ?? ''));
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    case 'append_file': {
+      if (!ctx.workspaceRoot) {
+        return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
+      }
+      try {
+        const out = await appendFile(
+          ctx.workspaceRoot,
+          String(call.arguments.path ?? ''),
+          String(call.arguments.content ?? ''),
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    case 'json_parse': {
+      const parsed = jsonParse(String(call.arguments.text ?? ''));
+      if (!parsed.valid) {
+        return { name: call.name, output: parsed, status: 'failed', error: parsed.error };
+      }
+      return { name: call.name, output: parsed, status: 'completed' };
+    }
+    case 'datetime_now': {
+      const out = datetimeNow(call.arguments.timezone ? String(call.arguments.timezone) : undefined);
+      return { name: call.name, output: out, status: 'completed' };
+    }
     default:
       return { name: call.name, output: null, status: 'skipped', error: 'Not implemented' };
   }

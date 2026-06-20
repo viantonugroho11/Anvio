@@ -11,6 +11,15 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   image_generate: 'Generate image via DALL-E. Args: { "prompt": string, "size"?: "1024x1024" }',
   text_to_speech: 'Synthesize speech (OpenAI TTS). Args: { "text": string }',
   memory_recall: 'Recall long-term memory entries. Args: { "query": string, "userId"?: string, "limit"?: number }',
+  list_dir: 'List directory entries under workspace. Args: { "path"?: string }',
+  edit_file: 'Replace text in a workspace file. Args: { "path": string, "old_string": string, "new_string": string, "replace_all"?: boolean }',
+  run_shell: 'Run shell command via sandbox executor. Args: { "command": string }',
+  http_request: 'HTTP request with method/headers/body. Args: { "url": string, "method"?: string, "headers"?: object, "body"?: string }',
+  path_exists: 'Check if path exists in workspace. Args: { "path": string }',
+  file_delete: 'Delete a file under workspace. Args: { "path": string }',
+  append_file: 'Append text to a workspace file. Args: { "path": string, "content": string }',
+  json_parse: 'Parse JSON text. Args: { "text": string }',
+  datetime_now: 'Current datetime (ISO + unix). Args: { "timezone"?: string }',
 };
 
 export function describeBuiltinTool(toolName: string): string {

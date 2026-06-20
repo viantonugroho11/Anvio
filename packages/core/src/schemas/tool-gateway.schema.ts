@@ -21,6 +21,15 @@ export const toolGatewaySpecSchema = z.object({
       text_to_speech: toolGatewayToolSchema.default({ enabled: false }),
       memory_recall: toolGatewayToolSchema.default({ enabled: true }),
       browser: toolGatewayToolSchema.default({ enabled: false }),
+      list_dir: toolGatewayToolSchema.default({ enabled: true }),
+      edit_file: toolGatewayToolSchema.default({ enabled: false }),
+      run_shell: toolGatewayToolSchema.default({ enabled: false }),
+      http_request: toolGatewayToolSchema.default({ enabled: true }),
+      path_exists: toolGatewayToolSchema.default({ enabled: true }),
+      file_delete: toolGatewayToolSchema.default({ enabled: false }),
+      append_file: toolGatewayToolSchema.default({ enabled: false }),
+      json_parse: toolGatewayToolSchema.default({ enabled: true }),
+      datetime_now: toolGatewayToolSchema.default({ enabled: true }),
     })
     .default({}),
   webSearch: z
