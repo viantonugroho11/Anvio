@@ -3,8 +3,15 @@ import type {
   ChatRequest,
   ChatResponse,
   ModelProvider,
+  ModelToolCall,
   StreamChunk,
 } from '@anvio/core';
+import {
+  extractGeminiText,
+  extractGeminiToolCalls,
+  toGeminiContents,
+  type GeminiPart,
+} from './gemini-messages.js';
 
 export interface GeminiProviderOptions {
   apiKey: string;
@@ -12,16 +19,13 @@ export interface GeminiProviderOptions {
   baseUrl?: string;
 }
 
-interface GeminiContent {
-  role: 'user' | 'model';
-  parts: Array<{ text: string }>;
+interface GeminiCandidate {
+  content?: { parts?: GeminiPart[] };
+  finishReason?: string;
 }
 
 interface GeminiGenerateResponse {
-  candidates?: Array<{
-    content?: { parts?: Array<{ text?: string }> };
-    finishReason?: string;
-  }>;
+  candidates?: GeminiCandidate[];
   usageMetadata?: {
     promptTokenCount?: number;
     candidatesTokenCount?: number;
@@ -32,6 +36,7 @@ interface GeminiGenerateResponse {
 
 export class GeminiProvider implements ModelProvider {
   readonly providerId = 'gemini';
+  readonly supportsNativeTools = true;
   private readonly apiKey: string;
   private readonly defaultModel: string;
   private readonly baseUrl: string;
@@ -52,7 +57,9 @@ export class GeminiProvider implements ModelProvider {
         throw new Error(JSON.stringify(body));
       }
 
-      const content = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
+      const parts = body.candidates?.[0]?.content?.parts;
+      const toolCalls = extractGeminiToolCalls(parts);
+      const content = extractGeminiText(parts);
       const usage = body.usageMetadata;
 
       return {
@@ -64,6 +71,7 @@ export class GeminiProvider implements ModelProvider {
         },
         model: body.modelVersion ?? model,
         finishReason: body.candidates?.[0]?.finishReason ?? 'STOP',
+        toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       };
     } catch (error) {
       throw new AnvioError('MODEL_PROVIDER_ERROR', 'Gemini API call failed', {
@@ -91,6 +99,8 @@ export class GeminiProvider implements ModelProvider {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      const seenToolIds = new Set<string>();
+      const toolCalls: ModelToolCall[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -108,9 +118,17 @@ export class GeminiProvider implements ModelProvider {
           if (!data || data === '[DONE]') continue;
 
           const parsed = JSON.parse(data) as GeminiGenerateResponse;
-          const text = parsed.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('');
+          const parts = parsed.candidates?.[0]?.content?.parts;
+          const text = extractGeminiText(parts);
           if (text) {
             yield { type: 'text_delta', delta: text };
+          }
+
+          for (const call of extractGeminiToolCalls(parts)) {
+            if (seenToolIds.has(call.id)) continue;
+            seenToolIds.add(call.id);
+            toolCalls.push(call);
+            yield { type: 'tool_use', toolCall: call };
           }
         }
       }
@@ -118,6 +136,7 @@ export class GeminiProvider implements ModelProvider {
       yield {
         type: 'done',
         usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       };
     } catch (error) {
       yield {
@@ -127,11 +146,31 @@ export class GeminiProvider implements ModelProvider {
     }
   }
 
-  private toContents(request: ChatRequest): GeminiContent[] {
-    return request.messages.map((message) => ({
-      role: message.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: message.content }],
-    }));
+  private buildBody(request: ChatRequest): Record<string, unknown> {
+    const body: Record<string, unknown> = {
+      contents: toGeminiContents(request.messages),
+      systemInstruction: request.systemPrompt
+        ? { parts: [{ text: request.systemPrompt }] }
+        : undefined,
+      generationConfig: {
+        maxOutputTokens: request.maxTokens ?? 8192,
+        temperature: request.temperature,
+      },
+    };
+
+    if (request.tools?.length) {
+      body.tools = [
+        {
+          functionDeclarations: request.tools.map((tool) => ({
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.inputSchema,
+          })),
+        },
+      ];
+    }
+
+    return body;
   }
 
   private async generate(model: string, request: ChatRequest, stream: boolean): Promise<Response> {
@@ -141,16 +180,9 @@ export class GeminiProvider implements ModelProvider {
     return fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: this.toContents(request),
-        systemInstruction: request.systemPrompt
-          ? { parts: [{ text: request.systemPrompt }] }
-          : undefined,
-        generationConfig: {
-          maxOutputTokens: request.maxTokens ?? 8192,
-          temperature: request.temperature,
-        },
-      }),
+      body: JSON.stringify(this.buildBody(request)),
     });
   }
 }
+
+export { toGeminiContents, extractGeminiToolCalls, extractGeminiText };
