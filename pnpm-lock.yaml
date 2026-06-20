@@ -265,6 +265,9 @@ importers:
       '@anvio/souls':
         specifier: workspace:*
         version: link:../souls
+      '@anvio/tools':
+        specifier: workspace:*
+        version: link:../tools
       uuid:
         specifier: ^11.1.0
         version: 11.1.1
@@ -363,6 +366,9 @@ importers:
       '@anvio/events':
         specifier: workspace:*
         version: link:../events
+      '@anvio/voice':
+        specifier: workspace:*
+        version: link:../voice
       uuid:
         specifier: ^11.1.0
         version: 11.1.1
