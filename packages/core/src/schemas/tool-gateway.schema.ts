@@ -19,6 +19,7 @@ export const toolGatewaySpecSchema = z.object({
       execute_code_pipeline: toolGatewayToolSchema.default({ enabled: false }),
       image_generate: toolGatewayToolSchema.default({ enabled: false }),
       text_to_speech: toolGatewayToolSchema.default({ enabled: false }),
+      memory_recall: toolGatewayToolSchema.default({ enabled: true }),
       browser: toolGatewayToolSchema.default({ enabled: false }),
     })
     .default({}),

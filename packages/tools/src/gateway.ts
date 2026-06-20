@@ -39,6 +39,8 @@ spec:
       enabled: false
     text_to_speech:
       enabled: false
+    memory_recall:
+      enabled: true
   webSearch:
     provider: brave
     apiKeyEnv: WEB_SEARCH_API_KEY
@@ -103,7 +105,10 @@ export class ToolGateway {
     call: BuiltinToolCall,
     runtimeCtx?: ToolGatewayCallContext,
   ): Promise<BuiltinToolResult> {
-    const result = await runBuiltinTool(this.spec, call, this.ctx);
+    const result = await runBuiltinTool(this.spec, call, {
+      ...this.ctx,
+      userId: runtimeCtx?.userId,
+    });
     if (runtimeCtx && result.status === 'completed' && this.onToolCompleted) {
       await this.onToolCompleted(runtimeCtx, call, result);
     }

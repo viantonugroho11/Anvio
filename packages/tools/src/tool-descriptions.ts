@@ -10,6 +10,7 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   browser: 'Browser automation. Args: { "url": string, "action"?: "navigate"|"screenshot"|"content", "selector"?: string }',
   image_generate: 'Generate image via DALL-E. Args: { "prompt": string, "size"?: "1024x1024" }',
   text_to_speech: 'Synthesize speech (OpenAI TTS). Args: { "text": string }',
+  memory_recall: 'Recall long-term memory entries. Args: { "query": string, "userId"?: string, "limit"?: number }',
 };
 
 export function describeBuiltinTool(toolName: string): string {

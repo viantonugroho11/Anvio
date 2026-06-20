@@ -167,6 +167,12 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   const toolGateway = await ToolGateway.load(workspacePath, {
     codeExecutor,
     workspaceRoot: workspacePath,
+    memoryRecall: async (userId, query, limit) => {
+      if (memoryProvider.search) {
+        return memoryProvider.search(query, { userId, limit });
+      }
+      return [];
+    },
   });
 
   toolGateway.setOnToolCompleted(async (ctx, call, result) => {

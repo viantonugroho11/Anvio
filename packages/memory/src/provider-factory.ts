@@ -5,6 +5,7 @@ import type {
   MemoryEntryType,
   MemoryProvider,
   MemoryProviderHealth,
+  SearchOptions,
 } from '@anvio/core';
 import type { FilesystemStorageProvider } from '@anvio/storage';
 import { createHonchoProvider, type HonchoConfig } from './providers/honcho/honcho-provider.js';
@@ -157,6 +158,23 @@ export class FilesystemMemoryProvider implements MemoryProvider {
   ): Promise<MemoryEntry[]> {
     const items = (await this.storage.readJson<MemoryEntry[]>(this.userKey(userId))) ?? [];
     return items.filter((e) => !type || e.type === type).slice(-limit);
+  }
+
+  async search(query: string, options?: SearchOptions): Promise<MemoryEntry[]> {
+    await this.ensureFts();
+    const userId = options?.userId ?? '';
+    const limit = options?.limit ?? 10;
+    const hits = this.ftsRecall
+      ? this.ftsRecall.search(userId, query, limit)
+      : await this.recallIndex.recall(userId, query, limit);
+    return hits.map((hit, index) => ({
+      id: `search-${index}`,
+      sessionId: hit.sessionId,
+      userId,
+      type: hit.type,
+      content: hit.content,
+      createdAt: new Date(),
+    }));
   }
 }
 

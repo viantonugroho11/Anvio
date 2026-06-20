@@ -89,6 +89,15 @@ const TOOL_SCHEMAS: Record<string, Record<string, unknown>> = {
     properties: { text: { type: 'string' } },
     required: ['text'],
   },
+  memory_recall: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Search query for long-term memory' },
+      userId: { type: 'string', description: 'User scope (defaults to session user)' },
+      limit: { type: 'number' },
+    },
+    required: ['query'],
+  },
 };
 
 export function buildModelToolDefinitions(toolNames: string[]): ModelToolDefinition[] {

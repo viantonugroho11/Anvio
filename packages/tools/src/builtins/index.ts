@@ -8,10 +8,13 @@ import {
   globFiles,
   grepSearch,
 } from './workspace-tools.js';
+import { memoryRecall, type MemoryRecallFn } from './memory-recall.js';
 
 export interface BuiltinToolContext {
   workspaceRoot?: string;
   codeExecutor?: CodeExecutor;
+  memoryRecall?: MemoryRecallFn;
+  userId?: string;
 }
 
 export { webFetch } from './web-fetch.js';
@@ -232,6 +235,13 @@ export async function runBuiltinTool(
         };
       }
     }
+    case 'memory_recall':
+      return memoryRecall(
+        ctx.memoryRecall,
+        String(call.arguments.userId ?? ctx.userId ?? 'local-user'),
+        String(call.arguments.query ?? ''),
+        Number(call.arguments.limit ?? 10),
+      );
     default:
       return { name: call.name, output: null, status: 'skipped', error: 'Not implemented' };
   }
