@@ -43,6 +43,7 @@ export * from './ports/orchestration.port.js';
 export * from './ports/kanban.port.js';
 export * from './ports/batch.port.js';
 export * from './ports/runtime-provider.port.js';
+export * from './ports/runtime-tool.port.js';
 export * from './ports/code-execution.port.js';
 export * from './ports/credential.port.js';
 export * from './ports/worktree.port.js';

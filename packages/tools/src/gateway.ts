@@ -1,9 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import type { BuiltinToolCall, BuiltinToolResult, ToolGatewaySpec } from '@anvio/core';
+import type { BuiltinToolCall, BuiltinToolResult, SoulDefinition, ToolGatewaySpec } from '@anvio/core';
 import { parseToolGatewayConfig } from '@anvio/core';
 import { runBuiltinTool, type BuiltinToolContext } from './builtins/index.js';
+import { renderToolInstructions } from './tool-descriptions.js';
 
 export const DEFAULT_TOOL_GATEWAY_YAML = `# Built-in tool gateway — Phase H
 apiVersion: anvio.io/v1
@@ -30,9 +31,23 @@ spec:
     apiKeyEnv: WEB_SEARCH_API_KEY
 `;
 
+export interface ToolGatewayCallContext {
+  sessionId: string;
+  agentId: string;
+  userId?: string;
+  soul?: SoulDefinition;
+}
+
+export type ToolCompletedHandler = (
+  ctx: ToolGatewayCallContext,
+  call: BuiltinToolCall,
+  result: BuiltinToolResult,
+) => void | Promise<void>;
+
 export class ToolGateway {
   readonly spec: ToolGatewaySpec;
   private readonly ctx: BuiltinToolContext;
+  private onToolCompleted?: ToolCompletedHandler;
 
   constructor(spec: ToolGatewaySpec, ctx: BuiltinToolContext = {}) {
     this.spec = spec;
@@ -52,6 +67,10 @@ export class ToolGateway {
     }
   }
 
+  setOnToolCompleted(handler: ToolCompletedHandler | undefined): void {
+    this.onToolCompleted = handler;
+  }
+
   listTools(): string[] {
     if (!this.spec.enabled) return [];
     return Object.entries(this.spec.tools)
@@ -59,8 +78,19 @@ export class ToolGateway {
       .map(([name]) => `anvio_tools__${name}`);
   }
 
-  async call(call: BuiltinToolCall): Promise<BuiltinToolResult> {
-    return runBuiltinTool(this.spec, call, this.ctx);
+  getToolInstructions(): string {
+    return renderToolInstructions(this.listTools());
+  }
+
+  async call(
+    call: BuiltinToolCall,
+    runtimeCtx?: ToolGatewayCallContext,
+  ): Promise<BuiltinToolResult> {
+    const result = await runBuiltinTool(this.spec, call, this.ctx);
+    if (runtimeCtx && result.status === 'completed' && this.onToolCompleted) {
+      await this.onToolCompleted(runtimeCtx, call, result);
+    }
+    return result;
   }
 }
 
