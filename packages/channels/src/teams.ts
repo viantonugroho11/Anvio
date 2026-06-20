@@ -1,3 +1,4 @@
+import { fetchWithRetry } from './fetch-retry.js';
 import type { ApprovalRequestMessage, ChannelType, OutboundMessage } from '@anvio/core';
 import { WebhookChannelAdapter, type WebhookChannelOptions } from './webhook-channel-base.js';
 
@@ -203,7 +204,7 @@ export class TeamsChannel extends WebhookChannelAdapter {
   private async fetchBotToken(): Promise<string | null> {
     if (!this.teamsOptions.appId || !this.teamsOptions.appPassword) return null;
 
-    const tokenRes = await fetch(
+    const tokenRes = await fetchWithRetry(
       'https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token',
       {
         method: 'POST',
@@ -226,7 +227,7 @@ export class TeamsChannel extends WebhookChannelAdapter {
     token: string,
     activity: Record<string, unknown>,
   ): Promise<void> {
-    await fetch(`${serviceUrl.replace(/\/$/, '')}/v3/conversations/${conversationId}/activities`, {
+    await fetchWithRetry(`${serviceUrl.replace(/\/$/, '')}/v3/conversations/${conversationId}/activities`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

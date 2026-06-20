@@ -8,10 +8,12 @@ import { ChannelSessionBridge } from './channel-session-bridge.js';
 import { CliChannel } from './cli-channel.js';
 import { DiscordChannel } from './discord.js';
 import { EmailChannel } from './email.js';
+import { FeishuChannel } from './feishu-channel.js';
 import { GoogleChatChannel } from './google-chat.js';
 import { MatrixChannel } from './matrix.js';
 import { RestApiChannel } from './rest-api.js';
 import { SignalChannel } from './signal.js';
+import { SmsChannel } from './sms-channel.js';
 import { SlackChannel } from './slack.js';
 import { TeamsChannel } from './teams.js';
 import { TelegramChannel } from './telegram.js';
@@ -76,6 +78,20 @@ export interface ChannelConfig {
   googleChat?: {
     enabled?: boolean;
     webhookUrl?: string;
+    serviceAccountPath?: string;
+    space?: string;
+    defaultAgent?: string;
+  };
+  feishu?: {
+    enabled?: boolean;
+    webhookUrl?: string;
+    defaultAgent?: string;
+  };
+  sms?: {
+    enabled?: boolean;
+    accountSid?: string;
+    authToken?: string;
+    fromNumber?: string;
     defaultAgent?: string;
   };
   mattermost?: {
@@ -275,13 +291,47 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
 
   const googleChatWebhook =
     options.channels?.googleChat?.webhookUrl ?? process.env.GOOGLE_CHAT_WEBHOOK_URL;
-  if (options.channels?.googleChat?.enabled && googleChatWebhook) {
+  const googleChatSa =
+    options.channels?.googleChat?.serviceAccountPath ?? process.env.GOOGLE_CHAT_SERVICE_ACCOUNT;
+  if (options.channels?.googleChat?.enabled && (googleChatWebhook || googleChatSa)) {
     registerAdapter(
       hub,
       new GoogleChatChannel({
         ...bridgeOpts,
         webhookUrl: googleChatWebhook,
+        serviceAccountPath: googleChatSa,
+        space: options.channels.googleChat.space ?? process.env.GOOGLE_CHAT_SPACE,
         defaultAgent: options.channels.googleChat.defaultAgent ?? options.defaultAgent,
+      }),
+      onInbound,
+    );
+  }
+
+  const feishuWebhook = options.channels?.feishu?.webhookUrl ?? process.env.FEISHU_WEBHOOK_URL;
+  if (options.channels?.feishu?.enabled && feishuWebhook) {
+    registerAdapter(
+      hub,
+      new FeishuChannel({
+        ...bridgeOpts,
+        webhookUrl: feishuWebhook,
+        defaultAgent: options.channels.feishu.defaultAgent ?? options.defaultAgent,
+      }),
+      onInbound,
+    );
+  }
+
+  const twilioSid = options.channels?.sms?.accountSid ?? process.env.TWILIO_ACCOUNT_SID;
+  const twilioToken = options.channels?.sms?.authToken ?? process.env.TWILIO_AUTH_TOKEN;
+  const twilioFrom = options.channels?.sms?.fromNumber ?? process.env.TWILIO_FROM_NUMBER;
+  if (options.channels?.sms?.enabled && twilioSid && twilioToken && twilioFrom) {
+    registerAdapter(
+      hub,
+      new SmsChannel({
+        ...bridgeOpts,
+        accountSid: twilioSid,
+        authToken: twilioToken,
+        fromNumber: twilioFrom,
+        defaultAgent: options.channels.sms.defaultAgent ?? options.defaultAgent,
       }),
       onInbound,
     );

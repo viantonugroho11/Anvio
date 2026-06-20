@@ -248,7 +248,12 @@ export async function browserDialog(
 }
 
 const CDP_ALLOWED = new Set(['evaluate', 'screenshot', 'title', 'url'] as const);
+const CDP_GRANTED = new Set(['goto', 'click', 'fill', 'waitForSelector', 'content'] as const);
 type CdpMethod = 'evaluate' | 'screenshot' | 'title' | 'url';
+
+function cdpGrantEnabled(): boolean {
+  return process.env.ANVIO_BROWSER_CDP_GRANT === '1';
+}
 
 export async function browserCdp(
   method: string,
@@ -257,10 +262,17 @@ export async function browserCdp(
 ): Promise<BuiltinToolResult> {
   try {
     const session = await getSession(sessionId);
-    const m = method.toLowerCase() as CdpMethod;
-    if (!CDP_ALLOWED.has(m)) {
-      throw new Error(`Method not allowed. Allowed: ${[...CDP_ALLOWED].join(', ')}`);
+    const m = method.toLowerCase();
+    const grant = cdpGrantEnabled();
+    const inBase = CDP_ALLOWED.has(m as CdpMethod);
+    const inGrant = grant && (CDP_GRANTED as Set<string>).has(m);
+    if (!inBase && !inGrant) {
+      const hint = grant
+        ? `Allowed base: ${[...CDP_ALLOWED, ...CDP_GRANTED].join(', ')}`
+        : `Allowed: ${[...CDP_ALLOWED].join(', ')} (set ANVIO_BROWSER_CDP_GRANT=1 for extended)`;
+      throw new Error(`Method not allowed. ${hint}`);
     }
+
     let output: unknown;
     switch (m) {
       case 'evaluate':
@@ -277,12 +289,31 @@ export async function browserCdp(
       case 'url':
         output = { url: session.page.url() };
         break;
+      case 'goto':
+        await session.page.goto(String(params.url ?? 'about:blank'));
+        output = { url: session.page.url() };
+        break;
+      case 'click':
+        await session.page.click(String(params.selector ?? 'body'));
+        output = { clicked: params.selector ?? 'body' };
+        break;
+      case 'fill':
+        await session.page.fill(String(params.selector ?? 'input'), String(params.text ?? ''));
+        output = { filled: params.selector };
+        break;
+      case 'waitForSelector':
+        await session.page.waitForSelector(String(params.selector ?? 'body'));
+        output = { ready: params.selector };
+        break;
+      case 'content':
+        output = { html: await session.page.content() };
+        break;
       default: {
-        const _exhaustive: never = m;
+        const _exhaustive: never = m as never;
         throw new Error(`Unhandled CDP method: ${_exhaustive}`);
       }
     }
-    return { name: 'anvio_tools__browser_cdp', output: { method: m, result: output }, status: 'completed' };
+    return { name: 'anvio_tools__browser_cdp', output: { method: m, result: output, grant }, status: 'completed' };
   } catch (error) {
     return fail('browser_cdp', error);
   }

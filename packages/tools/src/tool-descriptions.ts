@@ -50,7 +50,7 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   browser_get_images: 'List images on page. Args: {}',
   browser_vision: 'Vision-analyze current page screenshot. Args: { "prompt"? }',
   browser_dialog: 'Arm dialog handler. Args: { "action": "accept"|"dismiss", "text"? }',
-  browser_cdp: 'Safe browser introspection. Args: { "method": "evaluate"|"screenshot"|"title"|"url", "params"? }',
+  browser_cdp: 'Safe browser introspection. Set ANVIO_BROWSER_CDP_GRANT=1 for goto/click/fill. Args: { "method", "params"? }',
   delegate_task: 'Delegate to sub-agent. Args: { "agent", "task", "context"? }',
   cronjob: 'Manage cron automations. Args: { "action": "list"|"run"|"create", "slug"?, "schedule"?, "agent"?, "prompt"? }',
   skills_list: 'List workspace skills. Args: {}',

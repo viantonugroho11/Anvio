@@ -1,4 +1,5 @@
 import type { ChannelType, OutboundMessage } from '@anvio/core';
+import { fetchWithRetry } from './fetch-retry.js';
 import { WebhookChannelAdapter, type WebhookChannelOptions } from './webhook-channel-base.js';
 
 export interface MatrixChannelOptions extends WebhookChannelOptions {
@@ -61,7 +62,7 @@ export class MatrixChannel extends WebhookChannelAdapter {
     if (!roomId) return;
 
     const base = this.matrixOptions.homeserverUrl!.replace(/\/$/, '');
-    await fetch(
+    await fetchWithRetry(
       `${base}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/send/m.room.message`,
       {
         method: 'POST',

@@ -11,6 +11,8 @@ export type ChannelType =
   | 'email'
   | 'signal'
   | 'google-chat'
+  | 'feishu'
+  | 'sms'
   | 'mattermost'
   | 'rest'
   | 'cli';

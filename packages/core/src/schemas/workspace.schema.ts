@@ -101,6 +101,17 @@ export const signalChannelSchema = channelProviderSchema.extend({
 export const googleChatChannelSchema = channelProviderSchema.extend({
   webhookUrl: z.string().optional(),
   serviceAccountPath: z.string().optional(),
+  space: z.string().optional(),
+});
+
+export const feishuChannelSchema = channelProviderSchema.extend({
+  webhookUrl: z.string().optional(),
+});
+
+export const smsChannelSchema = channelProviderSchema.extend({
+  accountSid: z.string().optional(),
+  authToken: z.string().optional(),
+  fromNumber: z.string().optional(),
 });
 
 export const channelsConfigSchema = z.object({
@@ -113,6 +124,8 @@ export const channelsConfigSchema = z.object({
   email: emailChannelSchema.optional(),
   signal: signalChannelSchema.optional(),
   googleChat: googleChatChannelSchema.optional(),
+  feishu: feishuChannelSchema.optional(),
+  sms: smsChannelSchema.optional(),
   mattermost: channelProviderSchema
     .extend({
       serverUrl: z.string().optional(),

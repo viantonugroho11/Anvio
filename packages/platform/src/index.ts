@@ -656,3 +656,9 @@ export {
   readTokenUsageAudit,
   type TokenUsageStats,
 } from './usage-stats.js';
+export {
+  exportSessionTrajectory,
+  trajectoryToMarkdown,
+  type TrajectoryExport,
+  type TrajectoryEntry,
+} from './trajectory-export.js';

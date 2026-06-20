@@ -22,7 +22,7 @@ import { VoicePipeline, createStreamingSttSession, streamTranscribe } from '@anv
 import { createGoalEngine } from '@anvio/goals';
 import { createKanbanEngine } from '@anvio/kanban';
 import { createMemoryProvider } from '@anvio/memory';
-import { createPlatform, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime, aggregateTokenUsage, parseUsageLastFlag, readTokenUsageAudit } from '@anvio/platform';
+import { createPlatform, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime, aggregateTokenUsage, parseUsageLastFlag, readTokenUsageAudit, exportSessionTrajectory, trajectoryToMarkdown } from '@anvio/platform';
 import { createSoulService } from '@anvio/souls';
 import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
 import { ToolGateway } from '@anvio/tools';
@@ -168,6 +168,7 @@ Core
   anvio run <agent> [message]          Run task (--detach for background)
   anvio sessions list                  List agent sessions
   anvio session 1on1 [--agent NAME]    Dedicated 1-on-1 CLI session
+  anvio session export <id> [--md]     Export session trajectory (P14 research)
   anvio status [sessionId]             Platform or session status
   anvio logs <sessionId>               Session message log
   anvio approve <session> <id>         Approve pending tool request
@@ -347,6 +348,10 @@ async function cmdRun(sub: string[]) {
 async function cmdSessions(sub: string[]) {
   if (sub[0] === '1on1') {
     await cmdSessionOneOnOne(sub.slice(1));
+    return;
+  }
+  if (sub[0] === 'export') {
+    await cmdSessionExport(sub.slice(1));
     return;
   }
 
@@ -2051,6 +2056,27 @@ async function cmdWorkspace(sub: string[]) {
     default:
       console.error('Usage: anvio workspace validate');
       process.exit(1);
+  }
+}
+
+async function cmdSessionExport(sub: string[]) {
+  const sessionId = sub[0];
+  const asMarkdown = sub.includes('--md');
+  if (!sessionId) {
+    console.error('Usage: anvio session export <sessionId> [--md]');
+    process.exit(1);
+  }
+  const platform = await getPlatform();
+  const session = await platform.workspace.sessions.get(sessionId);
+  if (!session) {
+    console.error('Session not found');
+    process.exit(1);
+  }
+  const trajectory = exportSessionTrajectory(session);
+  if (asMarkdown) {
+    console.log(trajectoryToMarkdown(trajectory));
+  } else {
+    console.log(JSON.stringify(trajectory, null, 2));
   }
 }
 
