@@ -13,8 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Streaming STT session (`ChunkedStreamingSttSession`) + `anvio voice stream-transcribe`
 - IMAP IDLE watch (`EMAIL_IMAP_IDLE=1`) and Message-ID/References email threading
 
+### Added — Phase P14 (P12 partial closure + research)
+- MCP preset E2E tests for spotify, feishu, tinker-atropos
+- `ANVIO_BROWSER_CDP_GRANT=1` extended browser_cdp methods (goto, click, fill, …)
+- Harness channel format snapshot tests
+- Google Chat service account delivery (`GOOGLE_CHAT_SERVICE_ACCOUNT`, `GOOGLE_CHAT_SPACE`)
+- Teams/Matrix `fetchWithRetry` with exponential backoff
+- Feishu webhook channel + SMS (Twilio) channel adapters
+- Workflow→skill example doc + `workspace/skills/dag-report-skill.md`
+- Langfuse dashboard JSON template (`configs/observability/langfuse-dashboard.json`)
+- Session trajectory export: `anvio session export <id> [--md]`
+- Desktop app scaffold (`apps/desktop/README.md`)
+
 ### Docs
 - [73-phase-p13-priorities.md](./docs/73-phase-p13-priorities.md)
+- [74-workflow-to-skill-example.md](./docs/74-workflow-to-skill-example.md)
+- [75-phase-p14-priorities.md](./docs/75-phase-p14-priorities.md)
 
 ---
 

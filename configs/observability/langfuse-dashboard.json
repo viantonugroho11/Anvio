@@ -1,0 +1,37 @@
+{
+  "title": "Anvio Agent Observability",
+  "description": "Import into Langfuse — OTLP spans from Anvio worker/API",
+  "panels": [
+    {
+      "title": "Agent run latency (p95)",
+      "type": "timeseries",
+      "query": "histogram_quantile(0.95, sum(rate(anvio_agent_run_duration_bucket[5m])) by (le))"
+    },
+    {
+      "title": "Tool calls by surface",
+      "type": "bar",
+      "query": "sum by (tool_prefix) (rate(anvio_tool_calls_total[5m]))",
+      "labels": ["anvio_tools", "anvio_mcp", "anvio_channel"]
+    },
+    {
+      "title": "MCP first-call approval wait",
+      "type": "timeseries",
+      "query": "histogram_quantile(0.95, sum(rate(anvio_mcp_approval_wait_seconds_bucket[5m])) by (le))"
+    },
+    {
+      "title": "Harness channel replies vs suppressed raw",
+      "type": "stat",
+      "query": "sum(rate(anvio_harness_channel_reply_total[5m])) / sum(rate(anvio_harness_inbound_total[5m]))"
+    },
+    {
+      "title": "Token usage by agent",
+      "type": "table",
+      "query": "sum by (agent_name) (increase(anvio_tokens_total[24h]))"
+    }
+  ],
+  "variables": [
+    { "name": "agent", "query": "label_values(anvio_agent_run_duration_bucket, agent_name)" },
+    { "name": "channel", "query": "label_values(anvio_harness_inbound_total, channel)" }
+  ],
+  "notes": "Wire OTEL per docs/72-observability-langfuse.md. Panel queries assume Prometheus metric names exported from @anvio/observability."
+}

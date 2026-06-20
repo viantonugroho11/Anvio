@@ -78,4 +78,4 @@ Built-in gateway tools (`anvio_tools__*`) are hidden; the agent must reply via `
 | Tool not visible | Check `allowedTools` filter |
 | Stdio timeout | Verify `npx`/binary is on PATH |
 
-See also [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) and [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md).
+See [72-observability-langfuse.md](./72-observability-langfuse.md). Import dashboard: [configs/observability/langfuse-dashboard.json](../configs/observability/langfuse-dashboard.json).

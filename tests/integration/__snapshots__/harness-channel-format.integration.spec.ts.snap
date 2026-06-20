@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Harness channel format snapshots > snapshots discord plain formatting 1`] = `"Hello code link"`;
+
+exports[`Harness channel format snapshots > snapshots matrix plain formatting 1`] = `"Hello code link"`;
+
+exports[`Harness channel format snapshots > snapshots slack mrkdwn formatting 1`] = `"*Hello* \`code\` [link](https://example.com)"`;
+
+exports[`Harness channel format snapshots > snapshots teams plain formatting 1`] = `"Hello code link"`;
+
+exports[`Harness channel format snapshots > snapshots telegram HTML formatting 1`] = `"<b>Hello</b> <code>code</code> [link](https://example.com)"`;
