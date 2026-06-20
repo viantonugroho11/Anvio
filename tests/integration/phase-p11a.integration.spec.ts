@@ -29,7 +29,7 @@ describe('Phase P11a — tool breadth, planner CLI, OTel helpers', () => {
       metadata: { name: 'default' },
       spec: { enabled: true, tools: {} },
     });
-    expect(Object.keys(config.spec.tools)).toHaveLength(42);
+    expect(Object.keys(config.spec.tools)).toHaveLength(57);
   });
 
   it('builds model tool definitions for new tools', () => {

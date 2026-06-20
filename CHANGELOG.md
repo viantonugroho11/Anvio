@@ -8,11 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **P11c** — 15 tools: full kanban agent set (6), browser depth (4), orchestration (`delegate_task`, `cronjob`, `skills_list`, `skill_view`, `send_message`) → **57 total**
+- `KanbanStore.updateTask` for comments/links; `ToolGateway.mergeContext()` for late platform wiring
+
+### Added (P11b)
 - **P11b** — 21 Hermes-parity tools: `web_extract`, `patch_file`, `search_files`, browser session tools (8), `terminal`, `process`, `todo`, `clarify`, `session_search`, `vision_analyze`, kanban tools (4) → **42 total**
 - Platform wires `searchSessions`, `kanbanEngine`, and `sessionId` into tool gateway context
 
 ### Docs
-- [65-hermes-tools-catalog.md](./docs/65-hermes-tools-catalog.md) updated to v1.16+ (42 tools)
+- [65-hermes-tools-catalog.md](./docs/65-hermes-tools-catalog.md) updated to v1.17+ (57 tools)
+- [67-phase-p11c-priorities.md](./docs/67-phase-p11c-priorities.md)
 
 ---
 
