@@ -39,3 +39,8 @@ export async function shutdownObservability(): Promise<void> {
 }
 
 export { trace, context, SpanStatusCode } from '@opentelemetry/api';
+export {
+  MetricsRegistry,
+  getMetricsRegistry,
+  resetMetricsRegistry,
+} from './metrics-registry.js';
