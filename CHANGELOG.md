@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0] - 2026-06-19
+
+**Phase P3 — Media tools, slaude import, scheduled learning**
+
+### Added
+- `anvio_tools__image_generate` — OpenAI DALL-E 3, saves to `artifacts/images/`
+- `anvio_tools__text_to_speech` — OpenAI TTS via `@anvio/voice`
+- `anvio kb import-slaude` — import `slaude.json` knowledge + skills (S6)
+- `anvio learning summarize-sessions` — batch session LLM/rule summarization
+- Automation action type `learning.summarize_sessions` for cron
+- Bundled automation `session-memory-summarize.yaml` (every 6h, disabled by default)
+- Example manifest `configs/examples/slaude.json`
+
+### Docs
+- [56-phase-p3-priorities.md](./docs/56-phase-p3-priorities.md)
+- Gap register: T3, T4, S6, L5 cron ✅
+
+---
+
 ## [1.7.0] - 2026-06-19
 
 **Phase L6 — Runtime learning & LLM skill evolution**

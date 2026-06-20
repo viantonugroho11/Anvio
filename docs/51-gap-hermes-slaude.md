@@ -3,7 +3,7 @@
 Status baseline: **Phase A–J selesai** (Advanced Agent OS + unified product plan).  
 Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude](https://github.com/barockok/slaude) · [hermes-tech](https://github.com/viantonugroho11/hermes-tech)
 
-**Ringkasan:** arsitektur gabungan sudah ada (~78% Hermes, ~86% slaude post v1.7). Di bawah ini daftar gap tersisa, diurutkan prioritas.
+**Ringkasan:** arsitektur gabungan sudah ada (~80% Hermes, ~88% slaude post v1.8). Di bawah ini daftar gap tersisa, diurutkan prioritas.
 
 ---
 
@@ -27,8 +27,8 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | --- | ----------------------------------------- | ------ | ------- | ---------------------------------------------------------- | ---------------------------------- |
 | T1  | Built-in tools (60+)                      | ✅      | via MCP | 🟡 ~8 tools + agent tool loop      | Expand gateway + native tool_use API |
 | T2  | Browser sandbox (Playwright)              | ✅      | —       | ✅ Playwright + fetch fallback                              | —                                  |
-| T3  | Image generation                          | ✅      | —       | ❌ stub config only                                         | Provider OpenAI/Replicate/etc.     |
-| T4  | Text-to-speech (tool)                     | ✅      | —       | ❌ stub config only                                         | Wire ke `@anvio/voice`             |
+| T3  | Image generation                          | ✅      | —       | ✅ DALL-E via OpenAI API                                    | —                                  |
+| T4  | Text-to-speech (tool)                     | ✅      | —       | ✅ OpenAI TTS via `@anvio/voice`                           | —                                  |
 | T5  | `execute_code` programmatic multi-step    | ✅      | —       | 🟡 stub                                                    | Hermes-style collapse pipeline     |
 | T6  | Nous Portal OAuth (1-click model + tools) | ✅      | —       | ❌                                                          | Generic OAuth env; Portal opsional |
 | T7  | MCP tool filtering / toolsets             | ✅      | ✅       | ✅ bridge                                                   | Per-server allowlist (fine-tune)   |
@@ -64,7 +64,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | S3  | Contextual connections broker      | —      | ✅             | ✅ store + encrypt + CLI       | —                                |
 | S4  | CDP / login-host (browser grant)   | —      | ✅             | ✅ local OAuth callback host   | Full CDP browser grant optional  |
 | S5  | Per-user connection isolation test | —      | ✅             | ✅ integration tests           | —                                |
-| S6  | slaude.json / manifest import      | —      | ✅             | ❌ optional doc only         | `anvio kb sync --from-slaude`    |
+| S6  | slaude.json / manifest import      | —      | ✅             | ✅ `anvio kb import-slaude`       | —                                |
 
 
 ---
@@ -78,7 +78,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | L2  | Memory nudge on session end       | ✅      | —      | ✅                                 | —                            |
 | L3  | Honcho provider                   | ✅      | —      | ✅ delegate + dialectic context fetch | —                            |
 | L4  | FTS5 cross-session recall         | ✅      | —      | ✅ optional sqlite FTS5                | —                            |
-| L5  | LLM periodic summarization        | ✅      | —      | ✅ session-end LLM + rules fallback | Scheduled cron job (P3)     |
+| L5  | LLM periodic summarization        | ✅      | —      | ✅ session-end + cron automation (P3) | —                           |
 | L6  | Skill self-improve during use     | ✅      | —      | ✅ runtime hook + auto-promote       | Native tool_use API optional |
 | L7  | Knowledge base raw→wiki           | —      | ✅      | ✅ `@anvio/knowledge`              | —                            |
 
@@ -226,9 +226,10 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 
 ## Dokumen terkait
 
+- [56-phase-p3-priorities.md](./56-phase-p3-priorities.md) — Phase P3 (v1.8.0)
 - [55-phase-l6-learning-priorities.md](./55-phase-l6-learning-priorities.md) — Phase L6 (v1.7.0)
 - [50-hermes-slaude-parity.md](./50-hermes-slaude-parity.md) — audit ringkas
 - [49-workspace-artifacts.md](./49-workspace-artifacts.md) — konvensi MD vs YAML
 - [plans/2026-06-19-002-feat-unified-agent-product-plan.md](./plans/2026-06-19-002-feat-unified-agent-product-plan.md) — plan asli
 
-Terakhir diperbarui: v1.7.0 Phase L6 (2026-06-19).
+Terakhir diperbarui: v1.8.0 Phase P3 (2026-06-19).
