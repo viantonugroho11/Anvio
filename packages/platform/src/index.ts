@@ -462,6 +462,58 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       await channelHub.sendMessage(ch, sid, { sessionId: sid, content: message, type: 'message' });
       return { ok: true };
     },
+    mixtureOfAgents: async ({ task, agents, synthesizer }) => {
+      const agentResults = await Promise.all(
+        agents.map(async (agentId) => {
+          const agentDef = await workspace.loader.loadAgent(agentId);
+          const stored = await workspace.sessions.create({
+            userId: spec.defaultUserId,
+            agentName: agentId,
+            channel: 'moa',
+            messages: [],
+            status: 'idle',
+            detached: true,
+          });
+          const session = storedSessionToRuntime(stored);
+          const result = await runtime.run(session, agentDef, { content: task });
+          return { agent: agentId, sessionId: session.id, content: result.content };
+        }),
+      );
+      const synthId = synthesizer ?? agents[0] ?? defaultAgent;
+      const synthAgent = await workspace.loader.loadAgent(synthId);
+      const synthStored = await workspace.sessions.create({
+        userId: spec.defaultUserId,
+        agentName: synthId,
+        channel: 'moa',
+        messages: [],
+        status: 'idle',
+        detached: true,
+      });
+      const synthSession = storedSessionToRuntime(synthStored);
+      const body = agentResults.map((r) => `## ${r.agent}\n${r.content}`).join('\n\n');
+      const synthesisResult = await runtime.run(synthSession, synthAgent, {
+        content: `Task: ${task}\n\nAgent outputs:\n${body}\n\nSynthesize the best combined answer.`,
+      });
+      return { agentResults, synthesis: synthesisResult.content };
+    },
+    skillManage: async ({ action, slug }) => {
+      if (action === 'list_drafts') {
+        return { drafts: await learningEngine.listDrafts() };
+      }
+      if (action === 'promote' && slug) {
+        const promotedPath = await learningEngine.promoteDraft(slug, workspacePath);
+        return { promotedPath };
+      }
+      throw new Error('slug required for promote action');
+    },
+    callMcpTool: async (serverId, toolName, args) => {
+      const result = await mcpBridge.callTool({ serverId, toolName, arguments: args });
+      return {
+        output: result.output,
+        status: result.status === 'completed' ? 'completed' : 'failed',
+        error: result.error,
+      };
+    },
   });
 
   const tokenUsageAudit = createTokenUsageAudit(workspace.storage);
