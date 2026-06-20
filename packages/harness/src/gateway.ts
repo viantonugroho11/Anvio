@@ -52,6 +52,7 @@ export class HarnessGateway implements HarnessGatewayPort {
   private readonly engagementStore: EngagementStore;
   private readonly approvalGate: ApprovalGate;
   private readonly resumeTracker: SessionResumeTracker;
+  private readonly deliveredReplies = new Set<string>();
   readonly connectBroker?: ConnectionBroker;
 
   constructor(options: HarnessGatewayOptions) {
@@ -128,6 +129,14 @@ export class HarnessGateway implements HarnessGatewayPort {
     return !['cli', 'rest', 'web-chat'].includes(channel);
   }
 
+  resetReplyTracking(sessionId: string): void {
+    this.deliveredReplies.delete(sessionId);
+  }
+
+  hasDeliveredReply(sessionId: string): boolean {
+    return this.deliveredReplies.has(sessionId);
+  }
+
   private outputPortDeps(): OutputPortDeps {
     return {
       channelHub: this.channelHub,
@@ -195,6 +204,9 @@ export class HarnessGateway implements HarnessGatewayPort {
 
     try {
       const output = await handler(call.arguments);
+      if (call.name === 'anvio_channel__reply') {
+        this.deliveredReplies.add(ctx.sessionId);
+      }
       return { name: call.name, output, status: 'completed' };
     } catch (error) {
       return {

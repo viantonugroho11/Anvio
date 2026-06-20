@@ -71,8 +71,6 @@ async function main() {
     async (event) => {
       const stored = await workspace.sessions.get(event.data.sessionId);
       if (!stored) return;
-      const agent = await loadAgent(workspace, stored.agentName);
-      const session = storedSessionToRuntime(stored);
       await workspace.sessions.update(event.data.sessionId, {
         pendingApproval: undefined,
         status: 'calling_model',
@@ -101,6 +99,7 @@ async function main() {
       }
 
       await workspace.sessions.update(sessionId, { status: 'calling_model' });
+      harness.resetReplyTracking(sessionId);
 
       const agent = await loadAgent(workspace, agentId);
 
@@ -212,9 +211,10 @@ async function main() {
               type: 'done',
               content: fullContent,
             });
-          } else if (fullContent.trim()) {
-            const output = harness.createOutputPort(sessionId, channel as ChannelType);
-            await output.reply(sessionId, fullContent);
+          } else if (fullContent.trim() && !harness.hasDeliveredReply(sessionId)) {
+            console.warn(
+              `Harness strict: session ${sessionId} completed without anvio_channel__reply`,
+            );
           }
           await channelHub.sendNotification(channel as ChannelType, sessionId, {
             sessionId,
