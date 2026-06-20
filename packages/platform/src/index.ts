@@ -124,12 +124,66 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     harness,
   });
 
+  const learningModelProvider =
+    modelProviders.getOptional('anthropic') ??
+    modelProviders.first();
+  const learningEngine = new LearningEngine(memoryProvider, workspacePath, {
+    modelProvider:
+      learningModelProvider && learningModelProvider.providerId !== 'mock'
+        ? learningModelProvider
+        : undefined,
+  });
+  const codeExecutor = createCodeExecutor({
+    storage: workspace.storage,
+    workspaceRoot: workspacePath,
+    allowedRuntimes: ['shell', 'python', 'node', 'go', 'docker'],
+  });
+  const toolGateway = await ToolGateway.load(workspacePath, {
+    codeExecutor,
+    workspaceRoot: workspacePath,
+  });
+
+  toolGateway.setOnToolCompleted(async (ctx, call, result) => {
+    let soul = ctx.soul;
+    if (!soul) {
+      try {
+        const agent = await workspace.loader.loadAgent(ctx.agentId);
+        if (agent.spec.soul) {
+          soul = await soulService.get(agent.spec.soul);
+        }
+      } catch {
+        soul = undefined;
+      }
+    }
+    if (!soul && spec.defaultSoul) {
+      try {
+        soul = await soulService.get(spec.defaultSoul);
+      } catch {
+        soul = undefined;
+      }
+    }
+
+    const outcome =
+      result.error != null
+        ? `${result.error}\n${JSON.stringify(result.output ?? null)}`
+        : JSON.stringify(result.output ?? null);
+
+    await learningEngine.onToolUseCompleted({
+      sessionId: ctx.sessionId,
+      agentId: ctx.agentId,
+      toolName: call.name,
+      outcome,
+      soul,
+    });
+  });
+
   const runtime = new DefaultAgentRuntime({
     personaService,
     skillRegistry,
     memoryStore: memoryProvider,
     soulService,
     modelProviders,
+    toolPort: toolGateway,
     onProgress: (sessionId, phase) => {
       void eventBus.publishCore(EventSubjects.AGENT_RUN_PROGRESS, 'anvio.agent.run.progress', {
         sessionId,
@@ -230,17 +284,6 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   await hookEngine.start();
   await automationEngine.start();
 
-  const learningEngine = new LearningEngine(memoryProvider, workspacePath);
-  const codeExecutor = createCodeExecutor({
-    storage: workspace.storage,
-    workspaceRoot: workspacePath,
-    allowedRuntimes: ['shell', 'python', 'node', 'go', 'docker'],
-  });
-  const toolGateway = await ToolGateway.load(workspacePath, {
-    codeExecutor,
-    workspaceRoot: workspacePath,
-  });
-
   await eventBus.subscribeCore(EventSubjects.AGENT_RUN_COMPLETED, async (event) => {
     const data = event.data as {
       sessionId: string;
@@ -335,3 +378,4 @@ export async function loadAgent(workspace: Workspace, name: string): Promise<Age
 
 export type { ChannelHubPort, AgentInbox, WhatsAppChannel };
 export { findRepoRoot, findWorkspacePath } from './find-workspace.js';
+export { publishAgentRunCompleted, finalizeAgentRun } from './agent-run.js';
