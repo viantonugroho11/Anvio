@@ -1,0 +1,17 @@
+apiVersion: anvio.io/v1
+kind: Automation
+metadata:
+  slug: session-memory-summarize
+  enabled: false
+spec:
+  description: Periodic LLM/rule-based session summarization for cross-session recall
+  trigger:
+    type: cron
+    schedule: "0 */6 * * *"
+    timezone: UTC
+  action:
+    type: learning
+    operation: summarize_sessions
+  retry:
+    maxAttempts: 2
+    backoff: exponential

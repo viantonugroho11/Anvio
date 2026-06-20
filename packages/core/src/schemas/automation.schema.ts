@@ -45,6 +45,10 @@ export const automationActionSchema = z.discriminatedUnion('type', [
     blueprint: z.string().min(1),
     inputPath: z.string().optional(),
   }),
+  z.object({
+    type: z.literal('learning'),
+    operation: z.enum(['summarize_sessions']),
+  }),
 ]);
 
 export const automationRetrySchema = z.object({

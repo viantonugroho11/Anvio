@@ -3,6 +3,8 @@ import { SkillEvolutionWriter, type SkillDraftInput } from './skill-evolution.js
 import { SkillEvolutionSummarizer } from './skill-evolution-summarizer.js';
 import { MemoryNudgeEngine } from './memory-nudge.js';
 import { SessionSummarizer } from './session-summarizer.js';
+import { SessionSummaryJob, type SessionSummaryJobResult } from './session-summary-job.js';
+import type { StaleSessionInput } from './session-summary-job.js';
 
 export interface LearningEngineOptions {
   modelProvider?: ModelProvider;
@@ -26,18 +28,22 @@ export interface SessionLearningResult {
 }
 
 export class LearningEngine {
+  private readonly memory: MemoryProvider;
   private readonly nudge: MemoryNudgeEngine;
   private readonly skillWriter: SkillEvolutionWriter;
   private readonly summarizer: SessionSummarizer;
   private readonly skillSummarizer: SkillEvolutionSummarizer;
   private readonly workspaceRoot: string;
+  private readonly summarizerOptions: LearningEngineOptions;
 
   constructor(
     memory: MemoryProvider,
     workspaceRoot: string,
     options: LearningEngineOptions = {},
   ) {
+    this.memory = memory;
     this.workspaceRoot = workspaceRoot;
+    this.summarizerOptions = options;
     this.nudge = new MemoryNudgeEngine(memory);
     this.skillWriter = new SkillEvolutionWriter(`${workspaceRoot}/skills/_drafts`);
     this.summarizer = new SessionSummarizer(memory, options);
@@ -149,9 +155,17 @@ export class LearningEngine {
   promoteDraft(slug: string, workspaceRoot: string): Promise<string> {
     return this.skillWriter.promoteDraft(slug, `${workspaceRoot}/skills`);
   }
+
+  async summarizeStaleSessions(
+    sessions: StaleSessionInput[],
+  ): Promise<SessionSummaryJobResult> {
+    const job = new SessionSummaryJob(this.memory, this.summarizerOptions);
+    return job.summarizeStaleSessions(sessions);
+  }
 }
 
 export { SkillEvolutionWriter } from './skill-evolution.js';
 export { SkillEvolutionSummarizer } from './skill-evolution-summarizer.js';
 export { MemoryNudgeEngine } from './memory-nudge.js';
 export { SessionSummarizer } from './session-summarizer.js';
+export { SessionSummaryJob, type SessionSummaryJobResult } from './session-summary-job.js';

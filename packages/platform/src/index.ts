@@ -268,6 +268,17 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       const result = await runtime.run(session, agent, { content: input });
       return result.content;
     },
+    summarizeSessions: async () => {
+      const sessions = await workspace.sessions.list(spec.defaultUserId);
+      return learningEngine.summarizeStaleSessions(
+        sessions.map((s) => ({
+          id: s.id,
+          userId: s.userId,
+          messages: s.messages,
+          status: s.status,
+        })),
+      );
+    },
   });
 
   const automationEngine = createAutomationEngine({

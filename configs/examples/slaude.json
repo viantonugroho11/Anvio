@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "name": "example-slaude-project",
+  "knowledge": [
+    {
+      "slug": "playbook",
+      "rawDir": "knowledge/raw",
+      "description": "Engineering playbook notes"
+    }
+  ],
+  "skills": [
+    {
+      "source": "skills/example-skill.md",
+      "slug": "example-skill"
+    }
+  ]
+}

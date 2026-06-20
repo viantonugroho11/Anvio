@@ -26,7 +26,7 @@ import { createPlatform, finalizeAgentRun, findRepoRoot, loadAgent, storedSessio
 import { createSoulService } from '@anvio/souls';
 import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
 import { ToolGateway } from '@anvio/tools';
-import { KnowledgeBaseStore, KnowledgeIngestEngine } from '@anvio/knowledge';
+import { KnowledgeBaseStore, KnowledgeIngestEngine, SlaudeManifestImporter } from '@anvio/knowledge';
 import { LearningEngine } from '@anvio/learning';
 import { createHarnessGateway, loadHarnessConfig, loadHarnessProfiles, runSimulationScenario, ConnectionBroker, ConnectionStore, startLoginHost } from '@anvio/harness';
 import { FilesystemStorageProvider } from '@anvio/storage';
@@ -193,8 +193,8 @@ Execution & Providers
   anvio skill catalog|install|validate Skills catalog management
   anvio mcp list|test                  MCP integration servers
   anvio tools list|test                Built-in tool gateway (Phase H)
-  anvio kb list|ingest|sync            Knowledge base raw→wiki pipeline
-  anvio learning drafts|promote        Skill evolution drafts
+  anvio kb list|ingest|sync|import-slaude   Knowledge base pipeline
+  anvio learning drafts|promote|summarize-sessions
   anvio workflow list|validate|run     Standalone DAG workflow engine (Phase I)
   anvio voice transcribe|speak         STT/TTS voice pipeline (Phase I)
   anvio workspace validate             Validate workspace structure
@@ -1619,8 +1619,15 @@ async function cmdKb(sub: string[]) {
       console.log(JSON.stringify(result, null, 2));
       break;
     }
+    case 'import-slaude': {
+      const manifestPath = sub[1] ?? path.join(process.cwd(), 'slaude.json');
+      const importer = new SlaudeManifestImporter(wsPath);
+      const result = await importer.importFromFile(manifestPath);
+      console.log(JSON.stringify(result, null, 2));
+      break;
+    }
     default:
-      console.error('Usage: anvio kb list|ingest|sync');
+      console.error('Usage: anvio kb list|ingest|sync|import-slaude [manifest.json]');
       process.exit(1);
   }
 }
@@ -1648,8 +1655,21 @@ async function cmdLearning(sub: string[]) {
       console.log(`Promoted to ${dest}`);
       break;
     }
+    case 'summarize-sessions': {
+      const sessions = await workspace.sessions.list(workspace.config.spec.defaultUserId);
+      const result = await engine.summarizeStaleSessions(
+        sessions.map((s) => ({
+          id: s.id,
+          userId: s.userId,
+          messages: s.messages,
+          status: s.status,
+        })),
+      );
+      console.log(JSON.stringify(result, null, 2));
+      break;
+    }
     default:
-      console.error('Usage: anvio learning drafts|promote');
+      console.error('Usage: anvio learning drafts|promote|summarize-sessions');
       process.exit(1);
   }
 }

@@ -16,6 +16,7 @@ export interface ActionExecutorDeps {
   blueprintExecutor: BlueprintExecutor;
   runAgent?: (agentId: string, input: string) => Promise<string>;
   runHook?: (hookPath: string, payload: Record<string, unknown>) => Promise<void>;
+  summarizeSessions?: () => Promise<{ summarized: number; skipped: number; alreadySummarized: number }>;
 }
 
 export class ActionExecutor {
@@ -71,6 +72,14 @@ export class ActionExecutor {
       }
       case 'batch':
         throw new Error('Batch action requires Phase C (U13)');
+      case 'learning': {
+        if (action.operation === 'summarize_sessions') {
+          if (!this.deps.summarizeSessions) throw new Error('Learning engine not configured');
+          const result = await this.deps.summarizeSessions();
+          return `summarized=${result.summarized} skipped=${result.skipped} already=${result.alreadySummarized}`;
+        }
+        throw new Error(`Unknown learning operation: ${action.operation}`);
+      }
       default: {
         const _exhaustive: never = action;
         throw new Error(`Unknown action type: ${(_exhaustive as AutomationAction).type}`);
