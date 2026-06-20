@@ -2,7 +2,7 @@
 
 **Local-First AI Agent Operating System**
 
-[![Release](https://img.shields.io/badge/release-v1.11.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.11.0)
+[![Release](https://img.shields.io/badge/release-v1.12.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.12.0)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -12,7 +12,7 @@ Everything lives in a portable `workspace/` folder — back it up, commit it to 
 
 > **Priority:** CLI → API → Web UI. The full platform works from your terminal alone.
 
-**Latest (v1.11.0):** OpenAI-compatible native **`tool_use`**, **`memory_recall`** tool, strict harness output (no raw dump on messaging channels), CI build fixes. See [Phase P6 docs](docs/59-phase-p6-priorities.md). Prior: [P5 approval](docs/58-phase-p5-harness-approval.md), [P4 tools](docs/57-phase-p4-priorities.md).
+**Latest (v1.12.0):** Gemini native **`functionCall`**, MCP tools in agent runtime (`anvio_mcp__*`), first-call approval gate. See [Phase P7 docs](docs/60-phase-p7-priorities.md). Prior: [P6](docs/59-phase-p6-priorities.md), [P5 approval](docs/58-phase-p5-harness-approval.md).
 
 ---
 

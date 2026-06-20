@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.12.0] - 2026-06-19
+
+**Phase P7 — Gemini native tools + MCP agent runtime**
+
+### Added
+- Gemini provider: native `functionCall` / `functionResponse` with `supportsNativeTools`
+- `McpToolPort` exposes enabled MCP servers to agent runtime as `anvio_mcp__{server}__{tool}`
+- `McpFirstCallGate` — first MCP tool use per session requires approval (`firstCallApproval` in mcp config)
+- Worker persists `mcpApprovedTools` on approval and resumes agent runs
+
+### Docs
+- [60-phase-p7-priorities.md](./docs/60-phase-p7-priorities.md)
+
+---
+
 ## [1.11.0] - 2026-06-19
 
 **Phase P6 — OpenAI native tools, memory recall, strict harness, CI fixes**
