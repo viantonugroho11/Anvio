@@ -1,4 +1,4 @@
-import type { ChatMessage, ModelToolCall, RuntimeToolPort } from '@anvio/core';
+import type { BuiltinToolResult, ChatMessage, ModelToolCall, RuntimeToolPort } from '@anvio/core';
 import { formatToolResultMessage } from '@anvio/tools';
 import type { ToolLoopCallbacks, ToolLoopContext } from './tool-loop.js';
 import type { PendingToolApproval } from './tool-loop.js';
@@ -24,7 +24,7 @@ export async function executeNativeToolCalls(input: {
         pendingApproval: {
           requestId: result.approvalRequestId ?? call.id,
           toolName: call.name,
-          summary: String(call.arguments.summary ?? ''),
+          summary: approvalSummaryFromResult(call, result),
         },
       };
     }
@@ -37,4 +37,17 @@ export async function executeNativeToolCalls(input: {
   }
 
   return { toolMessages, toolCallsRun: input.toolCalls.length };
+}
+
+function approvalSummaryFromResult(
+  call: ModelToolCall,
+  result: BuiltinToolResult,
+): string {
+  if (call.arguments.summary != null) {
+    return String(call.arguments.summary);
+  }
+  if (result.output && typeof result.output === 'object' && 'summary' in result.output) {
+    return String((result.output as { summary: unknown }).summary);
+  }
+  return call.name;
 }
