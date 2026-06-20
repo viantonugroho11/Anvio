@@ -1,8 +1,10 @@
 import type { ChannelType, OutboundMessage } from '@anvio/core';
 import { WebhookChannelAdapter, type WebhookChannelOptions } from './webhook-channel-base.js';
+import { sendSmtpMail } from './smtp-client.js';
 
 export interface EmailChannelOptions extends WebhookChannelOptions {
   smtpHost?: string;
+  smtpPort?: number;
   username?: string;
   password?: string;
   fromAddress?: string;
@@ -53,14 +55,32 @@ export class EmailChannel extends WebhookChannelAdapter {
     const session = await this.options.sessions.get(sessionId);
     const emailMeta = session?.metadata?.email as { from?: string; subject?: string } | undefined;
 
-    this.outboundQueue.push({
+    const outbound = {
       sessionId,
       to: emailMeta?.from,
       subject: emailMeta?.subject ? `Re: ${emailMeta.subject}` : 'Anvio reply',
       body: message.content,
-    });
+    };
+    this.outboundQueue.push(outbound);
 
-    if (!this.isConfigured()) return;
-    // SMTP wire-up deferred — queue records intent for E2E verification.
+    if (!this.isConfigured() || !outbound.to) return;
+
+    const from = this.emailOptions.fromAddress ?? this.emailOptions.username!;
+    try {
+      await sendSmtpMail({
+        host: this.emailOptions.smtpHost!,
+        port: this.emailOptions.smtpPort,
+        username: this.emailOptions.username!,
+        password: this.emailOptions.password ?? '',
+        from,
+        to: outbound.to,
+        subject: outbound.subject ?? 'Anvio reply',
+        body: outbound.body,
+      });
+    } catch (error) {
+      console.error(
+        `[Email] SMTP delivery failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 }
