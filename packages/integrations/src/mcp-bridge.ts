@@ -1,4 +1,5 @@
-import type { IntegrationRegistry } from './integration-registry.js';
+import type { IntegrationEntry, IntegrationRegistry } from './integration-registry.js';
+import { createMcpStdioClient, McpStdioClient } from './mcp-stdio-client.js';
 
 export interface McpToolCall {
   serverId: string;
@@ -12,6 +13,7 @@ export interface McpToolResult {
   output: unknown;
   status: 'completed' | 'failed' | 'skipped';
   error?: string;
+  transport?: 'stub' | 'stdio';
 }
 
 export interface McpToolDescriptor {
@@ -20,6 +22,8 @@ export interface McpToolDescriptor {
 }
 
 export class McpBridge {
+  private readonly clients = new Map<string, McpStdioClient>();
+
   constructor(
     private readonly registry: IntegrationRegistry,
     private readonly stubTools: Record<string, McpToolDescriptor[]> = DEFAULT_STUB_TOOLS,
@@ -28,6 +32,10 @@ export class McpBridge {
   async listTools(serverId: string): Promise<McpToolDescriptor[]> {
     const entry = await this.registry.get(serverId);
     if (!entry || !entry.enabled) return [];
+
+    const stdioTools = await this.tryListStdioTools(entry);
+    if (stdioTools) return stdioTools;
+
     return this.stubTools[serverId] ?? [{ name: 'ping', description: 'Health check' }];
   }
 
@@ -52,6 +60,9 @@ export class McpBridge {
       };
     }
 
+    const stdioResult = await this.tryCallStdioTool(entry, call);
+    if (stdioResult) return stdioResult;
+
     return {
       serverId: call.serverId,
       toolName: call.toolName,
@@ -63,6 +74,7 @@ export class McpBridge {
         message: `[MCP stub] ${call.serverId}.${call.toolName} executed`,
       },
       status: 'completed',
+      transport: 'stub',
     };
   }
 
@@ -75,8 +87,70 @@ export class McpBridge {
       return { ok: false, tools: [], message: `Server disabled: ${serverId}` };
     }
     const tools = await this.listTools(serverId);
-    return { ok: true, tools, message: `Server ${serverId} ready (${tools.length} tools)` };
+    const transport = usesStdioTransport(entry) ? 'stdio' : 'stub';
+    return { ok: true, tools, message: `Server ${serverId} ready (${tools.length} tools, ${transport})` };
   }
+
+  async close(): Promise<void> {
+    await Promise.all([...this.clients.values()].map((client) => client.close()));
+    this.clients.clear();
+  }
+
+  private async tryListStdioTools(entry: IntegrationEntry): Promise<McpToolDescriptor[] | null> {
+    if (!usesStdioTransport(entry)) return null;
+    try {
+      const client = await this.getStdioClient(entry);
+      const tools = await client.listTools();
+      return tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description ?? '',
+      }));
+    } catch {
+      return null;
+    }
+  }
+
+  private async tryCallStdioTool(
+    entry: IntegrationEntry,
+    call: McpToolCall,
+  ): Promise<McpToolResult | null> {
+    if (!usesStdioTransport(entry)) return null;
+    try {
+      const client = await this.getStdioClient(entry);
+      const output = await client.callTool(call.toolName, call.arguments ?? {});
+      return {
+        serverId: call.serverId,
+        toolName: call.toolName,
+        output,
+        status: 'completed',
+        transport: 'stdio',
+      };
+    } catch (error) {
+      return {
+        serverId: call.serverId,
+        toolName: call.toolName,
+        output: null,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+        transport: 'stdio',
+      };
+    }
+  }
+
+  private async getStdioClient(entry: IntegrationEntry): Promise<McpStdioClient> {
+    const existing = this.clients.get(entry.id);
+    if (existing) return existing;
+
+    const client = createMcpStdioClient(entry.server);
+    this.clients.set(entry.id, client);
+    await client.start();
+    return client;
+  }
+}
+
+function usesStdioTransport(entry: IntegrationEntry): boolean {
+  if (process.env.ANVIO_MCP_STUB === '1') return false;
+  return entry.server.transport !== 'stub';
 }
 
 const DEFAULT_STUB_TOOLS: Record<string, McpToolDescriptor[]> = {
@@ -90,3 +164,5 @@ const DEFAULT_STUB_TOOLS: Record<string, McpToolDescriptor[]> = {
 export function createMcpBridge(registry: IntegrationRegistry): McpBridge {
   return new McpBridge(registry);
 }
+
+export { createMcpStdioClient, McpStdioClient };

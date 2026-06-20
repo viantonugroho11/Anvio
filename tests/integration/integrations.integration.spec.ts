@@ -33,6 +33,7 @@ describe('Integration Framework (MCP-first)', () => {
               args: ['-y', '@modelcontextprotocol/server-github'],
               env: { GITHUB_TOKEN: '${GITHUB_TOKEN}' },
               enabled: true,
+              transport: 'stub',
             },
             atlassian: {
               command: 'npx',

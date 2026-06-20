@@ -2,6 +2,8 @@ export { IntegrationRegistry, createIntegrationRegistry, type IntegrationEntry }
 export {
   McpBridge,
   createMcpBridge,
+  createMcpStdioClient,
+  McpStdioClient,
   type McpToolCall,
   type McpToolResult,
   type McpToolDescriptor,

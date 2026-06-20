@@ -28,6 +28,7 @@ describe('Phase P7 — MCP first-call approval', () => {
               command: 'npx',
               args: ['-y', '@modelcontextprotocol/server-github'],
               enabled: true,
+              transport: 'stub',
             },
           },
         },

@@ -5,6 +5,7 @@ export const mcpServerSpecSchema = z.object({
   args: z.array(z.string()).default([]),
   env: z.record(z.string()).default({}),
   enabled: z.boolean().default(true),
+  transport: z.enum(['stub', 'stdio']).default('stdio'),
 });
 
 export const mcpConfigSchema = z.object({

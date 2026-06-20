@@ -38,6 +38,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@anvio/channels':
+        specifier: workspace:*
+        version: link:../../packages/channels
       '@anvio/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -562,6 +565,9 @@ importers:
         specifier: ^2.8.0
         version: 2.9.0
     devDependencies:
+      '@anvio/workspace':
+        specifier: workspace:*
+        version: link:../workspace
       typescript:
         specifier: ^5.8.3
         version: 5.9.3

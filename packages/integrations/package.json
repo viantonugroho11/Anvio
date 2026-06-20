@@ -17,5 +17,9 @@
     "@anvio/storage": "workspace:*",
     "yaml": "^2.8.0"
   },
-  "devDependencies": { "typescript": "^5.8.3", "vitest": "^3.1.4" }
+  "devDependencies": {
+    "@anvio/workspace": "workspace:*",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
 }
