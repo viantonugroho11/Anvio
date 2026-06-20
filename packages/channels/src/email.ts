@@ -5,16 +5,21 @@ import { sendSmtpMail } from './smtp-client.js';
 export interface EmailChannelOptions extends WebhookChannelOptions {
   smtpHost?: string;
   smtpPort?: number;
+  imapHost?: string;
+  imapPort?: number;
+  pollIntervalMs?: number;
   username?: string;
   password?: string;
   fromAddress?: string;
 }
 
-/** Email adapter — SMTP outbound when configured; queue for polling in tests. */
+/** Email adapter — SMTP outbound + optional IMAP inbound polling. */
 export class EmailChannel extends WebhookChannelAdapter {
   readonly channelType: ChannelType = 'email';
   readonly outboundQueue: Array<{ sessionId: string; to?: string; subject?: string; body: string }> =
     [];
+  private readonly seenImapUids = new Set<number>();
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(private readonly emailOptions: EmailChannelOptions) {
     super(emailOptions);
@@ -22,6 +27,10 @@ export class EmailChannel extends WebhookChannelAdapter {
 
   isConfigured(): boolean {
     return Boolean(this.emailOptions.smtpHost && this.emailOptions.username);
+  }
+
+  isImapConfigured(): boolean {
+    return Boolean(this.emailOptions.imapHost && this.emailOptions.username);
   }
 
   async handleInboundEmail(input: {
@@ -82,5 +91,51 @@ export class EmailChannel extends WebhookChannelAdapter {
         `[Email] SMTP delivery failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /** Poll IMAP INBOX for unseen messages and dispatch as inbound email. */
+  async pollInbox(): Promise<number> {
+    if (!this.isImapConfigured()) return 0;
+
+    const { pollImapInbox } = await import('./imap-client.js');
+    const messages = await pollImapInbox(
+      {
+        host: this.emailOptions.imapHost!,
+        port: this.emailOptions.imapPort,
+        username: this.emailOptions.username!,
+        password: this.emailOptions.password ?? '',
+      },
+      this.seenImapUids,
+    );
+
+    for (const message of messages) {
+      await this.handleInboundEmail({
+        from: message.from,
+        subject: message.subject,
+        body: message.body,
+      });
+    }
+
+    return messages.length;
+  }
+
+  override async start(): Promise<void> {
+    if (!this.isImapConfigured()) return;
+    const intervalMs = this.emailOptions.pollIntervalMs ?? 60_000;
+    this.pollTimer = setInterval(() => {
+      void this.pollInbox().catch((error) => {
+        console.error(
+          `[Email] IMAP poll failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    }, intervalMs);
+  }
+
+  override async stop(): Promise<void> {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+    await super.stop();
   }
 }

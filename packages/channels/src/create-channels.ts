@@ -60,6 +60,9 @@ export interface ChannelConfig {
   email?: {
     enabled?: boolean;
     smtpHost?: string;
+    imapHost?: string;
+    imapPort?: number;
+    pollIntervalMs?: number;
     username?: string;
     password?: string;
     defaultAgent?: string;
@@ -243,8 +246,14 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
       new EmailChannel({
         ...bridgeOpts,
         smtpHost: options.channels.email.smtpHost ?? process.env.EMAIL_SMTP_HOST,
+        imapHost: options.channels.email.imapHost ?? process.env.EMAIL_IMAP_HOST,
+        imapPort: options.channels.email.imapPort ?? Number(process.env.EMAIL_IMAP_PORT ?? 993),
+        pollIntervalMs:
+          options.channels.email.pollIntervalMs ??
+          Number(process.env.EMAIL_POLL_INTERVAL_MS ?? 60_000),
         username: options.channels.email.username ?? process.env.EMAIL_USERNAME,
         password: options.channels.email.password ?? process.env.EMAIL_PASSWORD,
+        fromAddress: process.env.EMAIL_FROM,
         defaultAgent: options.channels.email.defaultAgent ?? options.defaultAgent,
       }),
       onInbound,
