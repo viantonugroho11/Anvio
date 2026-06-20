@@ -106,6 +106,7 @@ export class McpBridge {
         description: tool.description ?? '',
       }));
     } catch {
+      this.invalidateStdioClient(entry.id);
       return null;
     }
   }
@@ -126,6 +127,7 @@ export class McpBridge {
         transport: 'stdio',
       };
     } catch (error) {
+      this.invalidateStdioClient(entry.id);
       return {
         serverId: call.serverId,
         toolName: call.toolName,
@@ -134,6 +136,14 @@ export class McpBridge {
         error: error instanceof Error ? error.message : String(error),
         transport: 'stdio',
       };
+    }
+  }
+
+  private invalidateStdioClient(serverId: string): void {
+    const client = this.clients.get(serverId);
+    if (client) {
+      client.invalidate();
+      this.clients.delete(serverId);
     }
   }
 

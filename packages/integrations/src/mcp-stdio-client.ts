@@ -31,12 +31,19 @@ export class McpStdioClient {
   private buffer = Buffer.alloc(0);
   private pending = new Map<number | string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   private started = false;
+  private restartCount = 0;
 
-  constructor(private readonly spec: McpServerSpec) {}
+  constructor(
+    private readonly spec: McpServerSpec,
+    private readonly maxRestarts = 3,
+  ) {}
 
   async start(): Promise<void> {
-    if (this.started) return;
+    if (this.started && this.proc) return;
+    await this.spawnProcess();
+  }
 
+  private async spawnProcess(): Promise<void> {
     this.proc = spawn(this.spec.command, this.spec.args, {
       env: resolveEnv(this.spec.env),
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -72,14 +79,24 @@ export class McpStdioClient {
     this.started = true;
   }
 
+  private async ensureRunning(): Promise<void> {
+    if (this.started && this.proc?.stdin.writable) return;
+    if (this.restartCount >= this.maxRestarts) {
+      throw new Error(`MCP stdio max restarts (${this.maxRestarts}) exceeded`);
+    }
+    this.restartCount += 1;
+    this.buffer = Buffer.alloc(0);
+    await this.spawnProcess();
+  }
+
   async listTools(): Promise<McpStdioToolDescriptor[]> {
-    await this.start();
+    await this.ensureRunning();
     const result = (await this.request('tools/list', {})) as { tools?: McpStdioToolDescriptor[] };
     return result.tools ?? [];
   }
 
   async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
-    await this.start();
+    await this.ensureRunning();
     const result = (await this.request('tools/call', { name, arguments: args })) as {
       content?: Array<{ type: string; text?: string }>;
       isError?: boolean;
@@ -105,6 +122,16 @@ export class McpStdioClient {
     this.proc = null;
     this.started = false;
     this.buffer = Buffer.alloc(0);
+    this.restartCount = 0;
+  }
+
+  /** Drop process state so the next request spawns a fresh MCP server. */
+  invalidate(): void {
+    this.proc?.kill();
+    this.proc = null;
+    this.started = false;
+    this.buffer = Buffer.alloc(0);
+    this.pending.clear();
   }
 
   private notify(method: string, params: Record<string, unknown>): void {
