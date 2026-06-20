@@ -130,16 +130,24 @@ export class McpToolPort implements RuntimeToolPort {
   }
 }
 
+export interface McpServerCatalogEntry {
+  id: string;
+  allowedTools?: string[];
+}
+
 export async function loadMcpToolCatalog(
   mcpBridge: McpBridge,
-  serverIds: string[],
+  servers: McpServerCatalogEntry[],
 ): Promise<{ names: string[]; definitions: ModelToolDefinition[] }> {
   const names: string[] = [];
   const definitions: ModelToolDefinition[] = [];
 
-  for (const serverId of serverIds) {
+  for (const { id: serverId, allowedTools } of servers) {
     const tools = await mcpBridge.listTools(serverId);
     for (const tool of tools) {
+      if (allowedTools && allowedTools.length > 0 && !allowedTools.includes(tool.name)) {
+        continue;
+      }
       const fullName = formatMcpToolName(serverId, tool.name);
       names.push(fullName);
       definitions.push({

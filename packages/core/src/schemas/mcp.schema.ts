@@ -6,6 +6,8 @@ export const mcpServerSpecSchema = z.object({
   env: z.record(z.string()).default({}),
   enabled: z.boolean().default(true),
   transport: z.enum(['stub', 'stdio']).default('stdio'),
+  /** When set, only these MCP tool names are exposed to the agent for this server. */
+  allowedTools: z.array(z.string()).optional(),
 });
 
 export const mcpConfigSchema = z.object({

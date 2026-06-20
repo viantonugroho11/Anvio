@@ -21,5 +21,7 @@ export {
   McpToolPort,
   createMcpToolPort,
   loadMcpToolCatalog,
+  type McpServerCatalogEntry,
   type McpToolPortOptions,
 } from './mcp-tool-port.js';
+export { listMcpPresets, applyMcpPreset } from './mcp-preset.js';

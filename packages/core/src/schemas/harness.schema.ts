@@ -15,10 +15,14 @@ export const harnessChannelProfileSchema = z.object({
   dmPolicy: z.enum(['anyone', 'manager_only']).default('anyone'),
 });
 
+export const harnessToolSurfaceSchema = z.enum(['all', 'mcp_and_channel']);
+
 export const harnessDefaultsSchema = z.object({
   enabled: z.boolean().default(false),
   soulSlug: z.string().optional(),
   suppressRawOutput: z.boolean().default(true),
+  /** When mcp_and_channel, hide built-in gateway tools; agent uses MCP + channel tools only. */
+  toolSurface: harnessToolSurfaceSchema.default('all'),
   idleMinutes: z.number().int().positive().default(15),
   resumeSessions: z.boolean().default(true),
   connectBroker: z
