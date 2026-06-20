@@ -1,6 +1,6 @@
 import { ActionExecutor, createAutomationEngine, type AutomationEngine } from '@anvio/automation';
 import { BlueprintExecutor, createCatalogRegistry } from '@anvio/blueprints';
-import { createIntegrationRegistry, createMcpBridge } from '@anvio/integrations';
+import { createIntegrationRegistry, createMcpBridge, createMcpFirstCallGate, createMcpToolPort, loadMcpToolCatalog, type McpFirstCallGate } from '@anvio/integrations';
 import { createHookEngine, type HookEngine } from '@anvio/hooks';
 import { DefaultAgentRuntime } from '@anvio/agents';
 import { createChannelHub, ChannelHub, FilesystemAgentInbox, type WhatsAppChannel } from '@anvio/channels';
@@ -48,6 +48,7 @@ export interface PlatformContext {
   harness: HarnessGateway;
   learningEngine: LearningEngine;
   toolGateway: ToolGateway;
+  mcpFirstCallGate: McpFirstCallGate;
 }
 
 export interface PlatformOptions {
@@ -209,9 +210,40 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     });
   });
 
-  const toolPort = harness.enabled
+  const integrationRegistry = createIntegrationRegistry(workspace.storage);
+  const mcpConfig = await integrationRegistry.load();
+  const mcpBridge = createMcpBridge(integrationRegistry);
+  const enabledMcpServers = (await integrationRegistry.listEnabled()).map((entry) => entry.id);
+  const mcpCatalog = await loadMcpToolCatalog(mcpBridge, enabledMcpServers);
+
+  const mcpFirstCallGate = createMcpFirstCallGate({
+    enabled: mcpConfig.spec.firstCallApproval !== false,
+    getApproved: async (sessionId) => {
+      const stored = await workspace.sessions.get(sessionId);
+      const keys = stored?.metadata?.mcpApprovedTools;
+      return Array.isArray(keys) ? keys.filter((key): key is string => typeof key === 'string') : [];
+    },
+    persistApproved: async (sessionId, keys) => {
+      const stored = await workspace.sessions.get(sessionId);
+      if (!stored) return;
+      await workspace.sessions.update(sessionId, {
+        metadata: { ...stored.metadata, mcpApprovedTools: keys },
+      });
+    },
+  });
+
+  let toolPort = harness.enabled
     ? createHarnessAwareToolPort(toolGateway, harness)
     : toolGateway;
+
+  if (mcpCatalog.names.length > 0) {
+    toolPort = createMcpToolPort(toolPort, {
+      mcpBridge,
+      gate: mcpFirstCallGate,
+      mcpToolNames: mcpCatalog.names,
+      mcpToolDefinitions: mcpCatalog.definitions,
+    });
+  }
 
   const runtime = new DefaultAgentRuntime({
     personaService,
@@ -232,9 +264,6 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
 
   await channelHub.startAll();
 
-  const integrationRegistry = createIntegrationRegistry(workspace.storage);
-  await integrationRegistry.load();
-  const mcpBridge = createMcpBridge(integrationRegistry);
   const catalog = createCatalogRegistry(workspacePath, repoRoot);
   const workflowRegistry = createWorkflowRegistry(workspacePath, repoRoot);
   const workflowExecutor = new DagExecutor({
@@ -373,6 +402,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     harness,
     learningEngine,
     toolGateway,
+    mcpFirstCallGate,
   };
 }
 

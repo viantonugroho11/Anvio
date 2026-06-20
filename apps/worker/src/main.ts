@@ -16,7 +16,7 @@ async function main() {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   });
 
-  const { runtime, eventBus, workspace, channelHub, inbox, harness } = platform;
+  const { runtime, eventBus, workspace, channelHub, inbox, harness, mcpFirstCallGate } = platform;
   console.log('Worker ready — Channel Hub active, detached execution enabled');
 
   await eventBus.subscribeCore<AgentRunProgressData>(
@@ -71,6 +71,12 @@ async function main() {
     async (event) => {
       const stored = await workspace.sessions.get(event.data.sessionId);
       if (!stored) return;
+
+      const pendingToolName = stored.pendingApproval?.toolName;
+      if (event.data.approved && pendingToolName?.startsWith('anvio_mcp__')) {
+        await mcpFirstCallGate.approveToolName(event.data.sessionId, pendingToolName);
+      }
+
       await workspace.sessions.update(event.data.sessionId, {
         pendingApproval: undefined,
         status: 'calling_model',
