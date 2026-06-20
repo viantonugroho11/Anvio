@@ -24,6 +24,33 @@ export class MatrixChannel extends WebhookChannelAdapter {
     );
   }
 
+  /** Handle Matrix room message (webhook/sync bridge). */
+  async handleRoomMessage(input: {
+    roomId: string;
+    senderId: string;
+    body: string;
+  }): Promise<{ sessionId: string; userId: string } | null> {
+    if (!input.body.trim()) return null;
+
+    const userId = `matrix:${input.senderId}`;
+    const threadId = `matrix:${input.roomId}`;
+    const session = await this.options.sessionBridge.resolveOrCreate(
+      'matrix',
+      threadId,
+      this.matrixOptions.defaultAgent,
+    );
+
+    await this.options.sessions.update(session.id, {
+      metadata: {
+        ...session.metadata,
+        matrix: { roomId: input.roomId, senderId: input.senderId },
+      },
+    });
+
+    await this.handleInbound(session.id, userId, input.body.trim(), 'matrix');
+    return { sessionId: session.id, userId };
+  }
+
   protected async deliverMessage(sessionId: string, message: OutboundMessage): Promise<void> {
     if (!this.isConfigured() || !message.content) return;
 

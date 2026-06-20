@@ -63,6 +63,21 @@ spec:
       engageOn: mention
       disengageOn: never
       dmPolicy: anyone
+    - name: teams-like
+      channels: [teams]
+      engageOn: always
+      disengageOn: never
+      dmPolicy: manager_only
+    - name: matrix-like
+      channels: [matrix]
+      engageOn: always
+      disengageOn: never
+      dmPolicy: anyone
+    - name: email-like
+      channels: [email]
+      engageOn: always
+      disengageOn: never
+      dmPolicy: manager_only
 `;
 
 export async function loadHarnessConfig(workspaceRoot: string): Promise<HarnessDefaults> {
