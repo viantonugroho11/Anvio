@@ -97,7 +97,7 @@ export class BlueprintExecutor {
         steps,
         outputs: this.collectOutputs(blueprint, context),
       };
-    } catch (error) {
+    } catch {
       return {
         slug: blueprint.metadata.slug,
         status: 'failed',

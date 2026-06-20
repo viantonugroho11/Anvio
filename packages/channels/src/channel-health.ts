@@ -1,4 +1,4 @@
-import type { ChannelHealthReport, ChannelType } from '@anvio/core';
+import type { ChannelHealthReport, ChannelHealthState, ChannelType } from '@anvio/core';
 import type { ChannelConfig } from './create-channels.js';
 
 const BUILTIN_CHANNELS: ChannelType[] = ['cli', 'web-chat', 'rest'];
@@ -188,9 +188,36 @@ export function summarizeChannelHealth(reports: ChannelHealthReport[]): {
 } {
   const summary = { healthy: 0, degraded: 0, disabled: 0, misconfigured: 0, unreachable: 0 };
   for (const r of reports) {
-    summary[r.status] += 1;
+    incrementHealthSummary(summary, r.status);
   }
   return summary;
+}
+
+function incrementHealthSummary(
+  summary: Record<ChannelHealthState, number>,
+  status: ChannelHealthState,
+): void {
+  switch (status) {
+    case 'healthy':
+      summary.healthy += 1;
+      break;
+    case 'degraded':
+      summary.degraded += 1;
+      break;
+    case 'disabled':
+      summary.disabled += 1;
+      break;
+    case 'misconfigured':
+      summary.misconfigured += 1;
+      break;
+    case 'unreachable':
+      summary.unreachable += 1;
+      break;
+    default: {
+      const _exhaustive: never = status;
+      void _exhaustive;
+    }
+  }
 }
 
 async function probeWhatsApp(config?: ChannelConfig): Promise<ChannelHealthReport> {

@@ -35,6 +35,7 @@ interface SlackSocketEnvelope {
     actions?: Array<{ action_id: string }>;
     channel?: { id: string };
     message?: { thread_ts?: string; ts?: string };
+    user?: { id?: string };
   };
 }
 
