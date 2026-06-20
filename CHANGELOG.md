@@ -7,20 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added — Phase P13 (remote, voice, email)
+---
+
+## [1.19.0] - 2026-06-20
+
+**Phase P13 + P14 — Remote runtimes, channels depth, research tooling**
+
+### Added — P13
 - `SshRuntimeProvider.execRemote` + `anvio runtime exec ssh|daytona|modal -- <cmd>`
 - Daytona/Modal remote exec with mock mode (`ANVIO_DAYTONA_MOCK`, `ANVIO_MODAL_MOCK`)
 - Streaming STT session (`ChunkedStreamingSttSession`) + `anvio voice stream-transcribe`
 - IMAP IDLE watch (`EMAIL_IMAP_IDLE=1`) and Message-ID/References email threading
 
-### Added — Phase P14 (P12 partial closure + research)
+### Added — P14 (P12 partial closure)
 - MCP preset E2E tests for spotify, feishu, tinker-atropos
 - `ANVIO_BROWSER_CDP_GRANT=1` extended browser_cdp methods (goto, click, fill, …)
 - Harness channel format snapshot tests
 - Google Chat service account delivery (`GOOGLE_CHAT_SERVICE_ACCOUNT`, `GOOGLE_CHAT_SPACE`)
 - Teams/Matrix `fetchWithRetry` with exponential backoff
 - Feishu webhook channel + SMS (Twilio) channel adapters
-- Workflow→skill example doc + `workspace/skills/dag-report-skill.md`
+- Workflow→skill example + `workspace/skills/dag-report-skill.md`
 - Langfuse dashboard JSON template (`configs/observability/langfuse-dashboard.json`)
 - Session trajectory export: `anvio session export <id> [--md]`
 - Desktop app scaffold (`apps/desktop/README.md`)

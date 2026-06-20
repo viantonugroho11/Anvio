@@ -1,6 +1,6 @@
 # Phase P14 — Research & remaining P12 polish
 
-**Status:** implemented (pending v1.19.0 tag)  
+**Status:** shipped (v1.19.0)  
 **Depends on:** v1.18.0 + P13 (main)
 
 ## P12 partial — closed in P14

@@ -2,7 +2,7 @@
 
 **Local-First AI Agent Operating System**
 
-[![Release](https://img.shields.io/badge/release-v1.18.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.18.0)
+[![Release](https://img.shields.io/badge/release-v1.19.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.19.0)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -12,7 +12,7 @@ Everything lives in a portable `workspace/` folder — back it up, commit it to 
 
 > **Priority:** CLI → API → Web UI. The full platform works from your terminal alone.
 
-**Latest (v1.18.0):** MCP presets/allowlist, harness MCP-only surface, Signal REST, session 1on1. See [P12 docs](docs/70-phase-p12-priorities.md). Prior: [P11](docs/65-hermes-tools-catalog.md) · [P10](docs/63-phase-p10-priorities.md).
+**Latest (v1.19.0):** Remote exec (SSH/Daytona/Modal), Feishu/SMS channels, Google Chat SA, trajectory export. See [P13](docs/73-phase-p13-priorities.md) · [P14](docs/75-phase-p14-priorities.md). Prior: [P12](docs/70-phase-p12-priorities.md) · [P11](docs/65-hermes-tools-catalog.md).
 
 ---
 
@@ -663,7 +663,7 @@ ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/gateway dev
 
 Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/docs) and [slaude](https://github.com/barockok/slaude)-style harness (generalized multi-channel):
 
-| Reference | Parity (v1.18.0) | Strengths in Anvio |
+| Reference | Parity (v1.19.0) | Strengths in Anvio |
 |-----------|------------------|---------------------|
 | Hermes | ~88% | Local-first, 18+ models, Agent OS, MCP runtime, native tool_use |
 | slaude | ~92% | SOUL gate, connections, multi-channel harness, manifest import |

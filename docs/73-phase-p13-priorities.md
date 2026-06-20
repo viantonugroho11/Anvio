@@ -1,6 +1,6 @@
 # Phase P13 — Remote runtimes, voice streaming, email depth
 
-**Status:** implemented (pending v1.19.0 tag)  
+**Status:** shipped (v1.19.0)  
 **Depends on:** v1.18.0 (Phase P12)
 
 ## Goals
