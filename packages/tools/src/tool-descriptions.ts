@@ -5,8 +5,8 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   file_read: 'Read file under workspace. Args: { "path": string }',
   file_write: 'Write file under workspace. Args: { "path": string, "content": string }',
   browser: 'Browser automation. Args: { "url": string, "action"?: "navigate"|"screenshot"|"content", "selector"?: string }',
-  image_generate: 'Generate image (stub). Args: { "prompt": string }',
-  text_to_speech: 'Text to speech (stub). Args: { "text": string }',
+  image_generate: 'Generate image via DALL-E. Args: { "prompt": string, "size"?: "1024x1024" }',
+  text_to_speech: 'Synthesize speech (OpenAI TTS). Args: { "text": string }',
 };
 
 export function describeBuiltinTool(toolName: string): string {

@@ -3,3 +3,4 @@ export { ToolGateway, DEFAULT_TOOL_GATEWAY_YAML, runBuiltinTool, webFetch, webSe
 export type { ToolGatewayCallContext, ToolCompletedHandler } from './gateway.js';
 export { renderToolInstructions, describeBuiltinTool } from './tool-descriptions.js';
 export { parseToolCalls, stripToolCalls, formatToolResultMessage } from './tool-call-parser.js';
+export { imageGenerate, textToSpeech } from './builtins/media.js';

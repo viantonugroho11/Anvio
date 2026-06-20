@@ -1,6 +1,7 @@
 import type { BuiltinToolCall, BuiltinToolResult, CodeExecutor, ToolGatewaySpec } from '@anvio/core';
 import { executeCodeWithExecutor, fileRead, fileWrite } from './filesystem.js';
 import { browserAction } from './browser.js';
+import { imageGenerate, textToSpeech } from './media.js';
 import { webFetch } from './web-fetch.js';
 
 export interface BuiltinToolContext {
@@ -147,6 +148,15 @@ export async function runBuiltinTool(
         url: String(call.arguments.url ?? ''),
         action: (call.arguments.action as 'navigate' | 'screenshot' | 'content') ?? 'content',
         selector: call.arguments.selector ? String(call.arguments.selector) : undefined,
+      });
+    case 'image_generate':
+      return imageGenerate(String(call.arguments.prompt ?? ''), {
+        workspaceRoot: ctx.workspaceRoot,
+        size: call.arguments.size ? String(call.arguments.size) : undefined,
+      });
+    case 'text_to_speech':
+      return textToSpeech(String(call.arguments.text ?? ''), {
+        workspaceRoot: ctx.workspaceRoot,
       });
     default:
       return { name: call.name, output: null, status: 'skipped', error: 'Not implemented' };

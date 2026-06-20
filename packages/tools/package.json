@@ -16,6 +16,7 @@
   "dependencies": {
     "@anvio/core": "workspace:*",
     "@anvio/db": "workspace:*",
+    "@anvio/voice": "workspace:*",
     "yaml": "^2.8.0"
   },
   "optionalDependencies": {
