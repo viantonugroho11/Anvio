@@ -28,6 +28,20 @@ export type SendMessageFn = (input: {
   sessionId?: string;
 }) => Promise<{ ok: boolean }>;
 
+export type MixtureOfAgentsFn = (input: {
+  task: string;
+  agents: string[];
+  synthesizer?: string;
+}) => Promise<{
+  agentResults: Array<{ agent: string; sessionId: string; content: string }>;
+  synthesis: string;
+}>;
+
+export type SkillManageFn = (input: {
+  action: 'promote' | 'list_drafts';
+  slug?: string;
+}) => Promise<unknown>;
+
 export async function delegateTaskTool(
   fn: DelegateTaskFn | undefined,
   input: { agent: string; task: string; context?: string },
@@ -71,5 +85,21 @@ export async function sendMessageTool(
   input: { message: string; channel?: string; sessionId?: string },
 ): Promise<{ ok: boolean }> {
   if (!fn) throw new Error('sendMessage handler not configured');
+  return fn(input);
+}
+
+export async function mixtureOfAgentsTool(
+  fn: MixtureOfAgentsFn | undefined,
+  input: { task: string; agents: string[]; synthesizer?: string },
+): Promise<Awaited<ReturnType<MixtureOfAgentsFn>>> {
+  if (!fn) throw new Error('mixtureOfAgents handler not configured');
+  return fn(input);
+}
+
+export async function skillManageTool(
+  fn: SkillManageFn | undefined,
+  input: { action: 'promote' | 'list_drafts'; slug?: string },
+): Promise<unknown> {
+  if (!fn) throw new Error('skillManage handler not configured');
   return fn(input);
 }

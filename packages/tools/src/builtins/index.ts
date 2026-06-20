@@ -38,12 +38,29 @@ import {
   skillsListTool,
   skillViewTool,
   sendMessageTool,
+  mixtureOfAgentsTool,
+  skillManageTool,
   type CronjobFn,
   type DelegateTaskFn,
   type GetSkillFn,
   type ListSkillsFn,
   type SendMessageFn,
+  type MixtureOfAgentsFn,
+  type SkillManageFn,
 } from './orchestration-tools.js';
+import { haListEntities, haGetState, haListServices, haCallService } from './homeassistant-tools.js';
+import {
+  xSearch,
+  videoAnalyze,
+  videoGenerate,
+  computerUse,
+  discordAdmin,
+  spotifySearch,
+  feishuDocRead,
+  rlTool,
+  type RlAction,
+  type McpDelegateFn,
+} from './niche-tools.js';
 
 export interface BuiltinToolContext {
   workspaceRoot?: string;
@@ -59,6 +76,9 @@ export interface BuiltinToolContext {
   listSkills?: ListSkillsFn;
   getSkill?: GetSkillFn;
   sendMessage?: SendMessageFn;
+  mixtureOfAgents?: MixtureOfAgentsFn;
+  skillManage?: SkillManageFn;
+  callMcpTool?: McpDelegateFn;
 }
 
 export { webFetch } from './web-fetch.js';
@@ -722,6 +742,72 @@ export async function runBuiltinTool(
         return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
       }
     }
+    case 'ha_list_entities':
+      return haListEntities(call.arguments.domain ? String(call.arguments.domain) : undefined);
+    case 'ha_get_state':
+      return haGetState(String(call.arguments.entity_id ?? ''));
+    case 'ha_list_services':
+      return haListServices();
+    case 'ha_call_service':
+      return haCallService(
+        String(call.arguments.domain ?? ''),
+        String(call.arguments.service ?? ''),
+        call.arguments.entity_id ? String(call.arguments.entity_id) : undefined,
+        call.arguments.data as Record<string, unknown> | undefined,
+      );
+    case 'mixture_of_agents': {
+      try {
+        const agents = (call.arguments.agents as string[] | undefined) ?? [];
+        const out = await mixtureOfAgentsTool(ctx.mixtureOfAgents, {
+          task: String(call.arguments.task ?? ''),
+          agents,
+          synthesizer: call.arguments.synthesizer ? String(call.arguments.synthesizer) : undefined,
+        });
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'x_search':
+      return xSearch(String(call.arguments.query ?? ''), Number(call.arguments.limit ?? 10));
+    case 'video_analyze':
+      return videoAnalyze(
+        String(call.arguments.video_url ?? call.arguments.path ?? ''),
+        call.arguments.prompt ? String(call.arguments.prompt) : undefined,
+      );
+    case 'video_generate':
+      return videoGenerate(String(call.arguments.prompt ?? ''));
+    case 'computer_use':
+      return computerUse(
+        String(call.arguments.action ?? 'click'),
+        call.arguments.target ? String(call.arguments.target) : undefined,
+      );
+    case 'discord_admin':
+      return discordAdmin(
+        call.arguments.action === 'list_members' ? 'list_members' : 'list_channels',
+        String(call.arguments.guild_id ?? ''),
+      );
+    case 'skill_manage': {
+      try {
+        const out = await skillManageTool(ctx.skillManage, {
+          action: call.arguments.action === 'promote' ? 'promote' : 'list_drafts',
+          slug: call.arguments.slug ? String(call.arguments.slug) : undefined,
+        });
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'spotify_search':
+      return spotifySearch(String(call.arguments.query ?? ''), ctx.callMcpTool);
+    case 'feishu_doc_read':
+      return feishuDocRead(String(call.arguments.document_id ?? ''), ctx.callMcpTool);
+    case 'rl_tool':
+      return rlTool(
+        String(call.arguments.action ?? 'list_environments') as RlAction,
+        (call.arguments.params as Record<string, unknown> | undefined) ?? {},
+        ctx.callMcpTool,
+      );
     default:
       return { name: call.name, output: null, status: 'skipped', error: 'Not implemented' };
   }

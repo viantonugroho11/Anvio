@@ -332,6 +332,80 @@ const TOOL_SCHEMAS: Record<string, Record<string, unknown>> = {
     properties: { message: { type: 'string' }, channel: { type: 'string' } },
     required: ['message'],
   },
+  ha_list_entities: { type: 'object', properties: { domain: { type: 'string' } } },
+  ha_get_state: { type: 'object', properties: { entity_id: { type: 'string' } }, required: ['entity_id'] },
+  ha_list_services: { type: 'object', properties: {} },
+  ha_call_service: {
+    type: 'object',
+    properties: {
+      domain: { type: 'string' },
+      service: { type: 'string' },
+      entity_id: { type: 'string' },
+      data: { type: 'object' },
+    },
+    required: ['domain', 'service'],
+  },
+  mixture_of_agents: {
+    type: 'object',
+    properties: {
+      task: { type: 'string' },
+      agents: { type: 'array', items: { type: 'string' } },
+      synthesizer: { type: 'string' },
+    },
+    required: ['task', 'agents'],
+  },
+  x_search: {
+    type: 'object',
+    properties: { query: { type: 'string' }, limit: { type: 'number' } },
+    required: ['query'],
+  },
+  video_analyze: {
+    type: 'object',
+    properties: { video_url: { type: 'string' }, path: { type: 'string' }, prompt: { type: 'string' } },
+  },
+  video_generate: { type: 'object', properties: { prompt: { type: 'string' } }, required: ['prompt'] },
+  computer_use: {
+    type: 'object',
+    properties: { action: { type: 'string' }, target: { type: 'string' } },
+    required: ['action'],
+  },
+  discord_admin: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['list_channels', 'list_members'] },
+      guild_id: { type: 'string' },
+    },
+    required: ['guild_id'],
+  },
+  skill_manage: {
+    type: 'object',
+    properties: { action: { type: 'string', enum: ['promote', 'list_drafts'] }, slug: { type: 'string' } },
+    required: ['action'],
+  },
+  spotify_search: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+  feishu_doc_read: { type: 'object', properties: { document_id: { type: 'string' } }, required: ['document_id'] },
+  rl_tool: {
+    type: 'object',
+    properties: {
+      action: {
+        type: 'string',
+        enum: [
+          'list_environments',
+          'select_environment',
+          'get_current_config',
+          'edit_config',
+          'start_training',
+          'check_status',
+          'stop_training',
+          'get_results',
+          'list_runs',
+          'test_inference',
+        ],
+      },
+      params: { type: 'object' },
+    },
+    required: ['action'],
+  },
 };
 
 export function buildModelToolDefinitions(toolNames: string[]): ModelToolDefinition[] {

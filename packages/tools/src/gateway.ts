@@ -131,6 +131,34 @@ spec:
       enabled: true
     send_message:
       enabled: false
+    ha_list_entities:
+      enabled: false
+    ha_get_state:
+      enabled: false
+    ha_list_services:
+      enabled: false
+    ha_call_service:
+      enabled: false
+    mixture_of_agents:
+      enabled: false
+    x_search:
+      enabled: false
+    video_analyze:
+      enabled: false
+    video_generate:
+      enabled: false
+    computer_use:
+      enabled: false
+    discord_admin:
+      enabled: false
+    skill_manage:
+      enabled: false
+    spotify_search:
+      enabled: false
+    feishu_doc_read:
+      enabled: false
+    rl_tool:
+      enabled: false
   webSearch:
     provider: brave
     apiKeyEnv: WEB_SEARCH_API_KEY

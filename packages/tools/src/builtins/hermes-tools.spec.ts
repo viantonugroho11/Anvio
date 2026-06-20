@@ -6,6 +6,8 @@ import { patchFile } from './patch-file.js';
 import { todoTool, clarifyTool } from './agent-session-tools.js';
 import { kanbanCommentTask, kanbanCompleteTask } from './kanban-tools.js';
 import { skillsListTool } from './orchestration-tools.js';
+import { xSearch, rlTool } from './niche-tools.js';
+import { haListEntities } from './homeassistant-tools.js';
 import type { KanbanStore } from '@anvio/core';
 
 describe('patch_file', () => {
@@ -133,5 +135,38 @@ describe('kanban extended tools', () => {
 describe('orchestration tools', () => {
   it('skillsListTool requires handler', async () => {
     await expect(skillsListTool(undefined)).rejects.toThrow('listSkills');
+  });
+});
+
+describe('P11d niche tools', () => {
+  it('xSearch returns note without API keys', async () => {
+    const prev = process.env.X_BEARER_TOKEN;
+    const prevWeb = process.env.WEB_SEARCH_API_KEY;
+    delete process.env.X_BEARER_TOKEN;
+    delete process.env.WEB_SEARCH_API_KEY;
+    const result = await xSearch('anvio agent');
+    expect(result.status).toBe('completed');
+    expect(result.output).toMatchObject({ note: expect.any(String) });
+    if (prev) process.env.X_BEARER_TOKEN = prev;
+    if (prevWeb) process.env.WEB_SEARCH_API_KEY = prevWeb;
+  });
+
+  it('haListEntities fails without HA config', async () => {
+    const prevUrl = process.env.HOME_ASSISTANT_URL;
+    const prevToken = process.env.HOME_ASSISTANT_TOKEN;
+    delete process.env.HOME_ASSISTANT_URL;
+    delete process.env.HA_URL;
+    delete process.env.HOME_ASSISTANT_TOKEN;
+    delete process.env.HA_TOKEN;
+    const result = await haListEntities();
+    expect(result.status).toBe('failed');
+    if (prevUrl) process.env.HOME_ASSISTANT_URL = prevUrl;
+    if (prevToken) process.env.HOME_ASSISTANT_TOKEN = prevToken;
+  });
+
+  it('rlTool returns MCP setup note', async () => {
+    const result = await rlTool('list_environments');
+    expect(result.status).toBe('completed');
+    expect(JSON.stringify(result.output)).toContain('Tinker-Atropos');
   });
 });
