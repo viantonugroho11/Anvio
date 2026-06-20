@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { ChannelHubPort, SessionStore, SoulPolicy } from '@anvio/core';
+import type { ChannelHubPort, ModelProvider, SessionStore, SoulPolicy } from '@anvio/core';
 import { loadSoulPolicy } from '@anvio/soul-gate';
 import { ConnectionBroker, ConnectionStore } from './connect/broker.js';
 import { loadHarnessConfig, loadHarnessProfiles } from './config-loader.js';
@@ -10,6 +10,7 @@ export interface CreateHarnessOptions {
   channelHub: ChannelHubPort;
   sessions: SessionStore;
   soulDefinition?: import('@anvio/core').SoulDefinition;
+  modelProvider?: ModelProvider;
   onApprovalTimedOut?: (sessionId: string, requestId: string) => void | Promise<void>;
 }
 
@@ -24,7 +25,13 @@ export async function createHarnessFromWorkspace(
   if (defaults.soulSlug) {
     const soulMd = path.join(options.workspaceRoot, 'souls', `${defaults.soulSlug}`, 'SOUL.md');
     try {
-      policy = await loadSoulPolicy({ soulMdPath: soulMd, cacheDir, slug: defaults.soulSlug });
+      policy = await loadSoulPolicy({
+        soulMdPath: soulMd,
+        cacheDir,
+        slug: defaults.soulSlug,
+        modelProvider: options.modelProvider,
+        useLlmExtraction: process.env.SOUL_POLICY_LLM !== '0',
+      });
     } catch {
       policy = options.soulDefinition
         ? await loadSoulPolicy({ soulDefinition: options.soulDefinition, cacheDir })

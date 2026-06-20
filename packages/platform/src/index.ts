@@ -113,6 +113,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     channelHub,
     sessions: workspace.sessions,
     soulDefinition,
+    modelProvider:
+      modelProviders.getOptional('anthropic') ??
+      (modelProviders.first()?.providerId !== 'mock' ? modelProviders.first() : undefined),
     onApprovalTimedOut: async (sessionId, requestId) => {
       await workspace.sessions.update(sessionId, {
         pendingApproval: undefined,

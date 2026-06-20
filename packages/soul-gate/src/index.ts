@@ -5,3 +5,4 @@ export {
   parseApproversSection,
 } from './verifier.js';
 export { parseSoulMd, policyFromSoulDefinition, loadSoulPolicy } from './soul-md-parser.js';
+export { extractSoulPolicy } from './soul-policy-llm.js';

@@ -1,7 +1,9 @@
 import type { SoulDefinition, SoulPolicy } from '@anvio/core';
+import type { ModelProvider } from '@anvio/core';
 import { defaultSoulPolicy, parseSoulPolicy } from '@anvio/core';
 import { extractIdsFromLine, parseApproversSection, verifyPolicyIds } from './verifier.js';
 import { hashSoulSource, readCachedPolicy, writeCachedPolicy } from './policy-cache.js';
+import { extractSoulPolicy } from './soul-policy-llm.js';
 
 function sectionLines(source: string, heading: string): string[] {
   const pattern = new RegExp(`^##\\s+${heading}\\s*$`, 'im');
@@ -111,6 +113,8 @@ export async function loadSoulPolicy(options: {
   soulDefinition?: SoulDefinition;
   cacheDir: string;
   slug?: string;
+  modelProvider?: ModelProvider;
+  useLlmExtraction?: boolean;
 }): Promise<SoulPolicy> {
   if (options.soulMdPath) {
     const fs = await import('node:fs/promises');
@@ -118,7 +122,10 @@ export async function loadSoulPolicy(options: {
     const hash = hashSoulSource(source);
     const cached = await readCachedPolicy(options.cacheDir, hash);
     if (cached) return cached;
-    const policy = parseSoulMd(source, options.slug);
+    const policy =
+      options.useLlmExtraction !== false
+        ? await extractSoulPolicy(source, options.slug, options.modelProvider)
+        : parseSoulMd(source, options.slug);
     await writeCachedPolicy(options.cacheDir, hash, policy);
     return policy;
   }
