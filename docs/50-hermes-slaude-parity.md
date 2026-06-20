@@ -2,53 +2,67 @@
 
 Gap register detail: [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md).
 
-**Baseline:** v1.7.0 (Phase L6 — runtime learning + LLM skill evolution)
+**Baseline:** v1.15.0 (Phase P10 — usage CLI, IMAP, MCP health, Prometheus)
 
-## Summary (v1.7.0)
+## Summary (v1.15.0)
 
 | Area | Parity | Notes |
 |------|--------|-------|
 | **MD-first artifacts** | ✅ ~95% | Skills, souls, agents, workflows, personas `.md` |
-| **Channel harness** | ✅ ~90% | Enabled by default; Mattermost + voice hooks (P2) |
-| **SOUL.md + gate** | ✅ | Policy gate + contextual connections (P1) |
-| **Learning loop** | ✅ ~85% | L6 runtime tool learning, LLM skill/session summarizer, FTS5, Honcho |
-| **Tool gateway** | 🟡 ~35% | ~8 builtins + agent tool loop; vs Hermes 60+ |
-| **MCP** | ✅ | Full bridge |
-| **Multi-channel** | ✅ ~65% | ~13 types + Mattermost; Hermes 20+ |
-| **Voice** | 🟡 ~55% | CLI + Telegram/Discord hooks; no streaming STT |
+| **Channel harness** | ✅ ~92% | Enabled by default; multi-channel approval (P5+) |
+| **SOUL.md + gate** | ✅ ~95% | Regex + LLM policy extraction (P8), contextual connections (P1) |
+| **Learning loop** | ✅ ~90% | L6 runtime learning, LLM summarizer, FTS5, Honcho, skill evolution |
+| **Tool gateway** | 🟡 ~45% | ~12 builtins + MCP agent tools; vs Hermes 60+ |
+| **MCP** | ✅ ~90% | Stdio client, first-call approval, health report (P7–P10) |
+| **Native tool_use** | ✅ | Anthropic, OpenAI, Gemini (P4–P7) |
+| **Multi-channel** | ✅ ~80% | ~13 types; Teams/Matrix/Email E2E (P8–P10) |
+| **Voice** | 🟡 ~60% | CLI + Telegram/Discord hooks; no streaming STT |
 | **Remote runtimes** | 🟡 ~35% | Docker + ACP/Cursor; SSH/Daytona/Modal partial |
-| **Desktop app** | ❌ | Deferred P3 |
+| **Observability** | 🟡 ~55% | Token audit, Prometheus `/api/metrics`, `anvio usage stats` (P9–P10) |
+| **Desktop app** | ❌ | Deferred |
 | **Contextual connections** | ✅ ~90% | Broker + login-host (P1) |
-| **Knowledge base** | ✅ | raw→wiki (slaude parity) |
+| **Knowledge base** | ✅ | raw→wiki + `import-manifest` (slaude parity) |
 | **Local-first / Agent OS** | 🔵 | Goals, kanban, batch — Anvio strength |
 
 ## Estimated overall parity
 
-| Reference | v1.6.0 | v1.7.0 |
-|-----------|--------|--------|
-| Hermes Agent | ~72% | **~78%** |
-| slaude | ~84% | **~86%** |
+| Reference | v1.8.0 | v1.15.0 |
+|-----------|--------|---------|
+| Hermes Agent | ~80% | **~87%** |
+| slaude | ~88% | **~92%** |
 
 ## Still missing vs Hermes
 
-- 60+ bundled tools (image gen, TTS tool wired, Nous Portal)
-- Native model `tool_use` API (Anvio uses fenced `anvio_tool` blocks)
-- Scheduled LLM summarizer cron (session-end LLM ✅)
-- Singularity, RL/Atropos trajectory export
-- Desktop installer + tray
-- Real-time streaming STT
+- 60+ bundled tools (Anvio ~12 gateway tools + MCP; breadth gap remains)
+- Nous Portal OAuth (T6)
+- Desktop installer + tray (R8)
+- Real-time streaming STT (V4)
+- Trajectory export / Atropos RL (O1–O2)
+- Remote runtimes: SSH agent exec, Daytona, Modal production (R3–R5)
+- Signal live, Google Chat service account (C7–C8)
+- Langfuse + OTel startup wiring (O3 partial)
 
 ## Still missing vs slaude
 
 - Slack Agents API status surface
-- Strict MCP-only output mode
-- `slaude.json` manifest import
-- Full CDP browser grant
+- Strict global MCP-only output mode (harness suppresses raw output per channel ✅)
+- Full CDP browser grant (login-host OAuth ✅)
 - `/1on1` command parity
+
+## Closed since v1.8.0
+
+- Native `tool_use` for OpenAI + Gemini (was Anthropic-only)
+- MCP in agent runtime + stdio transport + reconnect
+- Teams/Matrix webhooks, Email SMTP + IMAP poll
+- LLM SoulPolicy extraction from SOUL.md
+- Token usage audit + CLI + Prometheus metrics
+- `slaude.json` → `anvio kb import-manifest` (P3)
 
 ## Related
 
-- [55-phase-l6-learning-priorities.md](./55-phase-l6-learning-priorities.md)
+- [63-phase-p10-priorities.md](./63-phase-p10-priorities.md) — Phase P10
+- [61-phase-p8-priorities.md](./61-phase-p8-priorities.md) — Phase P8
+- [55-phase-l6-learning-priorities.md](./55-phase-l6-learning-priorities.md) — Phase L6
 - [52-phase-k-priorities.md](./52-phase-k-priorities.md)
 
-Terakhir diperbarui: v1.7.0 (2026-06-19).
+Terakhir diperbarui: v1.15.0 (2026-06-19).

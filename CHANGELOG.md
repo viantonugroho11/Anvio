@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **P11a** — 9 new built-in tools (`list_dir`, `edit_file`, `run_shell`, `http_request`, `path_exists`, `file_delete`, `append_file`, `json_parse`, `datetime_now`) → 21 total
+- OTel startup in worker + API; `agent.run` spans when `ANVIO_OTEL_ENABLED` or `OTEL_EXPORTER_OTLP_ENDPOINT` set
+- `anvio planner phases|run <task>` — PLAN → EXECUTE → REVIEW CLI
+
+### Docs
+- [64-phase-p11a-priorities.md](./docs/64-phase-p11a-priorities.md)
+
 ---
 
 ## [1.15.0] - 2026-06-19

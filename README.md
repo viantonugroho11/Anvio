@@ -661,17 +661,20 @@ ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/gateway dev
 
 ## Hermes Parity
 
-Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/docs):
+Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/docs) and [slaude](https://github.com/barockok/slaude)-style harness (generalized multi-channel):
 
-| Reference | Parity (v1.9.0) | Strengths in Anvio |
-|-----------|-----------------|---------------------|
-| Hermes | ~82% | Local-first, 18+ models, Agent OS, ACP/Cursor, SOUL gate, connections |
+| Reference | Parity (v1.15.0) | Strengths in Anvio |
+|-----------|------------------|---------------------|
+| Hermes | ~87% | Local-first, 18+ models, Agent OS, MCP runtime, native tool_use |
+| slaude | ~92% | SOUL gate, connections, multi-channel harness, manifest import |
 
-**Done:** MD-first artifacts, learning loop (L6), native `tool_use` (Anthropic), expanded tool gateway, FTS5 memory, channel harness, voice hooks, workflows.
+**Done (P4–P10):** Native tool_use (Anthropic/OpenAI/Gemini), MCP stdio + agent runtime, Teams/Matrix/Email E2E, LLM SoulPolicy, token audit + `anvio usage stats` + Prometheus metrics.
 
-**Gap:** Remaining Hermes tools (60+ catalog), OpenAI/Gemini native tools, desktop app, streaming STT.
+**Gap vs Hermes:** 60+ tool catalog breadth, desktop app, streaming STT, RL/trajectory export, remote runtimes (Daytona/Modal).
 
-Detail: [docs/50-hermes-slaude-parity.md](docs/50-hermes-slaude-parity.md) · [docs/51-gap-hermes-slaude.md](docs/51-gap-hermes-slaude.md) · [docs/57-phase-p4-priorities.md](docs/57-phase-p4-priorities.md)
+**Gap vs slaude:** Slack Agents API, strict MCP-only mode, `/1on1` flow, full CDP grant.
+
+Detail: [docs/50-hermes-slaude-parity.md](docs/50-hermes-slaude-parity.md) · [docs/51-gap-hermes-slaude.md](docs/51-gap-hermes-slaude.md)
 
 ---
 
@@ -691,7 +694,7 @@ Detail: [docs/50-hermes-slaude-parity.md](docs/50-hermes-slaude-parity.md) · [d
 ```bash
 pnpm install
 pnpm build
-pnpm test              # 116+ tests
+pnpm test              # 148+ tests
 pnpm typecheck
 pnpm anvio chat
 ```

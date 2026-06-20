@@ -79,7 +79,7 @@ Requires worker/automation engine running for cron. Uses LLM summarizer when mod
 
 ## Remaining gaps (next)
 
-See [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md) — ~22 items with partial/missing work (native tool_use, 60+ tools, desktop, streaming STT, …).
+See [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md) — remaining gaps at v1.15.0 (~87% Hermes, ~92% slaude): tool catalog breadth, desktop, streaming STT, RL export, slaude polish.
 
 ---
 
