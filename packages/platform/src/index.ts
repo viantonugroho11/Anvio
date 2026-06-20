@@ -12,6 +12,7 @@ import type {
   AgentInbox,
   ModelProvider,
   Session,
+  ChannelType,
 } from '@anvio/core';
 import { createEventBus, EventSubjects, type EventBusLike } from '@anvio/events';
 import { createMemoryProvider } from '@anvio/memory';
@@ -201,6 +202,16 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       }
       return results;
     },
+    listSkills: () => workspace.loader.listSkills(),
+    getSkill: async (slug) => {
+      const skill = await workspace.loader.loadSkill(slug);
+      return {
+        slug: skill.metadata.slug,
+        name: skill.spec.name,
+        description: skill.spec.description,
+        instructions: skill.spec.instructions,
+      };
+    },
   });
 
   toolGateway.setOnToolCompleted(async (ctx, call, result) => {
@@ -386,6 +397,72 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   const hookEngine = createHookEngine(workspacePath, eventBus);
   await hookEngine.start();
   await automationEngine.start();
+
+  toolGateway.mergeContext({
+    delegateTask: async ({ agent, task, context }) => {
+      const agentDef = await workspace.loader.loadAgent(agent);
+      const stored = await workspace.sessions.create({
+        userId: spec.defaultUserId,
+        agentName: agent,
+        channel: 'delegation',
+        messages: [],
+        status: 'idle',
+        detached: true,
+      });
+      const session = storedSessionToRuntime(stored);
+      const prompt = context ? `${task}\n\nContext:\n${context}` : task;
+      const result = await runtime.run(session, agentDef, { content: prompt });
+      return { sessionId: session.id, content: result.content, status: result.status };
+    },
+    manageCronjob: async (input) => {
+      switch (input.action) {
+        case 'list':
+          return (await automationEngine.list()).map((a) => ({
+            slug: a.metadata.slug,
+            enabled: a.metadata.enabled,
+            trigger: a.spec.trigger,
+          }));
+        case 'run':
+          await automationEngine.run(input.slug!, true);
+          return { ok: true, slug: input.slug };
+        case 'create': {
+          const slug = input.slug!;
+          const yaml = [
+            'apiVersion: anvio.io/v1',
+            'kind: Automation',
+            'metadata:',
+            `  slug: ${slug}`,
+            '  enabled: true',
+            'spec:',
+            '  trigger:',
+            '    type: cron',
+            `    schedule: "${input.schedule}"`,
+            `    timezone: ${input.timezone ?? 'UTC'}`,
+            '  action:',
+            '    type: agent',
+            `    agent: ${input.agent}`,
+            `    input: ${JSON.stringify(input.prompt ?? '')}`,
+          ].join('\n');
+          await workspace.storage.write(`automations/${slug}.yaml`, yaml);
+          return { ok: true, slug };
+        }
+        default:
+          throw new Error(`Unknown cronjob action: ${String(input.action)}`);
+      }
+    },
+    sendMessage: async ({ message, channel, sessionId }) => {
+      let ch: ChannelType = 'cli';
+      const sid = sessionId ?? 'default';
+      if (sessionId) {
+        const stored = await workspace.sessions.get(sessionId);
+        if (stored?.channel) ch = stored.channel as ChannelType;
+      } else if (channel) {
+        ch = channel as ChannelType;
+      }
+      await channelHub.sendMessage(ch, sid, { sessionId: sid, content: message, type: 'message' });
+      return { ok: true };
+    },
+  });
 
   const tokenUsageAudit = createTokenUsageAudit(workspace.storage);
 
