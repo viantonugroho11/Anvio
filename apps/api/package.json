@@ -16,6 +16,7 @@
     "@anvio/channels": "workspace:*",
     "@anvio/core": "workspace:*",
     "@anvio/events": "workspace:*",
+    "@anvio/observability": "workspace:*",
     "@anvio/platform": "workspace:*",
     "@nestjs/common": "^11.1.2",
     "@nestjs/core": "^11.1.2",

@@ -22,7 +22,7 @@ import { VoicePipeline } from '@anvio/voice';
 import { createGoalEngine } from '@anvio/goals';
 import { createKanbanEngine } from '@anvio/kanban';
 import { createMemoryProvider } from '@anvio/memory';
-import { createPlatform, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime } from '@anvio/platform';
+import { createPlatform, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime, aggregateTokenUsage, parseUsageLastFlag, readTokenUsageAudit } from '@anvio/platform';
 import { createSoulService } from '@anvio/souls';
 import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
 import { ToolGateway } from '@anvio/tools';
@@ -119,6 +119,9 @@ async function main() {
     case 'routing':
       await cmdRouting(args.slice(1));
       break;
+    case 'usage':
+      await cmdUsage(args.slice(1));
+      break;
     case 'skill':
       await cmdSkill(args.slice(1));
       break;
@@ -190,8 +193,9 @@ Execution & Providers
   anvio acp serve|status               ACP editor integration server
   anvio credentials list|add|test      Encrypted credential pools
   anvio routing show|providers|catalog|test  Provider routing and fallback
+  anvio usage stats [--json] [--last 24h] Token usage from audit ledger
   anvio skill catalog|install|validate Skills catalog management
-  anvio mcp list|test                  MCP integration servers
+  anvio mcp list|test|health             MCP integration servers
   anvio tools list|test                Built-in tool gateway (Phase H)
   anvio kb list|ingest|sync|import-manifest   Knowledge base pipeline
   anvio learning drafts|promote|summarize-sessions
@@ -1463,6 +1467,46 @@ async function cmdCredentials(sub: string[]) {
   }
 }
 
+async function cmdUsage(sub: string[]) {
+  const action = sub[0] ?? 'stats';
+  if (action !== 'stats') {
+    console.error('Usage: anvio usage stats [--json] [--last 24h]');
+    process.exit(1);
+  }
+
+  const wsPath = resolveWorkspacePath();
+  const storage = new FilesystemStorageProvider(wsPath);
+  const records = await readTokenUsageAudit(storage);
+  const sinceHours = parseUsageLastFlag(sub);
+  const stats = aggregateTokenUsage(records, { sinceHours });
+
+  if (sub.includes('--json')) {
+    console.log(JSON.stringify(stats, null, 2));
+    return;
+  }
+
+  const windowLabel = sinceHours != null ? `last ${sinceHours}h` : 'all time';
+  console.log(`\nToken Usage (${windowLabel})\n`);
+  console.log(`Runs:          ${stats.runs}`);
+  console.log(`Input tokens:  ${stats.inputTokens}`);
+  console.log(`Output tokens: ${stats.outputTokens}`);
+  console.log(`Total tokens:  ${stats.totalTokens}`);
+  console.log(`Est. cost USD: $${stats.estimatedCostUsd.toFixed(6)}`);
+  if (Object.keys(stats.byAgent).length) {
+    console.log('\nBy agent:');
+    for (const [agent, row] of Object.entries(stats.byAgent)) {
+      console.log(`  ${agent}: ${row.totalTokens} tokens ($${row.estimatedCostUsd.toFixed(6)})`);
+    }
+  }
+  if (Object.keys(stats.byChannel).length) {
+    console.log('\nBy channel:');
+    for (const [channel, row] of Object.entries(stats.byChannel)) {
+      console.log(`  ${channel}: ${row.totalTokens} tokens ($${row.estimatedCostUsd.toFixed(6)})`);
+    }
+  }
+  console.log('');
+}
+
 async function cmdRouting(sub: string[]) {
   const action = sub[0] ?? 'show';
   const wsPath = resolveWorkspacePath();
@@ -1781,8 +1825,13 @@ async function cmdMcp(sub: string[]) {
       console.log(JSON.stringify(result, null, 2));
       break;
     }
+    case 'health': {
+      const report = await bridge.getHealthReport();
+      console.log(JSON.stringify(report, null, 2));
+      break;
+    }
     default:
-      console.error('Usage: anvio mcp list|test');
+      console.error('Usage: anvio mcp list|test|health');
       process.exit(1);
   }
 }

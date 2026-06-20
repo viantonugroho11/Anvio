@@ -47,6 +47,9 @@ importers:
       '@anvio/events':
         specifier: workspace:*
         version: link:../../packages/events
+      '@anvio/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       '@anvio/platform':
         specifier: workspace:*
         version: link:../../packages/platform
@@ -212,6 +215,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@anvio/channels':
+        specifier: workspace:*
+        version: link:../../packages/channels
       '@anvio/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -762,6 +768,9 @@ importers:
       '@anvio/models':
         specifier: workspace:*
         version: link:../models
+      '@anvio/observability':
+        specifier: workspace:*
+        version: link:../observability
       '@anvio/personas':
         specifier: workspace:*
         version: link:../personas

@@ -7,10 +7,12 @@ import { AppService } from './app.service.js';
 import { WhatsAppController } from './whatsapp.controller.js';
 import { TeamsController } from './teams.controller.js';
 import { MatrixController } from './matrix.controller.js';
+import { MetricsController } from './metrics.controller.js';
 
 @Module({
   controllers: [
     HealthController,
+    MetricsController,
     AgentsController,
     SessionsController,
     WhatsAppController,

@@ -8,6 +8,7 @@ import {
   type ApprovalRequestedData,
 } from '@anvio/events';
 import type { ChannelType } from '@anvio/core';
+import { EmailChannel } from '@anvio/channels';
 import { createPlatform, loadAgent, storedSessionToRuntime, finalizeAgentRun } from '@anvio/platform';
 
 async function main() {
@@ -18,6 +19,12 @@ async function main() {
 
   const { runtime, eventBus, workspace, channelHub, inbox, harness, mcpFirstCallGate } = platform;
   console.log('Worker ready — Channel Hub active, detached execution enabled');
+
+  const emailAdapter = channelHub.getAdapter('email');
+  if (emailAdapter instanceof EmailChannel) {
+    await emailAdapter.start();
+    console.log('[Email] IMAP polling enabled');
+  }
 
   await eventBus.subscribeCore<AgentRunProgressData>(
     EventSubjects.AGENT_RUN_PROGRESS,
