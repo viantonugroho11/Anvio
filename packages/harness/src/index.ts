@@ -10,6 +10,7 @@ export interface CreateHarnessOptions {
   channelHub: ChannelHubPort;
   sessions: SessionStore;
   soulDefinition?: import('@anvio/core').SoulDefinition;
+  onApprovalTimedOut?: (sessionId: string, requestId: string) => void | Promise<void>;
 }
 
 export async function createHarnessFromWorkspace(
@@ -57,6 +58,7 @@ export async function createHarnessFromWorkspace(
     channelHub: options.channelHub,
     sessions: options.sessions,
     connectBroker,
+    onApprovalTimedOut: options.onApprovalTimedOut,
   });
 }
 
@@ -89,4 +91,9 @@ export { formatForChannel, markdownToPlain, markdownToSlackMrkdwn } from './form
 export { SessionResumeTracker } from './session-resume.js';
 export { ConnectionBroker, ConnectionStore } from './connect/broker.js';
 export { startLoginHost, type LoginHostSession } from './connect/login-host.js';
+export {
+  createHarnessAwareToolPort,
+  HarnessAwareToolPort,
+  type HarnessBuiltinToolCaller,
+} from './runtime-tool-port.js';
 export { SimulationTransport, runSimulationScenario } from './simulation/transport.js';

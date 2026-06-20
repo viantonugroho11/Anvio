@@ -3,6 +3,11 @@ import { executeCodeWithExecutor, fileRead, fileWrite } from './filesystem.js';
 import { browserAction } from './browser.js';
 import { imageGenerate, textToSpeech } from './media.js';
 import { webFetch } from './web-fetch.js';
+import {
+  executeCodePipeline,
+  globFiles,
+  grepSearch,
+} from './workspace-tools.js';
 
 export interface BuiltinToolContext {
   workspaceRoot?: string;
@@ -158,6 +163,75 @@ export async function runBuiltinTool(
       return textToSpeech(String(call.arguments.text ?? ''), {
         workspaceRoot: ctx.workspaceRoot,
       });
+    case 'glob_files': {
+      if (!ctx.workspaceRoot) {
+        return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
+      }
+      try {
+        const out = await globFiles(
+          ctx.workspaceRoot,
+          String(call.arguments.pattern ?? '**/*'),
+          Number(call.arguments.maxResults ?? 50),
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    case 'grep_search': {
+      if (!ctx.workspaceRoot) {
+        return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
+      }
+      try {
+        const out = await grepSearch(
+          ctx.workspaceRoot,
+          String(call.arguments.pattern ?? ''),
+          call.arguments.path ? String(call.arguments.path) : '.',
+          Number(call.arguments.maxResults ?? 30),
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    case 'execute_code_pipeline': {
+      if (!ctx.codeExecutor) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: 'codeExecutor required for execute_code_pipeline',
+        };
+      }
+      try {
+        const steps = (call.arguments.steps as Array<{ code: string; language?: string }> | undefined) ?? [];
+        const out = await executeCodePipeline(ctx.codeExecutor, steps);
+        const failed = out.steps.find((s) => s.exitCode !== 0);
+        return {
+          name: call.name,
+          output: out,
+          status: failed ? 'failed' : 'completed',
+          error: failed?.stderr,
+        };
+      } catch (error) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
     default:
       return { name: call.name, output: null, status: 'skipped', error: 'Not implemented' };
   }

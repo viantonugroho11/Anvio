@@ -2,17 +2,17 @@
 
 **Local-First AI Agent Operating System**
 
-[![Release](https://img.shields.io/badge/release-v1.7.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.7.0)
+[![Release](https://img.shields.io/badge/release-v1.9.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.9.0)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Configure agents in **Markdown** (Hermes / slaude-style) with YAML for infra only. Run from the **CLI**. No database, no login, no Docker required to start.
+Configure agents in **Markdown** (Hermes-style) with YAML for infra only. Run from the **CLI**. No database, no login, no Docker required to start.
 
 Everything lives in a portable `workspace/` folder — back it up, commit it to git, or copy it to another machine.
 
 > **Priority:** CLI → API → Web UI. The full platform works from your terminal alone.
 
-**Latest (v1.7.0):** Hermes-style **runtime self-improve** — agents use built-in tools, learn patterns into skills, and summarize sessions via LLM when an API key is set. See [Phase L6 docs](docs/55-phase-l6-learning-priorities.md).
+**Latest (v1.9.0):** Native Anthropic **`tool_use`** API, expanded tool gateway (`glob_files`, `grep_search`, `execute_code_pipeline`), workspace manifest import. See [Phase P4 docs](docs/57-phase-p4-priorities.md).
 
 ---
 
@@ -28,7 +28,7 @@ Everything lives in a portable `workspace/` folder — back it up, commit it to 
 - [Install](#install)
 - [CLI Reference](#cli-reference)
 - [Channels & Harness](#channels--harness)
-- [Hermes / slaude Parity](#hermes--slaude-parity)
+- [Hermes Parity](#hermes-parity)
 - [Progressive Enhancement](#progressive-enhancement)
 - [Development](#development)
 - [Documentation](#documentation)
@@ -267,7 +267,7 @@ anvio batch run my-batch-job.yaml
 anvio workflow list
 ```
 
-### Knowledge base (slaude-style raw → wiki)
+### Knowledge base (raw → wiki)
 
 ```bash
 anvio kb list
@@ -659,20 +659,19 @@ ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/gateway dev
 
 ---
 
-## Hermes / slaude Parity
+## Hermes Parity
 
-Anvio targets combined parity with [Hermes Agent](https://hermes-agent.nousresearch.com/docs) and [slaude](https://github.com/barockok/slaude):
+Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/docs):
 
-| Reference | Parity (v1.7.0) | Strengths in Anvio |
+| Reference | Parity (v1.9.0) | Strengths in Anvio |
 |-----------|-----------------|---------------------|
-| Hermes | ~78% | Local-first, 18+ models, Agent OS, ACP/Cursor |
-| slaude | ~86% | SOUL gate, connections broker, knowledge base |
+| Hermes | ~82% | Local-first, 18+ models, Agent OS, ACP/Cursor, SOUL gate, connections |
 
-**Done:** MD-first artifacts, learning loop (L6), tool gateway + loop, FTS5 memory, channel harness, Mattermost, voice hooks, workflows, Honcho delegate.
+**Done:** MD-first artifacts, learning loop (L6), native `tool_use` (Anthropic), expanded tool gateway, FTS5 memory, channel harness, voice hooks, workflows.
 
-**Gap (P3):** 60+ Hermes tools, native `tool_use` API, desktop app, streaming STT, slaude manifest import.
+**Gap:** Remaining Hermes tools (60+ catalog), OpenAI/Gemini native tools, desktop app, streaming STT.
 
-Detail: [docs/50-hermes-slaude-parity.md](docs/50-hermes-slaude-parity.md) · [docs/51-gap-hermes-slaude.md](docs/51-gap-hermes-slaude.md)
+Detail: [docs/50-hermes-slaude-parity.md](docs/50-hermes-slaude-parity.md) · [docs/51-gap-hermes-slaude.md](docs/51-gap-hermes-slaude.md) · [docs/57-phase-p4-priorities.md](docs/57-phase-p4-priorities.md)
 
 ---
 
@@ -711,7 +710,7 @@ Contributing: [docs/21-development-guide.md](docs/21-development-guide.md) · [d
 | [Tool gateway](docs/44-tool-gateway.md) | Built-in tools |
 | [Channel harness](docs/41-channel-harness.md) | Formatting & engagement |
 | [Workspace artifacts](docs/49-workspace-artifacts.md) | MD-first conventions |
-| [Hermes/slaude parity](docs/50-hermes-slaude-parity.md) | Gap audit |
+| [Hermes parity](docs/50-hermes-slaude-parity.md) | Gap audit |
 | [Gap register](docs/51-gap-hermes-slaude.md) | Full gap list |
 | [Architecture](docs/02-architecture.md) | Package boundaries |
 | [Provider routing](docs/36-provider-routing.md) | Model fallback |

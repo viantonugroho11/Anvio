@@ -89,7 +89,12 @@ export interface CreateChannelHubOptions {
   defaultAgent: string;
   defaultUserId: string;
   channels?: ChannelConfig;
-  onApproval?: (sessionId: string, requestId: string, approved: boolean) => Promise<void>;
+  onApproval?: (
+    sessionId: string,
+    requestId: string,
+    approved: boolean,
+    userId?: string,
+  ) => Promise<void>;
   harness?: HarnessGatewayPort;
   hub?: ChannelHub;
 }
@@ -111,7 +116,13 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
   );
   const onApproval =
     options.onApproval ??
-    (async (sessionId, requestId, approved) => {
+    (async (sessionId, requestId, approved, userId?) => {
+      if (options.harness?.enabled && userId) {
+        const ok = await options.harness.resolveApproval(sessionId, requestId, userId, approved);
+        if (!ok) return;
+      } else {
+        await options.sessions.update(sessionId, { pendingApproval: undefined });
+      }
       await options.eventBus.publish(EventSubjects.APPROVAL_DECIDED, 'anvio.approval.decided', {
         sessionId,
         requestId,

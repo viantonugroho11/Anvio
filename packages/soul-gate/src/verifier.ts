@@ -28,6 +28,11 @@ export function verifyPolicyIds(source: string, policy: SoulPolicy): SoulPolicy 
 
 export function extractIdsFromLine(line: string): string[] {
   const ids: string[] = [];
+  for (const match of line.matchAll(
+    /(?:slack|telegram|whatsapp|discord|cli|matrix|teams|mattermost):[^\s,;:]+/gi,
+  )) {
+    ids.push(match[0]);
+  }
   for (const match of line.matchAll(/<@[^>|]+(?:\|[^>]+)?>|U[A-Z0-9]+|C[A-Z0-9]+|G[A-Z0-9]+|\d{5,}/g)) {
     const token = match[0].replace(/^<@/, '').replace(/\|.*>$/, '').replace(/>$/, '');
     if (token) ids.push(token);
@@ -42,7 +47,10 @@ export function parseApproversSection(lines: string[]): SoulPolicyApprover[] {
     if (!trimmed || trimmed.startsWith('#')) continue;
     const ids = extractIdsFromLine(trimmed);
     if (ids.length === 0) continue;
-    const scopePart = trimmed.split(':')[1]?.split(';')[0]?.trim() ?? '';
+    const scopePart =
+      trimmed.includes(':') && /^(slack|telegram|whatsapp|discord|cli):/.test(trimmed.replace(/^-\s*/, ''))
+        ? trimmed.replace(/^-\s*/, '').split(':').slice(2).join(':').split(';')[0]?.trim() ?? ''
+        : trimmed.split(':')[1]?.split(';')[0]?.trim() ?? '';
     const catchall = /catchall|anything/i.test(trimmed);
     approvers.push({
       channel: '*',

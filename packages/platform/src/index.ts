@@ -24,7 +24,7 @@ import {
 import { PersonaService } from '@anvio/personas';
 import { createSoulService } from '@anvio/souls';
 import { SkillRegistry, createSkillCatalogResolver } from '@anvio/skills';
-import { createHarnessFromWorkspace, type HarnessGateway } from '@anvio/harness';
+import { createHarnessFromWorkspace, createHarnessAwareToolPort, type HarnessGateway } from '@anvio/harness';
 import { LearningEngine } from '@anvio/learning';
 import { ToolGateway } from '@anvio/tools';
 import { createCodeExecutor } from '@anvio/execution';
@@ -112,6 +112,19 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     channelHub,
     sessions: workspace.sessions,
     soulDefinition,
+    onApprovalTimedOut: async (sessionId, requestId) => {
+      await workspace.sessions.update(sessionId, {
+        pendingApproval: undefined,
+        status: 'failed',
+        metadata: { approvalTimeout: requestId },
+      });
+      await eventBus.publish(EventSubjects.APPROVAL_DECIDED, 'anvio.approval.decided', {
+        sessionId,
+        requestId,
+        approved: false,
+        reason: 'approval_timeout',
+      });
+    },
   });
 
   const { whatsapp } = createChannelHub({
@@ -122,6 +135,19 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     defaultUserId: spec.defaultUserId,
     channels: spec.channels,
     harness,
+    onApproval: async (sessionId, requestId, approved, userId) => {
+      if (harness.enabled && userId) {
+        const ok = await harness.resolveApproval(sessionId, requestId, userId, approved);
+        if (!ok) return;
+      } else {
+        await workspace.sessions.update(sessionId, { pendingApproval: undefined });
+      }
+      await eventBus.publish(EventSubjects.APPROVAL_DECIDED, 'anvio.approval.decided', {
+        sessionId,
+        requestId,
+        approved,
+      });
+    },
   });
 
   const learningModelProvider =
@@ -177,13 +203,17 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     });
   });
 
+  const toolPort = harness.enabled
+    ? createHarnessAwareToolPort(toolGateway, harness)
+    : toolGateway;
+
   const runtime = new DefaultAgentRuntime({
     personaService,
     skillRegistry,
     memoryStore: memoryProvider,
     soulService,
     modelProviders,
-    toolPort: toolGateway,
+    toolPort,
     onProgress: (sessionId, phase) => {
       void eventBus.publishCore(EventSubjects.AGENT_RUN_PROGRESS, 'anvio.agent.run.progress', {
         sessionId,
@@ -372,13 +402,20 @@ export function storedSessionToRuntime(session: {
   messages: Session['state']['messages'];
   status: Session['state']['status'];
   lastActiveAt: string;
+  pendingApproval?: Session['state']['pendingApproval'];
+  metadata?: Record<string, unknown>;
 }): Session {
   return {
     id: session.id,
     userId: session.userId,
     agentId: session.agentName,
     channel: session.channel,
-    state: { status: session.status, messages: session.messages },
+    state: {
+      status: session.status,
+      messages: session.messages,
+      pendingApproval: session.pendingApproval,
+      metadata: session.metadata,
+    },
     lastActiveAt: new Date(session.lastActiveAt),
   };
 }

@@ -11,7 +11,12 @@ export interface WebhookChannelOptions {
   sessionBridge: ChannelSessionBridge;
   sessions: SessionStore;
   defaultAgent?: string;
-  onApproval?: (sessionId: string, requestId: string, approved: boolean) => Promise<void>;
+  onApproval?: (
+    sessionId: string,
+    requestId: string,
+    approved: boolean,
+    userId?: string,
+  ) => Promise<void>;
 }
 
 /** Shared in-memory outbound store for webhook-style channel adapters (tests + dry-run). */

@@ -66,6 +66,7 @@ export interface AgentRunRequestedData {
   content: string;
   channel: string;
   detached?: boolean;
+  resumeApproval?: ApprovalDecidedData;
 }
 
 export interface AgentRunCompletedData {

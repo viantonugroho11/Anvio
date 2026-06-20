@@ -25,11 +25,11 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 
 | #   | Gap                                       | Hermes | slaude  | Anvio hari ini                                             | Target                             |
 | --- | ----------------------------------------- | ------ | ------- | ---------------------------------------------------------- | ---------------------------------- |
-| T1  | Built-in tools (60+)                      | ✅      | via MCP | 🟡 ~8 tools + agent tool loop      | Expand gateway + native tool_use API |
+| T1  | Built-in tools (60+)                      | ✅      | via MCP | 🟡 ~11 tools + native tool_use (Anthropic) | Expand catalog + OpenAI/Gemini native |
 | T2  | Browser sandbox (Playwright)              | ✅      | —       | ✅ Playwright + fetch fallback                              | —                                  |
 | T3  | Image generation                          | ✅      | —       | ✅ DALL-E via OpenAI API                                    | —                                  |
 | T4  | Text-to-speech (tool)                     | ✅      | —       | ✅ OpenAI TTS via `@anvio/voice`                           | —                                  |
-| T5  | `execute_code` programmatic multi-step    | ✅      | —       | 🟡 stub                                                    | Hermes-style collapse pipeline     |
+| T5  | `execute_code` programmatic multi-step    | ✅      | —       | ✅ `execute_code_pipeline`                  | —                                  |
 | T6  | Nous Portal OAuth (1-click model + tools) | ✅      | —       | ❌                                                          | Generic OAuth env; Portal opsional |
 | T7  | MCP tool filtering / toolsets             | ✅      | ✅       | ✅ bridge                                                   | Per-server allowlist (fine-tune)   |
 
@@ -64,7 +64,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | S3  | Contextual connections broker      | —      | ✅             | ✅ store + encrypt + CLI       | —                                |
 | S4  | CDP / login-host (browser grant)   | —      | ✅             | ✅ local OAuth callback host   | Full CDP browser grant optional  |
 | S5  | Per-user connection isolation test | —      | ✅             | ✅ integration tests           | —                                |
-| S6  | slaude.json / manifest import      | —      | ✅             | ✅ `anvio kb import-slaude`       | —                                |
+| S6  | Workspace manifest import                 | —      | ✅             | ✅ `anvio kb import-manifest`     | —                                |
 
 
 ---

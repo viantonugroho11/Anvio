@@ -16,7 +16,12 @@ export interface TelegramChannelOptions {
   defaultAgent?: string;
   voice?: ChannelVoiceOptions;
   voicePipeline?: VoicePipeline;
-  onApproval?: (sessionId: string, requestId: string, approved: boolean) => Promise<void>;
+  onApproval?: (
+    sessionId: string,
+    requestId: string,
+    approved: boolean,
+    userId?: string,
+  ) => Promise<void>;
 }
 
 interface TelegramChatTarget {
@@ -283,7 +288,8 @@ export class TelegramChannel extends BaseChannelAdapter {
     const threadId = threadKey(chatId, cq.message.message_thread_id);
     const session = await this.options.sessionBridge.resolveOrCreate('telegram', threadId);
     const approved = action === 'approve';
-    await this.options.onApproval(session.id, requestId, approved);
+    const tgUser = cq.from?.id ? `telegram:${cq.from.id}` : undefined;
+    await this.options.onApproval(session.id, requestId, approved, tgUser);
   }
 }
 

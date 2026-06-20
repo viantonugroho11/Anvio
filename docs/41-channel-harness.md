@@ -34,6 +34,13 @@ Restart worker/API after enabling.
 - Role: Senior Software Architect
 
 ## Reporting
+
+Manager / backup manager gate DMs and restricted zones (`dmPolicy: manager_only`).  
+Approver user IDs are **channel-prefixed** so one SOUL works across Slack, Telegram, WhatsApp, etc.:
+
+- `slack:U012ABC`
+- `telegram:123456789`
+- `whatsapp:15551234567`
 - Manager: U_MANAGER01
 
 ## Allowed channels

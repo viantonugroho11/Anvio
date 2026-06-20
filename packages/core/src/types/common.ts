@@ -1,3 +1,5 @@
+import type { ModelToolCall } from './model-tools.js';
+
 export type ChannelType =
   | 'web-chat'
   | 'telegram'
@@ -41,4 +43,8 @@ export interface MessageContent {
 export interface ChatMessage {
   role: MessageRole;
   content: string;
+  /** Tool name when role is tool */
+  name?: string;
+  toolCallId?: string;
+  toolCalls?: ModelToolCall[];
 }

@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.10.0] - 2026-06-19
+
+**Phase P5 — Multi-channel harness approval loop**
+
+### Added
+- End-to-end approval: agent `anvio_channel__request_approval` → pause → resume on any channel
+- `HarnessAwareToolPort` merges built-in tools + channel tools when harness enabled
+- Approver IDs with channel prefix (`slack:`, `telegram:`, `whatsapp:`, …)
+- `approvalTimeoutSeconds` enforced in `ApprovalGate`
+- Worker publishes `APPROVAL_REQUESTED`; resume via checkpoint after `APPROVAL_DECIDED`
+- Interactive approve/reject with approver auth on Slack, Telegram, WhatsApp, Discord, Mattermost
+
+### Docs
+- [58-phase-p5-harness-approval.md](./docs/58-phase-p5-harness-approval.md)
+
+---
+
+## [1.9.0] - 2026-06-19
+
+**Phase P4 — Native tool_use & expanded gateway**
+
+### Added
+- Anthropic native `tool_use` API in agent runtime (`supportsNativeTools`)
+- `ModelToolDefinition`, `ModelToolCall`, `getModelToolDefinitions()` on tool gateway
+- Tools: `glob_files`, `grep_search`, `execute_code_pipeline` (T1/T5)
+- `anvio kb import-manifest` — workspace manifest import (replaces slaude naming)
+- Example `configs/examples/workspace-manifest.json`
+
+### Changed
+- Removed slaude branding from docs; Hermes-focused parity narrative
+- `import-slaude` CLI kept as deprecated alias
+
+### Docs
+- [57-phase-p4-priorities.md](./docs/57-phase-p4-priorities.md)
+
+---
+
 ## [1.8.0] - 2026-06-19
 
 **Phase P3 — Media tools, slaude import, scheduled learning**

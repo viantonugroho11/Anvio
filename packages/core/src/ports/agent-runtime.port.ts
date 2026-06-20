@@ -55,7 +55,7 @@ export type AgentStreamEvent =
   | { type: 'progress'; phase: string; status: 'running' | 'completed' | 'failed' }
   | { type: 'done'; usage?: TokenUsage }
   | { type: 'error'; error?: string }
-  | { type: 'approval_required'; request: ApprovalRequest };
+  | { type: 'approval_required'; request: ApprovalRequest; checkpoint?: Record<string, unknown> };
 
 export interface AgentRuntime {
   run(session: Session, agent: AgentDefinition, input: UserInput): Promise<AgentResult>;

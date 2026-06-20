@@ -1,4 +1,6 @@
 import type {
+  BuiltinToolCall,
+  BuiltinToolResult,
   ChannelHubPort,
   ChannelType,
   HarnessDefaults,
@@ -18,7 +20,11 @@ import {
   isUserBlocked,
   resolveTrustTier,
 } from './policy-enforcer.js';
-import { createHarnessOutputPort, type OutputPortDeps } from './output-port.js';
+import {
+  createHarnessOutputPort,
+  createHarnessToolHandlers,
+  type OutputPortDeps,
+} from './output-port.js';
 import { isAuthorizedApprover } from './approver-matcher.js';
 import { SessionResumeTracker } from './session-resume.js';
 import type { HarnessChannelProfile } from '@anvio/core';
@@ -32,6 +38,7 @@ export interface HarnessGatewayOptions {
   sessions: SessionStore;
   engagementStore?: EngagementStore;
   connectBroker?: ConnectionBroker;
+  onApprovalTimedOut?: (sessionId: string, requestId: string) => void | Promise<void>;
 }
 
 export class HarnessGateway implements HarnessGatewayPort {
@@ -41,6 +48,7 @@ export class HarnessGateway implements HarnessGatewayPort {
 
   private readonly profiles: HarnessChannelProfile[];
   private readonly channelHub: ChannelHubPort;
+  private readonly sessions: SessionStore;
   private readonly engagementStore: EngagementStore;
   private readonly approvalGate: ApprovalGate;
   private readonly resumeTracker: SessionResumeTracker;
@@ -52,11 +60,17 @@ export class HarnessGateway implements HarnessGatewayPort {
     this.policy = options.policy;
     this.profiles = options.profiles;
     this.channelHub = options.channelHub;
+    this.sessions = options.sessions;
     this.engagementStore = options.engagementStore ?? new MemoryEngagementStore();
     this.resumeTracker = new SessionResumeTracker(options.sessions, options.defaults.idleMinutes);
     this.connectBroker = options.connectBroker;
 
-    this.approvalGate = new ApprovalGate(this.channelHub, () => this.policy.approvers);
+    this.approvalGate = new ApprovalGate({
+      channelHub: this.channelHub,
+      getApprovers: () => this.policy.approvers,
+      approvalTimeoutSeconds: () => this.policy.approvalTimeoutSeconds,
+      onTimedOut: options.onApprovalTimedOut,
+    });
   }
 
   async handleInbound(envelope: InboundEnvelope): Promise<InboundGateResult> {
@@ -114,19 +128,111 @@ export class HarnessGateway implements HarnessGatewayPort {
     return !['cli', 'rest', 'web-chat'].includes(channel);
   }
 
-  createOutputPort(sessionId: string, channel: ChannelType): HarnessOutputPort {
-    const deps: OutputPortDeps = {
+  private outputPortDeps(): OutputPortDeps {
+    return {
       channelHub: this.channelHub,
       policy: () => this.policy,
       approvalGate: this.approvalGate,
       redact: (text) => this.redact(text),
     };
-    return createHarnessOutputPort(sessionId, channel, deps);
+  }
+
+  createOutputPort(sessionId: string, channel: ChannelType): HarnessOutputPort {
+    return createHarnessOutputPort(sessionId, channel, this.outputPortDeps());
+  }
+
+  /** Channel-agnostic harness tools (reply, request_approval, …) for agent runtime. */
+  async callChannelTool(
+    call: BuiltinToolCall,
+    ctx: { sessionId: string; channel: ChannelType; userId?: string },
+  ): Promise<BuiltinToolResult> {
+    if (!this.enabled) {
+      return { name: call.name, output: null, status: 'skipped', error: 'Harness disabled' };
+    }
+
+    if (call.name === 'anvio_channel__request_approval') {
+      const summary = String(call.arguments.summary ?? '');
+      const requestId = await this.approvalGate.requestApproval(
+        ctx.sessionId,
+        ctx.channel,
+        summary,
+        call.name,
+      );
+
+      const timeoutSec = this.policy.approvalTimeoutSeconds;
+      const expiresAt = new Date(
+        Date.now() + (timeoutSec > 0 ? timeoutSec * 1000 : 86_400_000),
+      );
+
+      await this.sessions.update(ctx.sessionId, {
+        pendingApproval: {
+          id: requestId,
+          toolName: call.name,
+          input: call.arguments,
+          reason: summary,
+          expiresAt,
+        },
+        status: 'awaiting_approval',
+      });
+
+      return {
+        name: call.name,
+        output: {
+          requestId,
+          channel: ctx.channel,
+          message: 'Approval request sent to channel. Await human decision.',
+        },
+        status: 'pending_approval',
+        approvalRequestId: requestId,
+      };
+    }
+
+    const handlers = createHarnessToolHandlers(ctx.sessionId, ctx.channel, this.outputPortDeps());
+    const handler = handlers[call.name];
+    if (!handler) {
+      return { name: call.name, output: null, status: 'skipped', error: 'Unknown channel tool' };
+    }
+
+    try {
+      const output = await handler(call.arguments);
+      return { name: call.name, output, status: 'completed' };
+    } catch (error) {
+      return {
+        name: call.name,
+        output: null,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  listChannelTools(): string[] {
+    if (!this.enabled) return [];
+    return [
+      'anvio_channel__reply',
+      'anvio_channel__edit',
+      'anvio_channel__set_status',
+      'anvio_channel__request_approval',
+    ];
   }
 
   async authorizeApproval(sessionId: string, requestId: string, userId: string): Promise<boolean> {
     void sessionId;
-    return this.approvalGate.authorize(requestId, userId);
+    return this.approvalGate.resolve(requestId, userId, true);
+  }
+
+  async resolveApproval(
+    sessionId: string,
+    requestId: string,
+    userId: string,
+    approved: boolean,
+  ): Promise<boolean> {
+    void sessionId;
+    const ok = this.approvalGate.resolve(requestId, userId, approved);
+    if (ok) {
+      await this.sessions.update(sessionId, { pendingApproval: undefined });
+    }
+    return ok;
   }
 
   formatOutbound(channel: ChannelType, markdown: string): string {

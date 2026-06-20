@@ -16,7 +16,12 @@ export interface DiscordChannelOptions {
   defaultAgent?: string;
   voice?: ChannelVoiceOptions;
   voicePipeline?: VoicePipeline;
-  onApproval?: (sessionId: string, requestId: string, approved: boolean) => Promise<void>;
+  onApproval?: (
+    sessionId: string,
+    requestId: string,
+    approved: boolean,
+    userId?: string,
+  ) => Promise<void>;
 }
 
 interface DiscordGatewayPayload {
@@ -342,7 +347,12 @@ export class DiscordChannel extends BaseChannelAdapter {
 
     const threadId = threadKey(interaction.channel_id);
     const session = await this.options.sessionBridge.resolveOrCreate('discord', threadId);
-    await this.options.onApproval(session.id, requestId, action === 'approve');
+    const dcUser = interaction.member?.user?.id
+      ? `discord:${interaction.member.user.id}`
+      : interaction.user?.id
+        ? `discord:${interaction.user.id}`
+        : undefined;
+    await this.options.onApproval(session.id, requestId, action === 'approve', dcUser);
   }
 }
 

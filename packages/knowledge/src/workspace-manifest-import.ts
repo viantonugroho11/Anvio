@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { KnowledgeBaseStore } from './kb-store.js';
 import { KnowledgeIngestEngine } from './ingest.js';
 
-export const slaudeManifestSchema = z.object({
+export const workspaceManifestSchema = z.object({
   version: z.string().optional(),
   name: z.string().optional(),
   knowledge: z
@@ -26,30 +26,33 @@ export const slaudeManifestSchema = z.object({
     .default([]),
 });
 
-export type SlaudeManifest = z.infer<typeof slaudeManifestSchema>;
+export type WorkspaceManifest = z.infer<typeof workspaceManifestSchema>;
 
-export interface SlaudeImportResult {
+export interface WorkspaceManifestImportResult {
   knowledgeBases: Array<{ slug: string; filesCopied: number; ingested: boolean }>;
   skills: Array<{ slug: string; path: string }>;
 }
 
-export class SlaudeManifestImporter {
+export class WorkspaceManifestImporter {
   constructor(
     private readonly workspaceRoot: string,
     private readonly store = new KnowledgeBaseStore(workspaceRoot),
     private readonly ingest = new KnowledgeIngestEngine(new KnowledgeBaseStore(workspaceRoot)),
   ) {}
 
-  async importFromFile(manifestPath: string): Promise<SlaudeImportResult> {
+  async importFromFile(manifestPath: string): Promise<WorkspaceManifestImportResult> {
     const abs = path.resolve(manifestPath);
     const root = path.dirname(abs);
     const raw = JSON.parse(await fs.readFile(abs, 'utf-8')) as unknown;
-    const manifest = slaudeManifestSchema.parse(raw);
+    const manifest = workspaceManifestSchema.parse(raw);
     return this.importManifest(manifest, root);
   }
 
-  async importManifest(manifest: SlaudeManifest, projectRoot: string): Promise<SlaudeImportResult> {
-    const result: SlaudeImportResult = { knowledgeBases: [], skills: [] };
+  async importManifest(
+    manifest: WorkspaceManifest,
+    projectRoot: string,
+  ): Promise<WorkspaceManifestImportResult> {
+    const result: WorkspaceManifestImportResult = { knowledgeBases: [], skills: [] };
 
     for (const kb of manifest.knowledge) {
       const srcDir = path.resolve(projectRoot, kb.rawDir);

@@ -13,7 +13,12 @@ export interface SlackChannelOptions {
   sessionBridge: ChannelSessionBridge;
   sessions: SessionStore;
   defaultAgent?: string;
-  onApproval?: (sessionId: string, requestId: string, approved: boolean) => Promise<void>;
+  onApproval?: (
+    sessionId: string,
+    requestId: string,
+    approved: boolean,
+    userId?: string,
+  ) => Promise<void>;
 }
 
 interface SlackTarget {
@@ -247,6 +252,7 @@ export class SlackChannel extends BaseChannelAdapter {
 
     const threadId = threadKey(channelId, payload.message?.thread_ts);
     const session = await this.options.sessionBridge.resolveOrCreate('slack', threadId);
-    await this.options.onApproval(session.id, requestId, verb === 'approve');
+    const slackUser = payload.user?.id ? `slack:${payload.user.id}` : undefined;
+    await this.options.onApproval(session.id, requestId, verb === 'approve', slackUser);
   }
 }

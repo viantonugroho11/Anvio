@@ -5,6 +5,7 @@ import {
   type AgentRunRequestedData,
   type AgentRunStopRequestedData,
   type ApprovalDecidedData,
+  type ApprovalRequestedData,
 } from '@anvio/events';
 import type { ChannelType } from '@anvio/core';
 import { createPlatform, loadAgent, storedSessionToRuntime } from '@anvio/platform';
@@ -72,10 +73,18 @@ async function main() {
       if (!stored) return;
       const agent = await loadAgent(workspace, stored.agentName);
       const session = storedSessionToRuntime(stored);
-      await runtime.resume(session, agent, {
-        requestId: event.data.requestId,
-        approved: event.data.approved,
-        reason: event.data.reason,
+      await workspace.sessions.update(event.data.sessionId, {
+        pendingApproval: undefined,
+        status: 'calling_model',
+      });
+      await eventBus.publish(EventSubjects.AGENT_RUN_REQUESTED, 'anvio.agent.run.requested', {
+        sessionId: event.data.sessionId,
+        userId: stored.userId,
+        agentId: stored.agentName,
+        content: '',
+        channel: stored.channel,
+        detached: true,
+        resumeApproval: event.data,
       });
     },
   );
@@ -112,9 +121,21 @@ async function main() {
       }
 
       const session = storedSessionToRuntime(stored);
+      const input = event.data.resumeApproval
+        ? {
+            content: '',
+            metadata: {
+              resumeDecision: {
+                requestId: event.data.resumeApproval.requestId,
+                approved: event.data.resumeApproval.approved,
+                reason: event.data.resumeApproval.reason,
+              },
+            },
+          }
+        : { content };
       let fullContent = '';
 
-      for await (const chunk of runtime.stream(session, agent, { content })) {
+      for await (const chunk of runtime.stream(session, agent, input)) {
         if (chunk.type === 'progress') {
           await eventBus.publishCore(EventSubjects.AGENT_RUN_PROGRESS, 'anvio.agent.run.progress', {
             sessionId,
@@ -138,6 +159,34 @@ async function main() {
             });
           }
         }
+        if (chunk.type === 'approval_required') {
+          await workspace.sessions.update(sessionId, {
+            status: 'awaiting_approval',
+            pendingApproval: chunk.request,
+            metadata: {
+              ...stored.metadata,
+              agentRunCheckpoint: chunk.checkpoint,
+            },
+          });
+          await eventBus.publish(
+            EventSubjects.APPROVAL_REQUESTED,
+            'anvio.approval.requested',
+            {
+              sessionId,
+              requestId: chunk.request.id,
+              toolName: chunk.request.toolName,
+              reason: chunk.request.reason,
+              channel,
+            } satisfies ApprovalRequestedData,
+          );
+          await channelHub.sendNotification(channel as ChannelType, sessionId, {
+            sessionId,
+            type: 'approval_required',
+            title: 'Approval required',
+            body: chunk.request.reason,
+          });
+          return;
+        }
         if (chunk.type === 'done' && chunk.usage) {
           await workspace.sessions.update(sessionId, {
             messages: [
@@ -146,6 +195,11 @@ async function main() {
               { role: 'assistant', content: fullContent },
             ],
             status: 'completed',
+            pendingApproval: undefined,
+            metadata: {
+              ...stored.metadata,
+              agentRunCheckpoint: undefined,
+            },
           });
           await eventBus.publishCore(
             EventSubjects.AGENT_RUN_COMPLETED,

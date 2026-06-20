@@ -5,6 +5,7 @@ export interface ToolLoopContext {
   sessionId: string;
   agentId: string;
   userId: string;
+  channel?: string;
 }
 
 export interface ToolLoopCallbacks {
@@ -16,7 +17,7 @@ export async function executeParsedToolCalls(input: {
   ctx: ToolLoopContext;
   assistantContent: string;
   callbacks?: ToolLoopCallbacks;
-}): Promise<{ toolMessages: ChatMessage[]; hadTools: boolean; toolCallsRun: number }> {
+}): Promise<{ toolMessages: ChatMessage[]; hadTools: boolean; toolCallsRun: number; pendingApproval?: PendingToolApproval }> {
   const calls = parseToolCalls(input.assistantContent);
   if (calls.length === 0) {
     return { toolMessages: [], hadTools: false, toolCallsRun: 0 };
@@ -26,6 +27,18 @@ export async function executeParsedToolCalls(input: {
   for (const call of calls) {
     input.callbacks?.onProgress?.(`Running ${call.name}`);
     const result = await input.toolPort.call(call, input.ctx);
+    if (result.status === 'pending_approval') {
+      return {
+        toolMessages,
+        hadTools: true,
+        toolCallsRun: calls.length,
+        pendingApproval: {
+          requestId: result.approvalRequestId ?? '',
+          toolName: call.name,
+          summary: String(call.arguments.summary ?? result.output ?? ''),
+        },
+      };
+    }
     toolMessages.push({
       role: 'user',
       content: formatToolResultMessage(call.name, result.output, result.error),
@@ -33,6 +46,12 @@ export async function executeParsedToolCalls(input: {
   }
 
   return { toolMessages, hadTools: true, toolCallsRun: calls.length };
+}
+
+export interface PendingToolApproval {
+  requestId: string;
+  toolName: string;
+  summary: string;
 }
 
 export const DEFAULT_MAX_TOOL_ITERATIONS = 5;

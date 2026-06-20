@@ -65,6 +65,12 @@ export interface HarnessGatewayPort {
   shouldSuppressRawOutput(channel: ChannelType): boolean;
   createOutputPort(sessionId: string, channel: ChannelType): HarnessOutputPort;
   authorizeApproval(sessionId: string, requestId: string, userId: string): Promise<boolean>;
+  resolveApproval(
+    sessionId: string,
+    requestId: string,
+    userId: string,
+    approved: boolean,
+  ): Promise<boolean>;
   formatOutbound(channel: ChannelType, markdown: string): string;
   redact(text: string): string;
   recordSessionActivity(sessionId: string): Promise<void>;

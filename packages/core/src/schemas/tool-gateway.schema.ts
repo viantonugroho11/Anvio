@@ -14,6 +14,9 @@ export const toolGatewaySpecSchema = z.object({
       execute_code: toolGatewayToolSchema.default({ enabled: false }),
       file_read: toolGatewayToolSchema.default({ enabled: true }),
       file_write: toolGatewayToolSchema.default({ enabled: false }),
+      glob_files: toolGatewayToolSchema.default({ enabled: true }),
+      grep_search: toolGatewayToolSchema.default({ enabled: true }),
+      execute_code_pipeline: toolGatewayToolSchema.default({ enabled: false }),
       image_generate: toolGatewayToolSchema.default({ enabled: false }),
       text_to_speech: toolGatewayToolSchema.default({ enabled: false }),
       browser: toolGatewayToolSchema.default({ enabled: false }),
@@ -49,6 +52,7 @@ export interface BuiltinToolCall {
 export interface BuiltinToolResult {
   name: string;
   output: unknown;
-  status: 'completed' | 'failed' | 'skipped';
+  status: 'completed' | 'failed' | 'skipped' | 'pending_approval';
   error?: string;
+  approvalRequestId?: string;
 }

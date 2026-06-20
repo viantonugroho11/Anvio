@@ -1,10 +1,17 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import type { BuiltinToolCall, BuiltinToolResult, SoulDefinition, ToolGatewaySpec } from '@anvio/core';
+import type {
+  BuiltinToolCall,
+  BuiltinToolResult,
+  ModelToolDefinition,
+  SoulDefinition,
+  ToolGatewaySpec,
+} from '@anvio/core';
 import { parseToolGatewayConfig } from '@anvio/core';
 import { runBuiltinTool, type BuiltinToolContext } from './builtins/index.js';
 import { renderToolInstructions } from './tool-descriptions.js';
+import { buildModelToolDefinitions } from './tool-schemas.js';
 
 export const DEFAULT_TOOL_GATEWAY_YAML = `# Built-in tool gateway — Phase H
 apiVersion: anvio.io/v1
@@ -18,6 +25,12 @@ spec:
       enabled: true
     web_search:
       enabled: false
+    file_read:
+      enabled: true
+    glob_files:
+      enabled: true
+    grep_search:
+      enabled: true
     execute_code:
       enabled: false
     browser:
@@ -80,6 +93,10 @@ export class ToolGateway {
 
   getToolInstructions(): string {
     return renderToolInstructions(this.listTools());
+  }
+
+  getModelToolDefinitions(): ModelToolDefinition[] {
+    return buildModelToolDefinitions(this.listTools());
   }
 
   async call(

@@ -26,7 +26,7 @@ import { createPlatform, finalizeAgentRun, findRepoRoot, loadAgent, storedSessio
 import { createSoulService } from '@anvio/souls';
 import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
 import { ToolGateway } from '@anvio/tools';
-import { KnowledgeBaseStore, KnowledgeIngestEngine, SlaudeManifestImporter } from '@anvio/knowledge';
+import { KnowledgeBaseStore, KnowledgeIngestEngine, WorkspaceManifestImporter } from '@anvio/knowledge';
 import { LearningEngine } from '@anvio/learning';
 import { createHarnessGateway, loadHarnessConfig, loadHarnessProfiles, runSimulationScenario, ConnectionBroker, ConnectionStore, startLoginHost } from '@anvio/harness';
 import { FilesystemStorageProvider } from '@anvio/storage';
@@ -193,7 +193,7 @@ Execution & Providers
   anvio skill catalog|install|validate Skills catalog management
   anvio mcp list|test                  MCP integration servers
   anvio tools list|test                Built-in tool gateway (Phase H)
-  anvio kb list|ingest|sync|import-slaude   Knowledge base pipeline
+  anvio kb list|ingest|sync|import-manifest   Knowledge base pipeline
   anvio learning drafts|promote|summarize-sessions
   anvio workflow list|validate|run     Standalone DAG workflow engine (Phase I)
   anvio voice transcribe|speak         STT/TTS voice pipeline (Phase I)
@@ -1619,15 +1619,17 @@ async function cmdKb(sub: string[]) {
       console.log(JSON.stringify(result, null, 2));
       break;
     }
+    case 'import-manifest':
     case 'import-slaude': {
-      const manifestPath = sub[1] ?? path.join(process.cwd(), 'slaude.json');
-      const importer = new SlaudeManifestImporter(wsPath);
+      const manifestPath =
+        sub[1] ?? path.join(process.cwd(), action === 'import-slaude' ? 'slaude.json' : 'workspace-manifest.json');
+      const importer = new WorkspaceManifestImporter(wsPath);
       const result = await importer.importFromFile(manifestPath);
       console.log(JSON.stringify(result, null, 2));
       break;
     }
     default:
-      console.error('Usage: anvio kb list|ingest|sync|import-slaude [manifest.json]');
+      console.error('Usage: anvio kb list|ingest|sync|import-manifest [manifest.json]');
       process.exit(1);
   }
 }

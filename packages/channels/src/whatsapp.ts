@@ -14,7 +14,12 @@ export interface WhatsAppChannelOptions {
   sessionBridge: ChannelSessionBridge;
   sessions: SessionStore;
   defaultAgent?: string;
-  onApproval?: (sessionId: string, requestId: string, approved: boolean) => Promise<void>;
+  onApproval?: (
+    sessionId: string,
+    requestId: string,
+    approved: boolean,
+    userId?: string,
+  ) => Promise<void>;
 }
 
 interface WhatsAppTarget {
@@ -190,7 +195,7 @@ export class WhatsAppChannel extends BaseChannelAdapter {
       const [action, requestId] = id.split(':');
       if (requestId && this.options.onApproval) {
         const session = await this.options.sessionBridge.resolveOrCreate('whatsapp', threadId, userId);
-        await this.options.onApproval(session.id, requestId, action === 'approve');
+        await this.options.onApproval(session.id, requestId, action === 'approve', userId);
       }
       return;
     }
