@@ -1,11 +1,12 @@
 # Gap Register — Hermes + slaude → Anvio
 
-Status baseline: **Phase A–J + P4–P11a selesai** (Advanced Agent OS, native tools, channel E2E, observability, tool breadth).  
+Status baseline: **Phase A–J + P4–P11d selesai** (v1.17.0 — 71 gateway tools, Hermes tool breadth).  
 Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude](https://github.com/barockok/slaude) · [hermes-tech](https://github.com/viantonugroho11/hermes-tech)
 
-**Ringkasan:** arsitektur gabungan production-viable (~**88% Hermes**, ~**92% slaude** post v1.16). Di bawah ini daftar gap tersisa, diurutkan prioritas.
+**Ringkasan:** arsitektur gabungan production-viable (~**93% Hermes**, ~**94% slaude** post v1.17).  
+**Gap tersisa (post-P11):** [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md) — roadmap P12+.
 
-**Katalog tools Hermes lengkap:** [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) — ~71 built-in Hermes dengan mapping ke Anvio.
+**Katalog tools Hermes lengkap:** [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md)
 
 ---
 
@@ -156,32 +157,29 @@ Token usage: `workspace/audit/tokens.jsonl`, `anvio usage stats`, `GET /api/metr
 
 ---
 
-## Prioritas rekomendasi (P11+)
+## Prioritas rekomendasi (P12+)
 
-### P0 — Hermes breadth
+Lihat **[69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md)** untuk roadmap lengkap.
 
-1. **T1** — expand built-in tool catalog (target 20–30 tools)
-2. **O3** — wire `initObservability()` + optional Langfuse
-3. **R3** — SSH remote agent execution
+### P12 — Integration & polish (recommended next)
 
-### P1 — channel polish
+1. **P12-MCP** — E2E Spotify, Feishu, Tinker-Atropos presets
+2. **P12-CH** — Signal, Google Chat SA, harness snapshot tests
+3. **P12-SL** — MCP-only mode, `/1on1`, Slack status surface
+4. **P12-OBS** — Langfuse dashboard templates
 
-1. **C7–C8** — Signal live, Google Chat service account
-2. **C2** — harness snapshot tests per adapter
-3. **C6** — IMAP IDLE (push vs poll)
+### P13 — Remote & voice
 
-### P2 — slaude polish (low urgency, ~92% parity)
+1. **R3** — SSH remote agent execution
+2. **R4–R5** — Daytona, Modal production
+3. **V4** — streaming STT
+4. **C6** — IMAP IDLE
 
-1. Strict global MCP-only output mode
-2. `/1on1` equivalent flow
-3. Full CDP browser grant
-
-### P3 — optional / research
+### P14 — Optional / research
 
 1. **R8** — desktop shell
-2. **O1–O2** — trajectory export, Atropos/RL
-3. **T6** — Nous Portal
-4. **V4** — streaming STT
+2. **O1–O2** — trajectory export, Atropos RL live
+3. **T6** — Nous Portal OAuth
 
 ---
 
@@ -210,7 +208,8 @@ Token usage: `workspace/audit/tokens.jsonl`, `anvio usage stats`, `GET /api/metr
 
 ## Dokumen terkait
 
-- [64-phase-p11a-priorities.md](./64-phase-p11a-priorities.md) — Phase P11a (v1.16.0)
+- [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md) — **Gap post-P11, roadmap P12+**
+- [64-phase-p11a-priorities.md](./64-phase-p11a-priorities.md) — Phase P11a (v1.17.0)
 - [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) — katalog ~71 tools Hermes + mapping Anvio
 - [63-phase-p10-priorities.md](./63-phase-p10-priorities.md) — Phase P10 (v1.15.0)
 - [62-phase-p9-priorities.md](./62-phase-p9-priorities.md) — Phase P9 (v1.14.0)
@@ -221,4 +220,4 @@ Token usage: `workspace/audit/tokens.jsonl`, `anvio usage stats`, `GET /api/metr
 - [49-workspace-artifacts.md](./49-workspace-artifacts.md) — konvensi MD vs YAML
 - [plans/2026-06-19-002-feat-unified-agent-product-plan.md](./plans/2026-06-19-002-feat-unified-agent-product-plan.md) — plan asli
 
-Terakhir diperbarui: v1.16.0 (2026-06-19).
+Terakhir diperbarui: v1.17.0 (2026-06-19).

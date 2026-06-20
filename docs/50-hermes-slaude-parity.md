@@ -2,54 +2,39 @@
 
 Gap register detail: [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md).
 
-**Baseline:** v1.16.0 (Phase P11a — 21 gateway tools, OTel, planner CLI)
+**Baseline:** v1.17.0 (Phase P11 — 71 gateway tools, OTel, planner, MoA, HA)
 
-Full Hermes tool inventory: [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md)
+Full Hermes tool inventory: [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md)  
+**Gap tersisa:** [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md)
 
-## Summary (v1.16.0)
+## Summary (v1.17.0)
 
 | Area | Parity | Notes |
 |------|--------|-------|
 | **MD-first artifacts** | ✅ ~95% | Skills, souls, agents, workflows, personas `.md` |
-| **Channel harness** | ✅ ~92% | Enabled by default; multi-channel approval (P5+) |
-| **SOUL.md + gate** | ✅ ~95% | Regex + LLM policy extraction (P8), contextual connections (P1) |
-| **Learning loop** | ✅ ~90% | L6 runtime learning, LLM summarizer, FTS5, Honcho, skill evolution |
-| **Tool gateway** | 🟡 ~55% | 21 builtins + MCP; Hermes ~71 — see [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) |
-| **MCP** | ✅ ~90% | Stdio client, first-call approval, health report (P7–P10) |
-| **Native tool_use** | ✅ | Anthropic, OpenAI, Gemini (P4–P7) |
-| **Multi-channel** | ✅ ~80% | ~13 types; Teams/Matrix/Email E2E (P8–P10) |
-| **Voice** | 🟡 ~60% | CLI + Telegram/Discord hooks; no streaming STT |
-| **Remote runtimes** | 🟡 ~35% | Docker + ACP/Cursor; SSH/Daytona/Modal partial |
-| **Observability** | 🟡 ~70% | Token audit, Prometheus, OTel spans in worker/API (P9–P11a) |
+| **Channel harness** | ✅ ~92% | Enabled by default; multi-channel approval |
+| **SOUL.md + gate** | ✅ ~95% | Regex + LLM policy extraction (P8) |
+| **Learning loop** | ✅ ~90% | L6 runtime learning, LLM summarizer, FTS5, Honcho |
+| **Tool gateway** | ✅ ~95% breadth | **71 builtins**; sub-tools via MCP — [65](./65-hermes-tools-catalog.md) |
+| **MCP** | ✅ ~90% | Stdio, first-call approval, health, presets (P11d) |
+| **Native tool_use** | ✅ | Anthropic, OpenAI, Gemini |
+| **Multi-channel** | ✅ ~80% | ~13 types; Teams/Matrix/Email E2E |
+| **Voice** | 🟡 ~60% | CLI + hooks; no streaming STT |
+| **Remote runtimes** | 🟡 ~35% | Docker + ACP/Cursor; SSH/Daytona partial |
+| **Observability** | 🟡 ~75% | Token audit, Prometheus, OTel spans |
 | **Desktop app** | ❌ | Deferred |
-| **Contextual connections** | ✅ ~90% | Broker + login-host (P1) |
-| **Knowledge base** | ✅ | raw→wiki + `import-manifest` (slaude parity) |
 | **Local-first / Agent OS** | 🔵 | Goals, kanban, batch — Anvio strength |
 
 ## Estimated overall parity
 
-| Reference | v1.8.0 | v1.16.0 |
-|-----------|--------|---------|
-| Hermes Agent | ~80% | **~88%** |
-| slaude | ~88% | **~92%** |
+| Reference | v1.17.0 |
+|-----------|---------|
+| Hermes Agent | **~93%** |
+| slaude | **~94%** |
 
-## Still missing vs Hermes
+## Still missing (detail)
 
-- ~71 Hermes built-in tools — mapping per tool: [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md)
-- Nous Portal OAuth (T6)
-- Desktop installer + tray (R8)
-- Real-time streaming STT (V4)
-- Trajectory export / Atropos RL (O1–O2)
-- Remote runtimes: SSH agent exec, Daytona, Modal production (R3–R5)
-- Signal live, Google Chat service account (C7–C8)
-- Langfuse dashboard templates (OTel wired ✅)
-
-## Still missing vs slaude
-
-- Slack Agents API status surface
-- Strict global MCP-only output mode (harness suppresses raw output per channel ✅)
-- Full CDP browser grant (login-host OAuth ✅)
-- `/1on1` command parity
+See **[69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md)** — P12 MCP E2E, channels, slaude polish, remote runtimes, streaming STT, research tooling.
 
 ## Closed since v1.8.0
 
@@ -67,4 +52,4 @@ Full Hermes tool inventory: [65-hermes-tools-catalog.md](./65-hermes-tools-catal
 - [55-phase-l6-learning-priorities.md](./55-phase-l6-learning-priorities.md) — Phase L6
 - [52-phase-k-priorities.md](./52-phase-k-priorities.md)
 
-Terakhir diperbarui: v1.15.0 (2026-06-19).
+Terakhir diperbarui: v1.17.0 (2026-06-19).
