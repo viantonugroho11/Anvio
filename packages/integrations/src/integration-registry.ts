@@ -21,7 +21,7 @@ export class IntegrationRegistry {
         apiVersion: 'anvio.io/v1',
         kind: 'McpConfig',
         metadata: { name: 'default' },
-        spec: { servers: {} },
+        spec: { firstCallApproval: true, servers: {} },
       };
       return this.config;
     }

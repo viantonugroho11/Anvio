@@ -14,6 +14,7 @@ export const mcpConfigSchema = z.object({
     name: z.string().default('default'),
   }),
   spec: z.object({
+    firstCallApproval: z.boolean().default(true),
     servers: z.record(mcpServerSpecSchema).default({}),
   }),
 });
