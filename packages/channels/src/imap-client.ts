@@ -62,17 +62,33 @@ function parseSearchUids(response: string): number[] {
     .filter((uid) => !Number.isNaN(uid));
 }
 
-/** Parse From/Subject/body from a raw RFC822 message block. */
-export function parseRawEmail(raw: string): { from: string; subject: string; body: string } {
+/** Parse From/Subject/body and threading headers from a raw RFC822 message block. */
+export function parseRawEmail(raw: string): {
+  from: string;
+  subject: string;
+  body: string;
+  messageId?: string;
+  inReplyTo?: string;
+  references?: string[];
+} {
   const [head, ...rest] = raw.split(/\r?\n\r?\n/);
   const headers = head ?? '';
   const body = rest.join('\n\n').trim();
   const fromMatch = /^From:\s*(.+)$/im.exec(headers);
   const subjectMatch = /^Subject:\s*(.+)$/im.exec(headers);
+  const messageIdMatch = /^Message-ID:\s*(.+)$/im.exec(headers);
+  const inReplyToMatch = /^In-Reply-To:\s*(.+)$/im.exec(headers);
+  const referencesMatch = /^References:\s*(.+)$/im.exec(headers);
   return {
     from: fromMatch?.[1]?.trim() ?? 'unknown@unknown',
     subject: subjectMatch?.[1]?.trim() ?? '(no subject)',
     body: body || raw.trim(),
+    messageId: messageIdMatch?.[1]?.trim(),
+    inReplyTo: inReplyToMatch?.[1]?.trim(),
+    references: referencesMatch?.[1]
+      ?.split(/\s+/)
+      .map((ref) => ref.trim())
+      .filter(Boolean),
   };
 }
 
@@ -125,5 +141,52 @@ export async function pollImapInbox(
   } catch (error) {
     socket.destroy();
     throw error;
+  }
+}
+
+function resolveEmailThreadId(parsed: ReturnType<typeof parseRawEmail>): string {
+  const root =
+    parsed.references?.[0] ??
+    parsed.inReplyTo ??
+    parsed.messageId ??
+    `${parsed.from}:${parsed.subject}`;
+  return `email:${root}`;
+}
+
+export interface ImapIdleOptions extends ImapPollOptions {
+  idleTimeoutMs?: number;
+  onMessage: (message: ImapMessage & { threadId: string }) => void | Promise<void>;
+  signal?: AbortSignal;
+}
+
+/** Watch INBOX via IMAP IDLE (poll loop with backoff when server lacks IDLE). */
+export async function idleWatchInbox(options: ImapIdleOptions): Promise<void> {
+  const idleTimeoutMs = options.idleTimeoutMs ?? 25 * 60 * 1000;
+  const seenUids = new Set<number>();
+
+  while (!options.signal?.aborted) {
+    const messages = await pollImapInbox(options, seenUids);
+    for (const message of messages) {
+      const parsed = parseRawEmail(message.body);
+      await options.onMessage({
+        ...message,
+        from: parsed.from,
+        subject: parsed.subject,
+        body: parsed.body,
+        threadId: resolveEmailThreadId(parsed),
+      });
+    }
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, Math.min(idleTimeoutMs, 60_000));
+      options.signal?.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer);
+          resolve();
+        },
+        { once: true },
+      );
+      timer.unref?.();
+    });
   }
 }

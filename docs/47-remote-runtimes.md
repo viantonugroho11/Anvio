@@ -1,29 +1,29 @@
-# Remote Runtimes (Phase I)
+# Remote Runtimes (Phase I / P13)
 
 Extended `@anvio/runtimes` providers:
 
 | ID | Provider | Status |
 |----|----------|--------|
-| `ssh` | `SshRuntimeProvider` | Connectivity test + mock mode |
-| `daytona` | `DaytonaRuntimeProvider` | Stub — requires `DAYTONA_API_KEY` |
-| `modal` | `ModalRuntimeProvider` | Stub — requires `MODAL_TOKEN_ID/SECRET` |
+| `ssh` | `SshRuntimeProvider` | Connectivity test + `execRemote` |
+| `daytona` | `DaytonaRuntimeProvider` | Mock + HTTP exec when `DAYTONA_API_KEY` set |
+| `modal` | `ModalRuntimeProvider` | Mock + HTTP exec when `MODAL_TOKEN_*` set |
 
-## SSH Test
+## SSH exec
 
 ```bash
-ANVIO_SSH_MOCK=1 anvio runtime test ssh   # CI/local mock (echo remote-ok)
-anvio runtime test ssh                     # real SSH when ANVIO_SSH_HOST set
+ANVIO_SSH_MOCK=1 anvio runtime exec ssh -- echo remote-ok
+anvio runtime exec ssh -- uname -a   # when ANVIO_SSH_HOST set
 ```
 
-Agent streaming on SSH is deferred — use for remote shell connectivity checks first.
+## Daytona / Modal exec
+
+```bash
+ANVIO_DAYTONA_MOCK=1 anvio runtime exec daytona -- echo ok
+ANVIO_MODAL_MOCK=1 anvio runtime exec modal -- echo ok
+```
+
+Agent streaming on SSH is deferred — use `execRemote` for remote shell commands.
 
 ## Configuration
 
-```yaml
-# workspace anvio.yaml — future binding
-spec:
-  runtime:
-    default: local
-```
-
-Environment: `ANVIO_SSH_HOST`, `ANVIO_SSH_USER`, `ANVIO_SSH_PORT`, `DAYTONA_API_KEY`, `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`.
+Environment: `ANVIO_SSH_HOST`, `ANVIO_SSH_USER`, `ANVIO_SSH_PORT`, `DAYTONA_API_KEY`, `DAYTONA_API_URL`, `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`, `MODAL_API_URL`.

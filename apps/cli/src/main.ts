@@ -16,9 +16,9 @@ import { createModelRouter, MODEL_PROVIDER_IDS, OPENAI_COMPATIBLE_PROVIDER_SPECS
 import { createSkillCatalogResolver, createSkillInstaller } from '@anvio/skills';
 import { createAcpServer } from '@anvio/acp';
 import { createCodeExecutor, ExecutionAuditLog } from '@anvio/execution';
-import { createRuntimeFactory, SshRuntimeProvider } from '@anvio/runtimes';
+import { createRuntimeFactory, SshRuntimeProvider, DaytonaRuntimeProvider, ModalRuntimeProvider } from '@anvio/runtimes';
 import { DagExecutor, createWorkflowRegistry } from '@anvio/workflows';
-import { VoicePipeline } from '@anvio/voice';
+import { VoicePipeline, createStreamingSttSession, streamTranscribe } from '@anvio/voice';
 import { createGoalEngine } from '@anvio/goals';
 import { createKanbanEngine } from '@anvio/kanban';
 import { createMemoryProvider } from '@anvio/memory';
@@ -1360,6 +1360,32 @@ async function cmdRuntime(sub: string[]) {
       }
       break;
     }
+    case 'exec': {
+      const id = (sub[1] ?? 'ssh') as import('@anvio/core').RuntimeProviderId;
+      const dashIdx = sub.indexOf('--');
+      const command = dashIdx >= 0 ? sub.slice(dashIdx + 1).join(' ') : '';
+      if (!command) {
+        console.error('Usage: anvio runtime exec <ssh|daytona|modal> -- <command>');
+        process.exit(1);
+      }
+      const provider = factory.get(id);
+      if (id === 'ssh') {
+        const ssh = provider as SshRuntimeProvider;
+        const result = await ssh.execRemote(command);
+        console.log(JSON.stringify({ id, ...result }, null, 2));
+        if (result.exitCode !== 0) process.exitCode = result.exitCode;
+        break;
+      }
+      if (id === 'daytona' || id === 'modal') {
+        const remote = provider as DaytonaRuntimeProvider | ModalRuntimeProvider;
+        const result = await remote.execRemote(command);
+        console.log(JSON.stringify({ id, ...result }, null, 2));
+        if (result.exitCode !== 0) process.exitCode = result.exitCode;
+        break;
+      }
+      console.error('exec supported for: ssh, daytona, modal');
+      process.exit(1);
+    }
     case 'test': {
       const id = (sub[1] ?? 'cursor') as import('@anvio/core').RuntimeProviderId;
       const provider = factory.get(id);
@@ -1381,7 +1407,7 @@ async function cmdRuntime(sub: string[]) {
       break;
     }
     default:
-      console.error('Usage: anvio runtime list|test [local|ssh|cursor|claude-code|codex|daytona|modal]');
+      console.error('Usage: anvio runtime list|test|exec <ssh|daytona|modal> -- <command>');
       process.exit(1);
   }
 }
@@ -1884,6 +1910,26 @@ async function cmdVoice(sub: string[]) {
       console.log(text);
       break;
     }
+    case 'stream-transcribe': {
+      const audioPath = sub[1];
+      if (!audioPath) {
+        console.error('Usage: anvio voice stream-transcribe <audio-file>');
+        process.exit(1);
+      }
+      const fs = await import('node:fs/promises');
+      const buffer = await fs.readFile(path.resolve(audioPath));
+      const session = createStreamingSttSession();
+      async function* chunks() {
+        const size = 4096;
+        for (let i = 0; i < buffer.length; i += size) {
+          yield buffer.subarray(i, i + size);
+        }
+      }
+      for await (const part of streamTranscribe(session, chunks())) {
+        console.log(JSON.stringify(part));
+      }
+      break;
+    }
     case 'speak': {
       const text = sub.slice(1).join(' ') || 'Hello from Anvio voice pipeline';
       const audio = await pipeline.speak(text);
@@ -1891,7 +1937,7 @@ async function cmdVoice(sub: string[]) {
       break;
     }
     default:
-      console.error('Usage: anvio voice transcribe|speak');
+      console.error('Usage: anvio voice transcribe|stream-transcribe|speak');
       process.exit(1);
   }
 }

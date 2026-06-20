@@ -20,3 +20,4 @@ export * from './email.js';
 export * from './signal.js';
 export * from './webhook-channel-base.js';
 export * from './mattermost.js';
+export { parseRawEmail, idleWatchInbox, type ImapIdleOptions } from './imap-client.js';

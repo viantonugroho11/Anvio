@@ -49,6 +49,28 @@ export class SshRuntimeProvider implements RuntimeProvider {
     };
   }
 
+  /** Execute a shell command on the remote host via SSH. */
+  async execRemote(command: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    if (process.env.ANVIO_SSH_MOCK === '1') {
+      const result = spawnSync('sh', ['-c', command], { encoding: 'utf-8' });
+      return {
+        stdout: (result.stdout ?? '').trim(),
+        stderr: (result.stderr ?? '').trim(),
+        exitCode: result.status ?? 1,
+      };
+    }
+    if (!this.isConfigured()) {
+      throw new AnvioError('VALIDATION_ERROR', 'SSH host not configured (set ANVIO_SSH_HOST)');
+    }
+    const target = this.sshTarget();
+    const result = spawnSync('ssh', [...target, command], { encoding: 'utf-8' });
+    return {
+      stdout: (result.stdout ?? '').trim(),
+      stderr: (result.stderr ?? '').trim(),
+      exitCode: result.status ?? 1,
+    };
+  }
+
   async run(_request: RuntimeRequest): Promise<RuntimeResult> {
     throw new AnvioError(
       'VALIDATION_ERROR',

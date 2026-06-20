@@ -8,6 +8,7 @@ export interface EmailChannelOptions extends WebhookChannelOptions {
   imapHost?: string;
   imapPort?: number;
   pollIntervalMs?: number;
+  useImapIdle?: boolean;
   username?: string;
   password?: string;
   fromAddress?: string;
@@ -20,6 +21,7 @@ export class EmailChannel extends WebhookChannelAdapter {
     [];
   private readonly seenImapUids = new Set<number>();
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private idleAbort: AbortController | null = null;
 
   constructor(private readonly emailOptions: EmailChannelOptions) {
     super(emailOptions);
@@ -37,12 +39,17 @@ export class EmailChannel extends WebhookChannelAdapter {
     from: string;
     subject: string;
     body: string;
+    threadId?: string;
+    messageId?: string;
+    inReplyTo?: string;
+    references?: string[];
   }): Promise<{ sessionId: string; userId: string }> {
     const userId = `email:${input.from}`;
-    const threadId = `email:${input.from}:${input.subject}`;
+    const threadId = input.threadId ?? `email:${input.from}:${input.subject}`;
     const session = await this.options.sessionBridge.resolveOrCreate(
       'email',
       threadId,
+      userId,
       this.emailOptions.defaultAgent,
     );
 
@@ -50,7 +57,13 @@ export class EmailChannel extends WebhookChannelAdapter {
     await this.options.sessions.update(session.id, {
       metadata: {
         ...session.metadata,
-        email: { from: input.from, subject: input.subject },
+        email: {
+          from: input.from,
+          subject: input.subject,
+          messageId: input.messageId,
+          inReplyTo: input.inReplyTo,
+          references: input.references,
+        },
       },
     });
 
@@ -109,10 +122,18 @@ export class EmailChannel extends WebhookChannelAdapter {
     );
 
     for (const message of messages) {
+      const { parseRawEmail } = await import('./imap-client.js');
+      const parsed = parseRawEmail(message.body);
+      const threadRoot =
+        parsed.references?.[0] ?? parsed.inReplyTo ?? parsed.messageId ?? `${parsed.from}:${parsed.subject}`;
       await this.handleInboundEmail({
-        from: message.from,
-        subject: message.subject,
-        body: message.body,
+        from: parsed.from,
+        subject: parsed.subject,
+        body: parsed.body,
+        threadId: `email:${threadRoot}`,
+        messageId: parsed.messageId,
+        inReplyTo: parsed.inReplyTo,
+        references: parsed.references,
       });
     }
 
@@ -121,6 +142,33 @@ export class EmailChannel extends WebhookChannelAdapter {
 
   override async start(): Promise<void> {
     if (!this.isImapConfigured()) return;
+
+    if (this.emailOptions.useImapIdle ?? process.env.EMAIL_IMAP_IDLE === '1') {
+      const { idleWatchInbox } = await import('./imap-client.js');
+      const controller = new AbortController();
+      this.idleAbort = controller;
+      void idleWatchInbox({
+        host: this.emailOptions.imapHost!,
+        port: this.emailOptions.imapPort,
+        username: this.emailOptions.username!,
+        password: this.emailOptions.password ?? '',
+        signal: controller.signal,
+        onMessage: async (message) => {
+          await this.handleInboundEmail({
+            from: message.from,
+            subject: message.subject,
+            body: message.body,
+            threadId: message.threadId,
+          });
+        },
+      }).catch((error) => {
+        console.error(
+          `[Email] IMAP IDLE failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+      return;
+    }
+
     const intervalMs = this.emailOptions.pollIntervalMs ?? 60_000;
     this.pollTimer = setInterval(() => {
       void this.pollInbox().catch((error) => {
@@ -132,6 +180,10 @@ export class EmailChannel extends WebhookChannelAdapter {
   }
 
   override async stop(): Promise<void> {
+    if (this.idleAbort) {
+      this.idleAbort.abort();
+      this.idleAbort = null;
+    }
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
