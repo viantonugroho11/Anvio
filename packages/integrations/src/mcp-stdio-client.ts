@@ -117,6 +117,14 @@ export class McpStdioClient {
     return { content: result.content, isError: result.isError };
   }
 
+  getRestartCount(): number {
+    return this.restartCount;
+  }
+
+  isConnected(): boolean {
+    return this.started && this.proc != null && this.proc.stdin.writable;
+  }
+
   async close(): Promise<void> {
     this.proc?.kill();
     this.proc = null;

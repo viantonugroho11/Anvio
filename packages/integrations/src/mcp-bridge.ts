@@ -21,6 +21,16 @@ export interface McpToolDescriptor {
   description: string;
 }
 
+export interface McpServerHealth {
+  serverId: string;
+  enabled: boolean;
+  transport: 'stub' | 'stdio';
+  connected: boolean;
+  restartCount: number;
+  toolCount: number;
+  message: string;
+}
+
 export class McpBridge {
   private readonly clients = new Map<string, McpStdioClient>();
 
@@ -94,6 +104,42 @@ export class McpBridge {
   async close(): Promise<void> {
     await Promise.all([...this.clients.values()].map((client) => client.close()));
     this.clients.clear();
+  }
+
+  /** Health snapshot for configured MCP servers (stdio pool state + tool counts). */
+  async getHealthReport(): Promise<McpServerHealth[]> {
+    const entries = await this.registry.list();
+    const report: McpServerHealth[] = [];
+
+    for (const entry of entries) {
+      if (!entry.enabled) {
+        report.push({
+          serverId: entry.id,
+          enabled: false,
+          transport: entry.server.transport ?? 'stdio',
+          connected: false,
+          restartCount: 0,
+          toolCount: 0,
+          message: 'disabled',
+        });
+        continue;
+      }
+
+      const transport = usesStdioTransport(entry) ? 'stdio' : 'stub';
+      const client = this.clients.get(entry.id);
+      const tools = await this.listTools(entry.id);
+      report.push({
+        serverId: entry.id,
+        enabled: true,
+        transport,
+        connected: client?.isConnected() ?? false,
+        restartCount: client?.getRestartCount() ?? 0,
+        toolCount: tools.length,
+        message: `${transport} (${tools.length} tools)`,
+      });
+    }
+
+    return report;
   }
 
   private async tryListStdioTools(entry: IntegrationEntry): Promise<McpToolDescriptor[] | null> {

@@ -4,6 +4,7 @@ export {
   createMcpBridge,
   createMcpStdioClient,
   McpStdioClient,
+  type McpServerHealth,
   type McpToolCall,
   type McpToolResult,
   type McpToolDescriptor,
