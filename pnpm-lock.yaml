@@ -762,6 +762,9 @@ importers:
       '@anvio/integrations':
         specifier: workspace:*
         version: link:../integrations
+      '@anvio/kanban':
+        specifier: workspace:*
+        version: link:../kanban
       '@anvio/learning':
         specifier: workspace:*
         version: link:../learning

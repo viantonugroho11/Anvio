@@ -25,6 +25,7 @@ import { PersonaService } from '@anvio/personas';
 import { createSoulService } from '@anvio/souls';
 import { SkillRegistry, createSkillCatalogResolver } from '@anvio/skills';
 import { createHarnessFromWorkspace, createHarnessAwareToolPort, type HarnessGateway } from '@anvio/harness';
+import { createKanbanEngine } from '@anvio/kanban';
 import { LearningEngine } from '@anvio/learning';
 import { ToolGateway } from '@anvio/tools';
 import { createCodeExecutor } from '@anvio/execution';
@@ -169,14 +170,36 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     workspaceRoot: workspacePath,
     allowedRuntimes: ['shell', 'python', 'node', 'go', 'docker'],
   });
+  const kanbanEngine = createKanbanEngine({ storage: workspace.storage });
   const toolGateway = await ToolGateway.load(workspacePath, {
     codeExecutor,
     workspaceRoot: workspacePath,
+    kanban: kanbanEngine,
     memoryRecall: async (userId, query, limit) => {
       if (memoryProvider.search) {
         return memoryProvider.search(query, { userId, limit });
       }
       return [];
+    },
+    searchSessions: async (query, limit = 10) => {
+      const q = query.toLowerCase();
+      const sessions = await workspace.sessions.list();
+      const results: Array<{ sessionId: string; agentName: string; channel: string; snippet: string }> = [];
+      for (const s of sessions) {
+        for (const m of s.messages) {
+          if (m.content.toLowerCase().includes(q)) {
+            results.push({
+              sessionId: s.id,
+              agentName: s.agentName,
+              channel: s.channel,
+              snippet: m.content.slice(0, 200),
+            });
+            break;
+          }
+        }
+        if (results.length >= limit) break;
+      }
+      return results;
     },
   });
 

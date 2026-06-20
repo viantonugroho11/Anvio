@@ -322,6 +322,16 @@ spec:
       enabled: true
     datetime_now:
       enabled: true
+    web_extract:
+      enabled: true
+    search_files:
+      enabled: true
+    todo:
+      enabled: true
+    clarify:
+      enabled: true
+    session_search:
+      enabled: true
   webSearch:
     provider: brave
     apiKeyEnv: WEB_SEARCH_API_KEY
