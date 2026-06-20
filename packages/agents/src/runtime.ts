@@ -11,6 +11,7 @@ import type {
   TokenUsage,
   UserInput,
 } from '@anvio/core';
+import { addTokenUsage, ZERO_TOKEN_USAGE } from '@anvio/core';
 import type { MemoryStore } from '@anvio/core';
 import type { SoulService } from '@anvio/souls';
 import type { ModelProviderRegistry } from '@anvio/models';
@@ -47,7 +48,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
 
   async run(session: Session, agent: AgentDefinition, input: UserInput): Promise<AgentResult> {
     let content = '';
-    let usage: TokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+    let usage: TokenUsage = { ...ZERO_TOKEN_USAGE };
     let status: AgentResult['status'] = 'completed';
 
     for await (const chunk of this.stream(session, agent, input)) {
@@ -95,7 +96,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
 
       let messages: ChatMessage[];
       let startIteration = 0;
-      let usage: TokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+      let usage: TokenUsage = { ...ZERO_TOKEN_USAGE };
 
       if (resumeDecision && checkpoint) {
         messages = [...checkpoint.messages];
@@ -158,7 +159,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
             iterationToolCalls.push(chunk.toolCall);
           }
           if (chunk.type === 'done') {
-            if (chunk.usage) usage = chunk.usage;
+            if (chunk.usage) usage = addTokenUsage(usage, chunk.usage);
             if (chunk.toolCalls?.length) {
               for (const call of chunk.toolCalls) {
                 if (!iterationToolCalls.some((c) => c.id === call.id)) {
