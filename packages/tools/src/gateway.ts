@@ -59,6 +59,48 @@ spec:
       enabled: true
     datetime_now:
       enabled: true
+    web_extract:
+      enabled: true
+    patch_file:
+      enabled: false
+    search_files:
+      enabled: true
+    browser_navigate:
+      enabled: false
+    browser_snapshot:
+      enabled: false
+    browser_click:
+      enabled: false
+    browser_type:
+      enabled: false
+    browser_scroll:
+      enabled: false
+    browser_back:
+      enabled: false
+    browser_press:
+      enabled: false
+    browser_console:
+      enabled: false
+    terminal:
+      enabled: false
+    process:
+      enabled: false
+    todo:
+      enabled: true
+    clarify:
+      enabled: true
+    session_search:
+      enabled: true
+    vision_analyze:
+      enabled: false
+    kanban_list:
+      enabled: false
+    kanban_show:
+      enabled: false
+    kanban_create:
+      enabled: false
+    kanban_move:
+      enabled: false
   webSearch:
     provider: brave
     apiKeyEnv: WEB_SEARCH_API_KEY
@@ -126,6 +168,7 @@ export class ToolGateway {
     const result = await runBuiltinTool(this.spec, call, {
       ...this.ctx,
       userId: runtimeCtx?.userId,
+      sessionId: runtimeCtx?.sessionId,
     });
     if (runtimeCtx && result.status === 'completed' && this.onToolCompleted) {
       await this.onToolCompleted(runtimeCtx, call, result);

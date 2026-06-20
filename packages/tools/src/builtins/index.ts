@@ -1,10 +1,27 @@
-import type { BuiltinToolCall, BuiltinToolResult, CodeExecutor, ToolGatewaySpec } from '@anvio/core';
+import type { BuiltinToolCall, BuiltinToolResult, CodeExecutor, KanbanColumn, KanbanStore, ToolGatewaySpec } from '@anvio/core';
 import { executeCodeWithExecutor, fileRead, fileWrite, listDir, editFile, pathExists, fileDelete, appendFile } from './filesystem.js';
 import { browserAction } from './browser.js';
+import {
+  browserNavigate,
+  browserSnapshot,
+  browserClick,
+  browserType,
+  browserScroll,
+  browserBack,
+  browserPress,
+  browserConsole,
+} from './browser-session.js';
 import { imageGenerate, textToSpeech } from './media.js';
 import { webFetch } from './web-fetch.js';
+import { webExtract } from './web-extract.js';
+import { patchFile } from './patch-file.js';
+import { searchFiles } from './search-files.js';
 import { httpRequest } from './network-tools.js';
 import { jsonParse, datetimeNow } from './utility-tools.js';
+import { runTerminal, manageProcess } from './process-manager.js';
+import { todoTool, clarifyTool, sessionSearchTool, type SessionSearchFn } from './agent-session-tools.js';
+import { visionAnalyze } from './vision-analyze.js';
+import { kanbanListTasks, kanbanShowTask, kanbanCreateTask, kanbanMoveTask } from './kanban-tools.js';
 import {
   executeCodePipeline,
   globFiles,
@@ -17,6 +34,9 @@ export interface BuiltinToolContext {
   codeExecutor?: CodeExecutor;
   memoryRecall?: MemoryRecallFn;
   userId?: string;
+  sessionId?: string;
+  searchSessions?: SessionSearchFn;
+  kanban?: KanbanStore;
 }
 
 export { webFetch } from './web-fetch.js';
@@ -385,6 +405,157 @@ export async function runBuiltinTool(
     case 'datetime_now': {
       const out = datetimeNow(call.arguments.timezone ? String(call.arguments.timezone) : undefined);
       return { name: call.name, output: out, status: 'completed' };
+    }
+    case 'web_extract':
+      return webExtract(String(call.arguments.url ?? ''));
+    case 'patch_file': {
+      if (!ctx.workspaceRoot) {
+        return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
+      }
+      try {
+        const out = await patchFile(
+          ctx.workspaceRoot,
+          String(call.arguments.path ?? ''),
+          String(call.arguments.old_string ?? ''),
+          String(call.arguments.new_string ?? ''),
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'search_files': {
+      if (!ctx.workspaceRoot) {
+        return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
+      }
+      try {
+        const target = call.arguments.target === 'name' ? 'name' : 'content';
+        const out = await searchFiles(
+          ctx.workspaceRoot,
+          String(call.arguments.pattern ?? ''),
+          target,
+          call.arguments.path ? String(call.arguments.path) : '.',
+          Number(call.arguments.maxResults ?? 30),
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'browser_navigate':
+      return browserNavigate(String(call.arguments.url ?? ''), ctx.sessionId);
+    case 'browser_snapshot':
+      return browserSnapshot(ctx.sessionId);
+    case 'browser_click':
+      return browserClick(String(call.arguments.ref ?? call.arguments.selector ?? ''), ctx.sessionId);
+    case 'browser_type':
+      return browserType(String(call.arguments.ref ?? ''), String(call.arguments.text ?? ''), ctx.sessionId);
+    case 'browser_scroll':
+      return browserScroll(
+        call.arguments.direction === 'up' ? 'up' : 'down',
+        Number(call.arguments.amount ?? 500),
+        ctx.sessionId,
+      );
+    case 'browser_back':
+      return browserBack(ctx.sessionId);
+    case 'browser_press':
+      return browserPress(String(call.arguments.key ?? 'Enter'), ctx.sessionId);
+    case 'browser_console':
+      return browserConsole(ctx.sessionId);
+    case 'terminal': {
+      try {
+        const out = await runTerminal(ctx.codeExecutor, String(call.arguments.command ?? ''), Boolean(call.arguments.background));
+        return {
+          name: call.name,
+          output: out,
+          status: out.exitCode === 0 ? 'completed' : 'failed',
+          error: out.exitCode === 0 ? undefined : out.stderr,
+        };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'process': {
+      try {
+        const action = String(call.arguments.action ?? 'list') as 'list' | 'poll' | 'log' | 'kill';
+        const out = manageProcess(action, call.arguments.processId ? String(call.arguments.processId) : undefined);
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'todo': {
+      const out = todoTool(ctx.sessionId ?? 'default', {
+        todos: call.arguments.todos as Array<{ id?: string; content: string; status?: 'pending' | 'in_progress' | 'completed' }> | undefined,
+        merge: Boolean(call.arguments.merge),
+      });
+      return { name: call.name, output: out, status: 'completed' };
+    }
+    case 'clarify': {
+      const out = clarifyTool({
+        question: String(call.arguments.question ?? ''),
+        choices: call.arguments.choices as string[] | undefined,
+        mode: call.arguments.mode as 'choice' | 'freeform' | undefined,
+      });
+      return { name: call.name, output: out, status: 'completed' };
+    }
+    case 'session_search': {
+      const out = await sessionSearchTool(
+        ctx.searchSessions,
+        String(call.arguments.query ?? ''),
+        Number(call.arguments.limit ?? 10),
+      );
+      return { name: call.name, output: out, status: 'completed' };
+    }
+    case 'vision_analyze':
+      return visionAnalyze(
+        String(call.arguments.image_url ?? call.arguments.path ?? ''),
+        call.arguments.prompt ? String(call.arguments.prompt) : undefined,
+      );
+    case 'kanban_list': {
+      try {
+        const out = await kanbanListTasks(
+          ctx.kanban,
+          call.arguments.board ? String(call.arguments.board) : undefined,
+          call.arguments.column as KanbanColumn | undefined,
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'kanban_show': {
+      try {
+        const out = await kanbanShowTask(ctx.kanban, String(call.arguments.task_id ?? ''));
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'kanban_create': {
+      try {
+        const out = await kanbanCreateTask(ctx.kanban, {
+          title: String(call.arguments.title ?? ''),
+          description: call.arguments.description ? String(call.arguments.description) : undefined,
+          column: call.arguments.column as KanbanColumn | undefined,
+          board: call.arguments.board ? String(call.arguments.board) : undefined,
+        });
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'kanban_move': {
+      try {
+        const out = await kanbanMoveTask(
+          ctx.kanban,
+          String(call.arguments.task_id ?? ''),
+          String(call.arguments.column ?? 'done') as KanbanColumn,
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
     }
     default:
       return { name: call.name, output: null, status: 'skipped', error: 'Not implemented' };

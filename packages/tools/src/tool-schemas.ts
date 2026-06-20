@@ -155,6 +155,114 @@ const TOOL_SCHEMAS: Record<string, Record<string, unknown>> = {
     type: 'object',
     properties: { timezone: { type: 'string', description: 'IANA timezone e.g. UTC, Asia/Jakarta' } },
   },
+  web_extract: {
+    type: 'object',
+    properties: { url: { type: 'string' } },
+    required: ['url'],
+  },
+  patch_file: {
+    type: 'object',
+    properties: { path: { type: 'string' }, old_string: { type: 'string' }, new_string: { type: 'string' } },
+    required: ['path', 'old_string', 'new_string'],
+  },
+  search_files: {
+    type: 'object',
+    properties: {
+      pattern: { type: 'string' },
+      target: { type: 'string', enum: ['content', 'name'] },
+      path: { type: 'string' },
+      maxResults: { type: 'number' },
+    },
+    required: ['pattern'],
+  },
+  browser_navigate: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+  browser_snapshot: { type: 'object', properties: {} },
+  browser_click: { type: 'object', properties: { ref: { type: 'string' } }, required: ['ref'] },
+  browser_type: {
+    type: 'object',
+    properties: { ref: { type: 'string' }, text: { type: 'string' } },
+    required: ['ref', 'text'],
+  },
+  browser_scroll: {
+    type: 'object',
+    properties: { direction: { type: 'string', enum: ['up', 'down'] }, amount: { type: 'number' } },
+  },
+  browser_back: { type: 'object', properties: {} },
+  browser_press: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] },
+  browser_console: { type: 'object', properties: {} },
+  terminal: {
+    type: 'object',
+    properties: { command: { type: 'string' }, background: { type: 'boolean' } },
+    required: ['command'],
+  },
+  process: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['list', 'poll', 'log', 'kill'] },
+      processId: { type: 'string' },
+    },
+    required: ['action'],
+  },
+  todo: {
+    type: 'object',
+    properties: {
+      merge: { type: 'boolean' },
+      todos: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            content: { type: 'string' },
+            status: { type: 'string', enum: ['pending', 'in_progress', 'completed'] },
+          },
+          required: ['content'],
+        },
+      },
+    },
+  },
+  clarify: {
+    type: 'object',
+    properties: {
+      question: { type: 'string' },
+      choices: { type: 'array', items: { type: 'string' } },
+      mode: { type: 'string', enum: ['choice', 'freeform'] },
+    },
+    required: ['question'],
+  },
+  session_search: {
+    type: 'object',
+    properties: { query: { type: 'string' }, limit: { type: 'number' } },
+    required: ['query'],
+  },
+  vision_analyze: {
+    type: 'object',
+    properties: {
+      image_url: { type: 'string' },
+      path: { type: 'string' },
+      prompt: { type: 'string' },
+    },
+  },
+  kanban_list: {
+    type: 'object',
+    properties: { board: { type: 'string' }, column: { type: 'string' } },
+  },
+  kanban_show: { type: 'object', properties: { task_id: { type: 'string' } }, required: ['task_id'] },
+  kanban_create: {
+    type: 'object',
+    properties: {
+      title: { type: 'string' },
+      description: { type: 'string' },
+      column: { type: 'string' },
+      board: { type: 'string' },
+    },
+    required: ['title'],
+  },
+  kanban_move: {
+    type: 'object',
+    properties: { task_id: { type: 'string' }, column: { type: 'string' } },
+    required: ['task_id', 'column'],
+  },
 };
 
 export function buildModelToolDefinitions(toolNames: string[]): ModelToolDefinition[] {
