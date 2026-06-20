@@ -1,6 +1,6 @@
 # Phase P12 — Integration polish & slaude UX
 
-**Status:** in progress  
+**Status:** implemented (pending v1.18.0 tag)  
 **Depends on:** v1.17.0 (P11 — 71 gateway tools)
 
 ## Goals

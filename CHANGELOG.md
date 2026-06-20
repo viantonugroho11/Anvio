@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Phase P12 (integration polish)
+- MCP `allowedTools` per-server allowlist; catalog filter in `loadMcpToolCatalog`
+- `anvio mcp preset list|apply <name>` — merge workspace presets into `mcp/servers.yaml`
+- Harness `toolSurface: mcp_and_channel` — hide built-in gateway tools on channels
+- `anvio session 1on1 [--agent NAME]` — dedicated CLI session with persistent metadata
+- Harness exports `anvio_channel__set_status` and `anvio_channel__edit` to model tool defs
+- Signal outbound via signal-cli REST (`SIGNAL_CLI_REST_URL`)
+
+### Docs
+- [69-post-v1.17-gap-register.md](./docs/69-post-v1.17-gap-register.md)
+- [70-phase-p12-priorities.md](./docs/70-phase-p12-priorities.md)
+- [71-mcp-setup-guide.md](./docs/71-mcp-setup-guide.md)
+- [72-observability-langfuse.md](./docs/72-observability-langfuse.md)
+
 ---
 
 ## [1.17.0] - 2026-06-19
