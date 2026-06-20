@@ -108,5 +108,26 @@ export function harnessToolDefinitions(): Array<{
         required: ['summary'],
       },
     },
+    {
+      name: 'anvio_channel__edit',
+      description: 'Edit a previously sent channel message',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          messageId: { type: 'string' },
+          text: { type: 'string' },
+        },
+        required: ['messageId', 'text'],
+      },
+    },
+    {
+      name: 'anvio_channel__set_status',
+      description: 'Set ephemeral status on the current channel (e.g. Slack presence)',
+      inputSchema: {
+        type: 'object',
+        properties: { status: { type: 'string' } },
+        required: ['status'],
+      },
+    },
   ];
 }

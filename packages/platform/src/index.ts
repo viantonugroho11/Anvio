@@ -251,7 +251,10 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   const integrationRegistry = createIntegrationRegistry(workspace.storage);
   const mcpConfig = await integrationRegistry.load();
   const mcpBridge = createMcpBridge(integrationRegistry);
-  const enabledMcpServers = (await integrationRegistry.listEnabled()).map((entry) => entry.id);
+  const enabledMcpServers = (await integrationRegistry.listEnabled()).map((entry) => ({
+    id: entry.id,
+    allowedTools: entry.server.allowedTools,
+  }));
   const mcpCatalog = await loadMcpToolCatalog(mcpBridge, enabledMcpServers);
 
   const mcpFirstCallGate = createMcpFirstCallGate({

@@ -11,7 +11,7 @@ import { nextCronRuns, PlanExecuteReviewEngine } from '@anvio/automation';
 import { BlueprintExecutor, createCatalogRegistry } from '@anvio/blueprints';
 import { createBatchEngine } from '@anvio/batch';
 import { createCredentialPoolManager } from '@anvio/credentials';
-import { createIntegrationRegistry, createMcpBridge } from '@anvio/integrations';
+import { createIntegrationRegistry, createMcpBridge, listMcpPresets, applyMcpPreset } from '@anvio/integrations';
 import { createModelRouter, MODEL_PROVIDER_IDS, OPENAI_COMPATIBLE_PROVIDER_SPECS } from '@anvio/models';
 import { createSkillCatalogResolver, createSkillInstaller } from '@anvio/skills';
 import { createAcpServer } from '@anvio/acp';
@@ -50,6 +50,9 @@ async function main() {
       await cmdRun(args.slice(1));
       break;
     case 'sessions':
+      await cmdSessions(args.slice(1));
+      break;
+    case 'session':
       await cmdSessions(args.slice(1));
       break;
     case 'status':
@@ -164,6 +167,7 @@ Core
   anvio chat [--agent NAME]            Interactive chat session
   anvio run <agent> [message]          Run task (--detach for background)
   anvio sessions list                  List agent sessions
+  anvio session 1on1 [--agent NAME]    Dedicated 1-on-1 CLI session
   anvio status [sessionId]             Platform or session status
   anvio logs <sessionId>               Session message log
   anvio approve <session> <id>         Approve pending tool request
@@ -199,7 +203,7 @@ Execution & Providers
   anvio routing show|providers|catalog|test  Provider routing and fallback
   anvio usage stats [--json] [--last 24h] Token usage from audit ledger
   anvio skill catalog|install|validate Skills catalog management
-  anvio mcp list|test|health             MCP integration servers
+  anvio mcp list|test|health|preset    MCP integration servers
   anvio tools list|test                Built-in tool gateway (Phase H)
   anvio kb list|ingest|sync|import-manifest   Knowledge base pipeline
   anvio learning drafts|promote|summarize-sessions
@@ -341,6 +345,11 @@ async function cmdRun(sub: string[]) {
 }
 
 async function cmdSessions(sub: string[]) {
+  if (sub[0] === '1on1') {
+    await cmdSessionOneOnOne(sub.slice(1));
+    return;
+  }
+
   const platform = await getPlatform();
   const { workspace, auth } = platform;
   const ctx = auth.getDefaultContext();
@@ -1918,8 +1927,38 @@ async function cmdMcp(sub: string[]) {
       console.log(JSON.stringify(report, null, 2));
       break;
     }
+    case 'preset': {
+      const presetAction = sub[1] ?? 'list';
+      const wsPath = resolveWorkspacePath();
+      switch (presetAction) {
+        case 'list': {
+          const presets = await listMcpPresets(wsPath);
+          if (presets.length === 0) {
+            console.log('No MCP presets in workspace/mcp/presets/');
+            return;
+          }
+          for (const name of presets) console.log(`  ${name}`);
+          break;
+        }
+        case 'apply': {
+          const name = sub[2];
+          if (!name) {
+            console.error('Usage: anvio mcp preset apply <name>');
+            process.exit(1);
+          }
+          const merged = await applyMcpPreset(wsPath, name);
+          console.log(`Applied preset "${name}" — merged servers: ${merged.join(', ')}`);
+          console.log('Edit mcp/servers.yaml to set enabled: true and env values, then: anvio mcp test <serverId>');
+          break;
+        }
+        default:
+          console.error('Usage: anvio mcp preset list|apply <name>');
+          process.exit(1);
+      }
+      break;
+    }
     default:
-      console.error('Usage: anvio mcp list|test|health');
+      console.error('Usage: anvio mcp list|test|health|preset list|apply <name>');
       process.exit(1);
   }
 }
@@ -1967,6 +2006,83 @@ async function cmdWorkspace(sub: string[]) {
       console.error('Usage: anvio workspace validate');
       process.exit(1);
   }
+}
+
+async function cmdSessionOneOnOne(sub: string[]) {
+  const agentFlag = sub.indexOf('--agent');
+  const agentName = agentFlag >= 0 ? sub[agentFlag + 1] : undefined;
+
+  const platform = await getPlatform();
+  const { workspace, runtime, auth, eventBus } = platform;
+
+  const name = agentName ?? workspace.config.spec.defaultAgent ?? 'architect';
+  const agent = await loadAgent(workspace, name);
+  const ctx = auth.getDefaultContext();
+
+  const stored = await workspace.sessions.create({
+    userId: ctx.userId,
+    agentName: name,
+    channel: 'cli',
+    messages: [],
+    status: 'idle',
+    metadata: { mode: '1on1', persistent: true },
+  });
+
+  const session = storedSessionToRuntime(stored);
+  console.log(`\nAnvio 1-on-1 — agent: ${name} (session: ${stored.id})`);
+  console.log('Private dedicated session. Type your message. Ctrl+C to exit.\n');
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+  const prompt = () => {
+    rl.question('You: ', async (input) => {
+      const content = input.trim();
+      if (!content) {
+        prompt();
+        return;
+      }
+
+      process.stdout.write('Assistant: ');
+      let full = '';
+      let turnUsage;
+
+      for await (const chunk of runtime.stream(session, agent, { content })) {
+        if (chunk.type === 'chunk' && chunk.delta) {
+          process.stdout.write(chunk.delta);
+          full += chunk.delta;
+        }
+        if (chunk.type === 'error') {
+          console.error(`\nError: ${chunk.error}`);
+        }
+        if (chunk.type === 'done') {
+          turnUsage = chunk.usage;
+          console.log('\n');
+          await workspace.sessions.update(stored.id, {
+            messages: [
+              ...stored.messages,
+              { role: 'user', content },
+              { role: 'assistant', content: full },
+            ],
+            status: 'completed',
+            metadata: { mode: '1on1', persistent: true },
+          });
+          stored.messages.push(
+            { role: 'user', content },
+            { role: 'assistant', content: full },
+          );
+          await finalizeAgentRun(eventBus, {
+            sessionId: stored.id,
+            content: full,
+            channel: 'cli',
+            usage: turnUsage,
+          });
+        }
+      }
+      prompt();
+    });
+  };
+
+  prompt();
 }
 
 async function cmdChat(sub: string[]) {

@@ -15,6 +15,17 @@ export interface HarnessBuiltinToolCaller {
   getModelToolDefinitions?(): ModelToolDefinition[];
 }
 
+function mcpAndChannelOnly(harness: HarnessGateway): boolean {
+  return harness.enabled && harness.defaults.toolSurface === 'mcp_and_channel';
+}
+
+function filterForToolSurface(tools: string[], harness: HarnessGateway): string[] {
+  if (!mcpAndChannelOnly(harness)) return tools;
+  return tools.filter(
+    (name) => name.startsWith('anvio_mcp__') || name.startsWith('anvio_channel__'),
+  );
+}
+
 /** Merges built-in tool gateway with channel-agnostic harness tools. */
 export class HarnessAwareToolPort implements RuntimeToolPort {
   constructor(
@@ -23,11 +34,22 @@ export class HarnessAwareToolPort implements RuntimeToolPort {
   ) {}
 
   listTools(): string[] {
-    return [...this.builtin.listTools(), ...this.harness.listChannelTools()];
+    const merged = [...this.builtin.listTools(), ...this.harness.listChannelTools()];
+    return filterForToolSurface(merged, this.harness);
   }
 
   getToolInstructions(): string {
-    const parts = [this.builtin.getToolInstructions()];
+    const parts: string[] = [];
+    if (!mcpAndChannelOnly(this.harness)) {
+      parts.push(this.builtin.getToolInstructions());
+    } else {
+      parts.push(
+        [
+          '## MCP-only tool surface',
+          'Built-in gateway tools are hidden. Use MCP tools and channel output tools only.',
+        ].join('\n'),
+      );
+    }
     if (this.harness.enabled) {
       const channelTools = harnessToolDefinitions()
         .map((t) => `- ${t.name}: ${t.description}`)
@@ -48,11 +70,20 @@ export class HarnessAwareToolPort implements RuntimeToolPort {
 
   getModelToolDefinitions(): ModelToolDefinition[] {
     const defs = this.builtin.getModelToolDefinitions?.() ?? [];
-    if (!this.harness.enabled) return defs;
-    return [...defs, ...harnessToolDefinitions()];
+    const merged = this.harness.enabled ? [...defs, ...harnessToolDefinitions()] : defs;
+    const names = new Set(filterForToolSurface(merged.map((d) => d.name), this.harness));
+    return merged.filter((d) => names.has(d.name));
   }
 
   async call(call: BuiltinToolCall, ctx: RuntimeToolContext): Promise<BuiltinToolResult> {
+    if (mcpAndChannelOnly(this.harness) && call.name.startsWith('anvio_tools__')) {
+      return {
+        name: call.name,
+        output: null,
+        status: 'failed',
+        error: 'Built-in tools unavailable in mcp_and_channel tool surface mode',
+      };
+    }
     if (call.name.startsWith('anvio_channel__')) {
       const channel = (ctx.channel ?? 'rest') as import('@anvio/core').ChannelType;
       return this.harness.callChannelTool(call, {
