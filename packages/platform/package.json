@@ -30,6 +30,7 @@
     "@anvio/souls": "workspace:*",
     "@anvio/storage": "workspace:*",
     "@anvio/learning": "workspace:*",
+    "@anvio/observability": "workspace:*",
     "@anvio/tools": "workspace:*",
     "@anvio/harness": "workspace:*",
     "@anvio/soul-gate": "workspace:*",

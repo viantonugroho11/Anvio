@@ -495,3 +495,9 @@ export {
   estimateTokenCostUsd,
   TokenUsageAudit,
 } from './token-usage-audit.js';
+export {
+  aggregateTokenUsage,
+  parseUsageLastFlag,
+  readTokenUsageAudit,
+  type TokenUsageStats,
+} from './usage-stats.js';

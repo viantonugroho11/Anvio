@@ -1,6 +1,7 @@
 import type { TokenUsage } from '@anvio/core';
 import type { StorageProvider } from '@anvio/core';
 import { appendJsonl } from '@anvio/storage';
+import { getMetricsRegistry } from '@anvio/observability';
 
 export interface TokenUsageRecord {
   ts: string;
@@ -45,6 +46,16 @@ export class TokenUsageAudit {
       ts: new Date().toISOString(),
       ...input,
       ...(estimatedCostUsd != null ? { estimatedCostUsd } : {}),
+    });
+
+    getMetricsRegistry().recordTokenUsage({
+      provider: input.provider,
+      model: input.model,
+      channel: input.channel,
+      inputTokens: input.usage.inputTokens,
+      outputTokens: input.usage.outputTokens,
+      totalTokens: input.usage.totalTokens,
+      estimatedCostUsd,
     });
   }
 }
