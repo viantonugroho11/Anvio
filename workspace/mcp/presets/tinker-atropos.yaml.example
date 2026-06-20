@@ -1,0 +1,6 @@
+# Merge into mcp/servers.yaml spec.servers — Hermes RL toolset
+tinker-atropos:
+  command: npx
+  args: ['-y', 'tinker-atropos-mcp']
+  transport: stdio
+  enabled: false

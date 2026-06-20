@@ -1,0 +1,9 @@
+# Merge into mcp/servers.yaml spec.servers
+spotify:
+  command: npx
+  args: ['-y', '@modelcontextprotocol/server-spotify']
+  transport: stdio
+  enabled: false
+  env:
+    SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID}
+    SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET}

@@ -1,0 +1,9 @@
+# Merge into mcp/servers.yaml spec.servers
+feishu:
+  command: npx
+  args: ['-y', 'feishu-mcp-server']
+  transport: stdio
+  enabled: false
+  env:
+    FEISHU_APP_ID: ${FEISHU_APP_ID}
+    FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}

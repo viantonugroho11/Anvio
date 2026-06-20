@@ -24,7 +24,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 
 | #   | Gap                                       | Hermes | slaude  | Anvio v1.15.0                                              | Target                             |
 | --- | ----------------------------------------- | ------ | ------- | ---------------------------------------------------------- | ---------------------------------- |
-| T1  | Built-in tools (60+)                      | ✅      | via MCP | 🟡 ~42 gateway tools + MCP — [catalog](./65-hermes-tools-catalog.md) | Platform integrations (HA, Spotify) via MCP |
+| T1  | Built-in tools (60+)                      | ✅      | via MCP | ✅ ~71 gateway tools + MCP — [catalog](./65-hermes-tools-catalog.md) | MCP sub-tool variants (Spotify bundle) |
 | T2  | Browser sandbox (Playwright)              | ✅      | —       | ✅ Playwright + fetch fallback                              | —                                  |
 | T3  | Image generation                          | ✅      | —       | ✅ DALL-E via OpenAI API                                    | —                                  |
 | T4  | Text-to-speech (tool)                     | ✅      | —       | ✅ OpenAI TTS via `@anvio/voice`                           | —                                  |

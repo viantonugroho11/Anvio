@@ -668,9 +668,9 @@ Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/d
 | Hermes | ~88% | Local-first, 18+ models, Agent OS, MCP runtime, native tool_use |
 | slaude | ~92% | SOUL gate, connections, multi-channel harness, manifest import |
 
-**Done (P4–P11c):** Native tool_use (Anthropic/OpenAI/Gemini), MCP stdio + agent runtime, Teams/Matrix/Email E2E, LLM SoulPolicy, token audit + metrics, **57 built-in tools**, OTel spans, planner CLI.
+**Done (P4–P11d):** Native tool_use (Anthropic/OpenAI/Gemini), MCP stdio + agent runtime, Teams/Matrix/Email E2E, LLM SoulPolicy, token audit + metrics, **71 built-in tools** (~Hermes breadth), OTel spans, planner CLI.
 
-**Gap vs Hermes:** ~14 niche tools (RL, HA, Spotify, MoA, x_search, video, computer_use) — [docs/65-hermes-tools-catalog.md](docs/65-hermes-tools-catalog.md).
+**Gap vs Hermes:** Sub-tool variants (Spotify/Feishu/Yuanbao/RL individual keys) via MCP presets — [docs/65-hermes-tools-catalog.md](docs/65-hermes-tools-catalog.md).
 
 **Gap vs slaude:** Slack Agents API, strict MCP-only mode, `/1on1` flow, full CDP grant.
 

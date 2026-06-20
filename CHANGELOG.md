@@ -8,7 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **P11c** — 15 tools: full kanban agent set (6), browser depth (4), orchestration (`delegate_task`, `cronjob`, `skills_list`, `skill_view`, `send_message`) → **57 total**
+- **P11d** — 14 niche Hermes tools: Home Assistant (4), `mixture_of_agents`, `x_search`, `video_*`, `computer_use`, `discord_admin`, `skill_manage`, `spotify_search`, `feishu_doc_read`, `rl_tool` → **71 total**
+- MCP presets in `workspace/mcp/presets/` for Spotify, Feishu, Tinker-Atropos
+
+### Added (P11c)
 - `KanbanStore.updateTask` for comments/links; `ToolGateway.mergeContext()` for late platform wiring
 
 ### Added (P11b)
