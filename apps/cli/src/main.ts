@@ -22,7 +22,7 @@ import { VoicePipeline } from '@anvio/voice';
 import { createGoalEngine } from '@anvio/goals';
 import { createKanbanEngine } from '@anvio/kanban';
 import { createMemoryProvider } from '@anvio/memory';
-import { createPlatform, findRepoRoot, loadAgent, storedSessionToRuntime } from '@anvio/platform';
+import { createPlatform, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime } from '@anvio/platform';
 import { createSoulService } from '@anvio/souls';
 import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
 import { ToolGateway } from '@anvio/tools';
@@ -299,6 +299,7 @@ async function cmdRun(sub: string[]) {
   }
 
   let full = '';
+  let runUsage;
   for await (const chunk of runtime.stream(session, agent, { content: message })) {
     if (chunk.type === 'progress') {
       process.stdout.write(`🔄 ${chunk.phase}\n`);
@@ -311,6 +312,7 @@ async function cmdRun(sub: string[]) {
       console.error(`\nError: ${chunk.error}`);
     }
     if (chunk.type === 'done') {
+      runUsage = chunk.usage;
       console.log('\n');
       await workspace.sessions.update(stored.id, {
         messages: [
@@ -319,6 +321,12 @@ async function cmdRun(sub: string[]) {
           { role: 'assistant', content: full },
         ],
         status: 'completed',
+      });
+      await finalizeAgentRun(eventBus, {
+        sessionId: stored.id,
+        content: full,
+        channel: 'cli',
+        usage: runUsage,
       });
     }
   }
@@ -1807,7 +1815,7 @@ async function cmdChat(sub: string[]) {
   const agentName = agentFlag >= 0 ? sub[agentFlag + 1] : undefined;
 
   const platform = await getPlatform();
-  const { workspace, runtime, auth } = platform;
+  const { workspace, runtime, auth, eventBus } = platform;
 
   const name = agentName ?? workspace.config.spec.defaultAgent ?? 'architect';
   const agent = await loadAgent(workspace, name);
@@ -1837,6 +1845,7 @@ async function cmdChat(sub: string[]) {
 
       process.stdout.write('Assistant: ');
       let full = '';
+      let turnUsage;
 
       for await (const chunk of runtime.stream(session, agent, { content })) {
         if (chunk.type === 'chunk' && chunk.delta) {
@@ -1847,6 +1856,7 @@ async function cmdChat(sub: string[]) {
           console.error(`\nError: ${chunk.error}`);
         }
         if (chunk.type === 'done') {
+          turnUsage = chunk.usage;
           console.log('\n');
           await workspace.sessions.update(stored.id, {
             messages: [
@@ -1854,11 +1864,18 @@ async function cmdChat(sub: string[]) {
               { role: 'user', content },
               { role: 'assistant', content: full },
             ],
+            status: 'completed',
           });
           stored.messages.push(
             { role: 'user', content },
             { role: 'assistant', content: full },
           );
+          await finalizeAgentRun(eventBus, {
+            sessionId: stored.id,
+            content: full,
+            channel: 'cli',
+            usage: turnUsage,
+          });
         }
       }
       prompt();
