@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2026-06-19
+
+**Phase L6 — Runtime learning & LLM skill evolution**
+
+### Added
+- Agent runtime **tool loop** (multi-turn, fenced `anvio_tool` blocks, max 5 iterations)
+- `ToolGateway.setOnToolCompleted()` hook for runtime learning
+- `LearningEngine.onToolUseCompleted()` — Hermes-style skill patch on tool success
+- **LLM summarizer** for skill evolution (`SkillEvolutionSummarizer`) with `shouldCreate` gate
+- LLM session summarizer when model provider configured (Anthropic preferred)
+- `RuntimeToolPort` in `@anvio/core`
+- Tool call parser, tool instruction renderer in `@anvio/tools`
+- `publishAgentRunCompleted` / `finalizeAgentRun` in `@anvio/platform`
+- Integration tests: Phase L6 runtime learning
+- Unit tests: skill evolution summarizer, tool call parser
+
+### Changed
+- `anvio chat` and inline `anvio run` emit `AGENT_RUN_COMPLETED` (learning on CLI paths)
+- Platform wires `ToolGateway` into `DefaultAgentRuntime` and learning model provider
+- Auto-promote runtime skills when `soul.spec.evolution.requireApproval: false`
+- Gap register updated: L5 session LLM ✅, L6 runtime self-improve ✅
+
+### Docs
+- [55-phase-l6-learning-priorities.md](./docs/55-phase-l6-learning-priorities.md)
+- Updated [43-learning-loop.md](./docs/43-learning-loop.md), [50-hermes-slaude-parity.md](./docs/50-hermes-slaude-parity.md), [51-gap-hermes-slaude.md](./docs/51-gap-hermes-slaude.md)
+
+---
+
 ## [1.6.0] - 2026-06-19
 
 **Phase P2 — Voice on channels & Mattermost (desktop deferred)**
