@@ -1,4 +1,5 @@
 import type { BuiltinToolResult } from '@anvio/core';
+import { visionAnalyze } from './vision-analyze.js';
 
 type PlaywrightModule = typeof import('playwright');
 type Browser = import('playwright').Browser;
@@ -178,6 +179,112 @@ export async function browserConsole(sessionId?: string): Promise<BuiltinToolRes
     return { name: 'anvio_tools__browser_console', output: { logs: logs.slice(-20) }, status: 'completed' };
   } catch (error) {
     return fail('browser_console', error);
+  }
+}
+
+export async function browserGetImages(sessionId?: string): Promise<BuiltinToolResult> {
+  try {
+    const session = await getSession(sessionId);
+    const images = await session.page.$$eval('img', (nodes) =>
+      nodes.slice(0, 20).map((img) => ({
+        src: img.getAttribute('src') ?? '',
+        alt: img.getAttribute('alt') ?? '',
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      })),
+    );
+    return {
+      name: 'anvio_tools__browser_get_images',
+      output: { url: session.page.url(), images },
+      status: 'completed',
+    };
+  } catch (error) {
+    return fail('browser_get_images', error);
+  }
+}
+
+export async function browserVision(
+  prompt = 'Describe the current page visually.',
+  sessionId?: string,
+): Promise<BuiltinToolResult> {
+  try {
+    const session = await getSession(sessionId);
+    const screenshot = await session.page.screenshot({ type: 'png', fullPage: false });
+    const dataUrl = `data:image/png;base64,${screenshot.toString('base64')}`;
+    const result = await visionAnalyze(dataUrl, prompt);
+    return {
+      name: 'anvio_tools__browser_vision',
+      output: { url: session.page.url(), ...(result.output as Record<string, unknown>) },
+      status: result.status,
+      error: result.error,
+    };
+  } catch (error) {
+    return fail('browser_vision', error);
+  }
+}
+
+export async function browserDialog(
+  action: 'accept' | 'dismiss',
+  text?: string,
+  sessionId?: string,
+): Promise<BuiltinToolResult> {
+  try {
+    const session = await getSession(sessionId);
+    session.page.once('dialog', async (dialog) => {
+      if (action === 'accept') {
+        await dialog.accept(text);
+      } else {
+        await dialog.dismiss();
+      }
+    });
+    return {
+      name: 'anvio_tools__browser_dialog',
+      output: { armed: true, action, note: 'Handler armed for next dialog on this session' },
+      status: 'completed',
+    };
+  } catch (error) {
+    return fail('browser_dialog', error);
+  }
+}
+
+const CDP_ALLOWED = new Set(['evaluate', 'screenshot', 'title', 'url'] as const);
+type CdpMethod = 'evaluate' | 'screenshot' | 'title' | 'url';
+
+export async function browserCdp(
+  method: string,
+  params: Record<string, unknown> = {},
+  sessionId?: string,
+): Promise<BuiltinToolResult> {
+  try {
+    const session = await getSession(sessionId);
+    const m = method.toLowerCase() as CdpMethod;
+    if (!CDP_ALLOWED.has(m)) {
+      throw new Error(`Method not allowed. Allowed: ${[...CDP_ALLOWED].join(', ')}`);
+    }
+    let output: unknown;
+    switch (m) {
+      case 'evaluate':
+        output = await session.page.evaluate(String(params.expression ?? 'document.title'));
+        break;
+      case 'screenshot': {
+        const buf = await session.page.screenshot({ type: 'png', fullPage: Boolean(params.fullPage) });
+        output = { base64: buf.toString('base64').slice(0, 200) + '…', size: buf.length };
+        break;
+      }
+      case 'title':
+        output = { title: await session.page.title() };
+        break;
+      case 'url':
+        output = { url: session.page.url() };
+        break;
+      default: {
+        const _exhaustive: never = m;
+        throw new Error(`Unhandled CDP method: ${_exhaustive}`);
+      }
+    }
+    return { name: 'anvio_tools__browser_cdp', output: { method: m, result: output }, status: 'completed' };
+  } catch (error) {
+    return fail('browser_cdp', error);
   }
 }
 

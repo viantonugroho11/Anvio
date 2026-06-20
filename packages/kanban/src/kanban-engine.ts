@@ -138,6 +138,32 @@ export class KanbanEngineImpl implements KanbanEngine {
     return task;
   }
 
+  async updateTask(
+    id: string,
+    patch: {
+      description?: string;
+      labels?: string[];
+      linkedGoal?: string;
+      appendDescription?: string;
+    },
+  ): Promise<KanbanTask> {
+    const task = await this.store.getTask(id);
+    if (!task) {
+      throw new AnvioError('NOT_FOUND', `Task not found: ${id}`);
+    }
+
+    if (patch.appendDescription) {
+      task.spec.description = `${task.spec.description}\n\n${patch.appendDescription}`.trim();
+    }
+    if (patch.description !== undefined) task.spec.description = patch.description;
+    if (patch.labels !== undefined) task.spec.labels = patch.labels;
+    if (patch.linkedGoal !== undefined) task.spec.linkedGoal = patch.linkedGoal;
+
+    task.metadata.updatedAt = new Date().toISOString();
+    await this.store.saveTask(task);
+    return task;
+  }
+
   async updateAgentState(
     taskId: string,
     agentId: string,

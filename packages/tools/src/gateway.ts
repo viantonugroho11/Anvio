@@ -101,6 +101,36 @@ spec:
       enabled: false
     kanban_move:
       enabled: false
+    kanban_block:
+      enabled: false
+    kanban_unblock:
+      enabled: false
+    kanban_heartbeat:
+      enabled: false
+    kanban_comment:
+      enabled: false
+    kanban_link:
+      enabled: false
+    kanban_complete:
+      enabled: false
+    browser_get_images:
+      enabled: false
+    browser_vision:
+      enabled: false
+    browser_dialog:
+      enabled: false
+    browser_cdp:
+      enabled: false
+    delegate_task:
+      enabled: false
+    cronjob:
+      enabled: false
+    skills_list:
+      enabled: true
+    skill_view:
+      enabled: true
+    send_message:
+      enabled: false
   webSearch:
     provider: brave
     apiKeyEnv: WEB_SEARCH_API_KEY
@@ -146,6 +176,10 @@ export class ToolGateway {
     this.onToolCompleted = handler;
   }
 
+  mergeContext(partial: BuiltinToolContext): void {
+    Object.assign(this.ctx, partial);
+  }
+
   listTools(): string[] {
     if (!this.spec.enabled) return [];
     return Object.entries(this.spec.tools)
@@ -169,6 +203,7 @@ export class ToolGateway {
       ...this.ctx,
       userId: runtimeCtx?.userId,
       sessionId: runtimeCtx?.sessionId,
+      agentId: runtimeCtx?.agentId,
     });
     if (runtimeCtx && result.status === 'completed' && this.onToolCompleted) {
       await this.onToolCompleted(runtimeCtx, call, result);

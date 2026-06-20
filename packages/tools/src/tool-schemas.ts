@@ -263,6 +263,75 @@ const TOOL_SCHEMAS: Record<string, Record<string, unknown>> = {
     properties: { task_id: { type: 'string' }, column: { type: 'string' } },
     required: ['task_id', 'column'],
   },
+  kanban_complete: { type: 'object', properties: { task_id: { type: 'string' } }, required: ['task_id'] },
+  kanban_block: {
+    type: 'object',
+    properties: { task_id: { type: 'string' }, agent_id: { type: 'string' }, reason: { type: 'string' } },
+    required: ['task_id'],
+  },
+  kanban_unblock: {
+    type: 'object',
+    properties: { task_id: { type: 'string' }, agent_id: { type: 'string' } },
+    required: ['task_id'],
+  },
+  kanban_heartbeat: {
+    type: 'object',
+    properties: { task_id: { type: 'string' }, agent_id: { type: 'string' }, note: { type: 'string' } },
+    required: ['task_id'],
+  },
+  kanban_comment: {
+    type: 'object',
+    properties: { task_id: { type: 'string' }, comment: { type: 'string' } },
+    required: ['task_id', 'comment'],
+  },
+  kanban_link: {
+    type: 'object',
+    properties: {
+      task_id: { type: 'string' },
+      link: { type: 'string' },
+      link_type: { type: 'string', enum: ['goal', 'task'] },
+    },
+    required: ['task_id', 'link'],
+  },
+  browser_get_images: { type: 'object', properties: {} },
+  browser_vision: { type: 'object', properties: { prompt: { type: 'string' } } },
+  browser_dialog: {
+    type: 'object',
+    properties: { action: { type: 'string', enum: ['accept', 'dismiss'] }, text: { type: 'string' } },
+    required: ['action'],
+  },
+  browser_cdp: {
+    type: 'object',
+    properties: {
+      method: { type: 'string', enum: ['evaluate', 'screenshot', 'title', 'url'] },
+      params: { type: 'object' },
+    },
+    required: ['method'],
+  },
+  delegate_task: {
+    type: 'object',
+    properties: { agent: { type: 'string' }, task: { type: 'string' }, context: { type: 'string' } },
+    required: ['agent', 'task'],
+  },
+  cronjob: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['list', 'run', 'create'] },
+      slug: { type: 'string' },
+      schedule: { type: 'string' },
+      agent: { type: 'string' },
+      prompt: { type: 'string' },
+      timezone: { type: 'string' },
+    },
+    required: ['action'],
+  },
+  skills_list: { type: 'object', properties: {} },
+  skill_view: { type: 'object', properties: { slug: { type: 'string' } }, required: ['slug'] },
+  send_message: {
+    type: 'object',
+    properties: { message: { type: 'string' }, channel: { type: 'string' } },
+    required: ['message'],
+  },
 };
 
 export function buildModelToolDefinitions(toolNames: string[]): ModelToolDefinition[] {

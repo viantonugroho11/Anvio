@@ -41,6 +41,21 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   kanban_show: 'Show kanban task. Args: { "task_id" }',
   kanban_create: 'Create kanban task. Args: { "title", "description"?, "column"?, "board"? }',
   kanban_move: 'Move kanban task column. Args: { "task_id", "column" }',
+  kanban_complete: 'Mark kanban task done. Args: { "task_id" }',
+  kanban_block: 'Block agent on task. Args: { "task_id", "agent_id"?, "reason"? }',
+  kanban_unblock: 'Unblock agent on task. Args: { "task_id", "agent_id"? }',
+  kanban_heartbeat: 'Agent heartbeat on task. Args: { "task_id", "agent_id"?, "note"? }',
+  kanban_comment: 'Add comment to task. Args: { "task_id", "comment" }',
+  kanban_link: 'Link task to goal or task. Args: { "task_id", "link", "link_type"?: "goal"|"task" }',
+  browser_get_images: 'List images on page. Args: {}',
+  browser_vision: 'Vision-analyze current page screenshot. Args: { "prompt"? }',
+  browser_dialog: 'Arm dialog handler. Args: { "action": "accept"|"dismiss", "text"? }',
+  browser_cdp: 'Safe browser introspection. Args: { "method": "evaluate"|"screenshot"|"title"|"url", "params"? }',
+  delegate_task: 'Delegate to sub-agent. Args: { "agent", "task", "context"? }',
+  cronjob: 'Manage cron automations. Args: { "action": "list"|"run"|"create", "slug"?, "schedule"?, "agent"?, "prompt"? }',
+  skills_list: 'List workspace skills. Args: {}',
+  skill_view: 'View skill instructions. Args: { "slug" }',
+  send_message: 'Send user-visible message on channel. Args: { "message", "channel"? }',
 };
 
 export function describeBuiltinTool(toolName: string): string {

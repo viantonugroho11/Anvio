@@ -4,6 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { patchFile } from './patch-file.js';
 import { todoTool, clarifyTool } from './agent-session-tools.js';
+import { kanbanCommentTask, kanbanCompleteTask } from './kanban-tools.js';
+import { skillsListTool } from './orchestration-tools.js';
+import type { KanbanStore } from '@anvio/core';
 
 describe('patch_file', () => {
   it('applies fuzzy line-trimmed patch', async () => {
@@ -30,5 +33,105 @@ describe('agent session tools', () => {
   it('clarifyTool returns structured question', () => {
     const out = clarifyTool({ question: 'Which API?', choices: ['REST', 'GraphQL'] });
     expect(out.choices).toEqual(['REST', 'GraphQL']);
+  });
+});
+
+describe('kanban extended tools', () => {
+  it('kanbanCommentTask appends comment to description', async () => {
+    const kanban: KanbanStore = {
+      listBoards: async () => [],
+      getBoard: async () => null,
+      listTasks: async () => [],
+      getTask: async (id) => ({
+        apiVersion: 'anvio.io/v1',
+        kind: 'KanbanTask',
+        metadata: { id, createdAt: '', updatedAt: '' },
+        spec: {
+          title: 'T',
+          description: 'base',
+          column: 'todo',
+          priority: 'medium',
+          assignees: [],
+          requiredSkills: [],
+          labels: [],
+          board: 'default',
+        },
+      }),
+      createTask: async () => {
+        throw new Error('not used');
+      },
+      moveTask: async () => {
+        throw new Error('not used');
+      },
+      assignAgent: async () => {
+        throw new Error('not used');
+      },
+      updateAgentState: async () => {
+        throw new Error('not used');
+      },
+      updateTask: async (_id, patch) => ({
+        apiVersion: 'anvio.io/v1',
+        kind: 'KanbanTask',
+        metadata: { id: 'task-1', updatedAt: new Date().toISOString() },
+        spec: {
+          title: 'T',
+          description: patch.appendDescription ? `base\n\n${patch.appendDescription}` : 'base',
+          column: 'todo',
+          priority: 'medium',
+          assignees: [],
+          requiredSkills: [],
+          labels: [],
+          board: 'default',
+        },
+      }),
+      listLanes: async () => [],
+    };
+    const out = await kanbanCommentTask(kanban, 'task-1', 'Ship it');
+    expect((out.task as { spec: { description: string } }).spec.description).toContain('Ship it');
+  });
+
+  it('kanbanCompleteTask moves to done', async () => {
+    const kanban: KanbanStore = {
+      listBoards: async () => [],
+      getBoard: async () => null,
+      listTasks: async () => [],
+      getTask: async () => null,
+      createTask: async () => {
+        throw new Error('not used');
+      },
+      moveTask: async (_id, column) => ({
+        apiVersion: 'anvio.io/v1',
+        kind: 'KanbanTask',
+        metadata: { id: 'task-1' },
+        spec: {
+          title: 'T',
+          description: '',
+          column,
+          priority: 'medium',
+          assignees: [],
+          requiredSkills: [],
+          labels: [],
+          board: 'default',
+        },
+      }),
+      assignAgent: async () => {
+        throw new Error('not used');
+      },
+      updateAgentState: async () => {
+        throw new Error('not used');
+      },
+      updateTask: async () => {
+        throw new Error('not used');
+      },
+      listLanes: async () => [],
+    };
+    const out = await kanbanCompleteTask(kanban, 'task-1');
+    expect((out.task as { spec: { column: string } }).spec.column).toBe('done');
+  });
+});
+
+describe('orchestration tools', () => {
+  it('skillsListTool requires handler', async () => {
+    await expect(skillsListTool(undefined)).rejects.toThrow('listSkills');
   });
 });

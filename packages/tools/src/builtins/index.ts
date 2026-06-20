@@ -10,6 +10,10 @@ import {
   browserBack,
   browserPress,
   browserConsole,
+  browserGetImages,
+  browserVision,
+  browserDialog,
+  browserCdp,
 } from './browser-session.js';
 import { imageGenerate, textToSpeech } from './media.js';
 import { webFetch } from './web-fetch.js';
@@ -21,13 +25,25 @@ import { jsonParse, datetimeNow } from './utility-tools.js';
 import { runTerminal, manageProcess } from './process-manager.js';
 import { todoTool, clarifyTool, sessionSearchTool, type SessionSearchFn } from './agent-session-tools.js';
 import { visionAnalyze } from './vision-analyze.js';
-import { kanbanListTasks, kanbanShowTask, kanbanCreateTask, kanbanMoveTask } from './kanban-tools.js';
+import { kanbanListTasks, kanbanShowTask, kanbanCreateTask, kanbanMoveTask, kanbanCompleteTask, kanbanBlockTask, kanbanUnblockTask, kanbanHeartbeatTask, kanbanCommentTask, kanbanLinkTask } from './kanban-tools.js';
 import {
   executeCodePipeline,
   globFiles,
   grepSearch,
 } from './workspace-tools.js';
 import { memoryRecall, type MemoryRecallFn } from './memory-recall.js';
+import {
+  delegateTaskTool,
+  cronjobTool,
+  skillsListTool,
+  skillViewTool,
+  sendMessageTool,
+  type CronjobFn,
+  type DelegateTaskFn,
+  type GetSkillFn,
+  type ListSkillsFn,
+  type SendMessageFn,
+} from './orchestration-tools.js';
 
 export interface BuiltinToolContext {
   workspaceRoot?: string;
@@ -35,8 +51,14 @@ export interface BuiltinToolContext {
   memoryRecall?: MemoryRecallFn;
   userId?: string;
   sessionId?: string;
+  agentId?: string;
   searchSessions?: SessionSearchFn;
   kanban?: KanbanStore;
+  delegateTask?: DelegateTaskFn;
+  manageCronjob?: CronjobFn;
+  listSkills?: ListSkillsFn;
+  getSkill?: GetSkillFn;
+  sendMessage?: SendMessageFn;
 }
 
 export { webFetch } from './web-fetch.js';
@@ -552,6 +574,149 @@ export async function runBuiltinTool(
           String(call.arguments.task_id ?? ''),
           String(call.arguments.column ?? 'done') as KanbanColumn,
         );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'kanban_complete': {
+      try {
+        const out = await kanbanCompleteTask(ctx.kanban, String(call.arguments.task_id ?? ''));
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'kanban_block': {
+      try {
+        const out = await kanbanBlockTask(
+          ctx.kanban,
+          String(call.arguments.task_id ?? ''),
+          String(call.arguments.agent_id ?? ctx.agentId ?? 'agent'),
+          call.arguments.reason ? String(call.arguments.reason) : undefined,
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'kanban_unblock': {
+      try {
+        const out = await kanbanUnblockTask(
+          ctx.kanban,
+          String(call.arguments.task_id ?? ''),
+          String(call.arguments.agent_id ?? ctx.agentId ?? 'agent'),
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'kanban_heartbeat': {
+      try {
+        const out = await kanbanHeartbeatTask(
+          ctx.kanban,
+          String(call.arguments.task_id ?? ''),
+          String(call.arguments.agent_id ?? ctx.agentId ?? 'agent'),
+          call.arguments.note ? String(call.arguments.note) : undefined,
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'kanban_comment': {
+      try {
+        const out = await kanbanCommentTask(
+          ctx.kanban,
+          String(call.arguments.task_id ?? ''),
+          String(call.arguments.comment ?? ''),
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'kanban_link': {
+      try {
+        const linkType = call.arguments.link_type === 'task' ? 'task' : 'goal';
+        const out = await kanbanLinkTask(
+          ctx.kanban,
+          String(call.arguments.task_id ?? ''),
+          String(call.arguments.link ?? ''),
+          linkType,
+        );
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'browser_get_images':
+      return browserGetImages(ctx.sessionId);
+    case 'browser_vision':
+      return browserVision(call.arguments.prompt ? String(call.arguments.prompt) : undefined, ctx.sessionId);
+    case 'browser_dialog':
+      return browserDialog(
+        call.arguments.action === 'dismiss' ? 'dismiss' : 'accept',
+        call.arguments.text ? String(call.arguments.text) : undefined,
+        ctx.sessionId,
+      );
+    case 'browser_cdp':
+      return browserCdp(
+        String(call.arguments.method ?? 'evaluate'),
+        (call.arguments.params as Record<string, unknown> | undefined) ?? {},
+        ctx.sessionId,
+      );
+    case 'delegate_task': {
+      try {
+        const out = await delegateTaskTool(ctx.delegateTask, {
+          agent: String(call.arguments.agent ?? ''),
+          task: String(call.arguments.task ?? ''),
+          context: call.arguments.context ? String(call.arguments.context) : undefined,
+        });
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'cronjob': {
+      try {
+        const out = await cronjobTool(ctx.manageCronjob, {
+          action: String(call.arguments.action ?? 'list') as 'list' | 'run' | 'create',
+          slug: call.arguments.slug ? String(call.arguments.slug) : undefined,
+          schedule: call.arguments.schedule ? String(call.arguments.schedule) : undefined,
+          agent: call.arguments.agent ? String(call.arguments.agent) : undefined,
+          prompt: call.arguments.prompt ? String(call.arguments.prompt) : undefined,
+          timezone: call.arguments.timezone ? String(call.arguments.timezone) : undefined,
+        });
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'skills_list': {
+      try {
+        const out = await skillsListTool(ctx.listSkills);
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'skill_view': {
+      try {
+        const out = await skillViewTool(ctx.getSkill, String(call.arguments.slug ?? ''));
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'send_message': {
+      try {
+        const out = await sendMessageTool(ctx.sendMessage, {
+          message: String(call.arguments.message ?? ''),
+          channel: call.arguments.channel ? String(call.arguments.channel) : undefined,
+          sessionId: ctx.sessionId,
+        });
         return { name: call.name, output: out, status: 'completed' };
       } catch (error) {
         return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };

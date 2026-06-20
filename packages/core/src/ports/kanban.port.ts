@@ -33,6 +33,15 @@ export interface KanbanStore {
     agentId: string,
     state: Partial<AssigneeState> & { status?: AgentWorkStatus },
   ): Promise<KanbanTask>;
+  updateTask(
+    id: string,
+    patch: {
+      description?: string;
+      labels?: string[];
+      linkedGoal?: string;
+      appendDescription?: string;
+    },
+  ): Promise<KanbanTask>;
   listLanes(): Promise<WorkerLane[]>;
 }
 
