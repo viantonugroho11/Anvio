@@ -2,7 +2,7 @@
 
 **Local-First AI Agent Operating System**
 
-[![Release](https://img.shields.io/badge/release-v1.14.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.14.0)
+[![Release](https://img.shields.io/badge/release-v1.15.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.15.0)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -12,7 +12,7 @@ Everything lives in a portable `workspace/` folder — back it up, commit it to 
 
 > **Priority:** CLI → API → Web UI. The full platform works from your terminal alone.
 
-**Latest (v1.14.0):** Token usage audit, MCP reconnect, Email SMTP, Teams Adaptive Cards. See [Phase P9 docs](docs/62-phase-p9-priorities.md). Prior: [P8](docs/61-phase-p8-priorities.md).
+**Latest (v1.15.0):** `anvio usage stats`, IMAP email polling, MCP health, Prometheus `/api/metrics`. See [Phase P10 docs](docs/63-phase-p10-priorities.md). Prior: [P9](docs/62-phase-p9-priorities.md).
 
 ---
 

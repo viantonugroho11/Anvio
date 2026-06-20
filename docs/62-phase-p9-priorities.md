@@ -43,9 +43,6 @@ Optional cost estimate for known models (`claude-sonnet-4-20250514`, `gpt-4o`, `
 - `TeamsChannel.sendApprovalRequestWithActions` posts Adaptive Card with Approve/Reject
 - `handleInvokeActivity` routes `Action.Submit` to `onApproval` callback
 
-## Remaining (P10+)
+## Remaining (P11+)
 
-- IMAP inbound polling for email
-- MCP connection pool sizing / health metrics
-- Prometheus metrics for token usage
-- `anvio usage stats` CLI
+See [Phase P10](./63-phase-p10-priorities.md) for completed P9 follow-ups.

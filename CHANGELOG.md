@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.15.0] - 2026-06-19
+
+**Phase P10 — Usage CLI, IMAP, MCP health, Prometheus**
+
+### Added
+- `anvio usage stats [--json] [--last 24h]` from `audit/tokens.jsonl`
+- Email IMAP polling (`pollInbox`, worker auto-start)
+- `McpBridge.getHealthReport()` and `anvio mcp health`
+- Prometheus metrics registry + `GET /api/metrics`
+
+### Docs
+- [63-phase-p10-priorities.md](./docs/63-phase-p10-priorities.md)
+
+---
+
 ## [1.14.0] - 2026-06-19
 
 **Phase P9 — Token usage, MCP reconnect, SMTP, Teams cards**
