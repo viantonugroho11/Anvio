@@ -7,5 +7,9 @@
     "emitDecoratorMetadata": true
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../../packages/events" }, { "path": "../../packages/platform" }]
+  "references": [
+    { "path": "../../packages/channels" },
+    { "path": "../../packages/events" },
+    { "path": "../../packages/platform" }
+  ]
 }

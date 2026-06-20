@@ -5,9 +5,18 @@ import { SessionsController } from './sessions.controller.js';
 import { AppService } from './app.service.js';
 
 import { WhatsAppController } from './whatsapp.controller.js';
+import { TeamsController } from './teams.controller.js';
+import { MatrixController } from './matrix.controller.js';
 
 @Module({
-  controllers: [HealthController, AgentsController, SessionsController, WhatsAppController],
+  controllers: [
+    HealthController,
+    AgentsController,
+    SessionsController,
+    WhatsAppController,
+    TeamsController,
+    MatrixController,
+  ],
   providers: [AppService],
 })
 export class AppModule {}

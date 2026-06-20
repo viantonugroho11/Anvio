@@ -13,6 +13,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@anvio/channels": "workspace:*",
     "@anvio/core": "workspace:*",
     "@anvio/events": "workspace:*",
     "@anvio/platform": "workspace:*",
