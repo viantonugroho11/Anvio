@@ -8,12 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **P11a** — 9 new built-in tools (`list_dir`, `edit_file`, `run_shell`, `http_request`, `path_exists`, `file_delete`, `append_file`, `json_parse`, `datetime_now`) → 21 total
-- OTel startup in worker + API; `agent.run` spans when `ANVIO_OTEL_ENABLED` or `OTEL_EXPORTER_OTLP_ENDPOINT` set
-- `anvio planner phases|run <task>` — PLAN → EXECUTE → REVIEW CLI
+- **P11b** — 21 Hermes-parity tools: `web_extract`, `patch_file`, `search_files`, browser session tools (8), `terminal`, `process`, `todo`, `clarify`, `session_search`, `vision_analyze`, kanban tools (4) → **42 total**
+- Platform wires `searchSessions`, `kanbanEngine`, and `sessionId` into tool gateway context
 
 ### Docs
-- [64-phase-p11a-priorities.md](./docs/64-phase-p11a-priorities.md)
+- [65-hermes-tools-catalog.md](./docs/65-hermes-tools-catalog.md) updated to v1.16+ (42 tools)
 
 ---
 

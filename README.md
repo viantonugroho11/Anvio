@@ -663,18 +663,18 @@ ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/gateway dev
 
 Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/docs) and [slaude](https://github.com/barockok/slaude)-style harness (generalized multi-channel):
 
-| Reference | Parity (v1.15.0) | Strengths in Anvio |
+| Reference | Parity (v1.16.0) | Strengths in Anvio |
 |-----------|------------------|---------------------|
-| Hermes | ~87% | Local-first, 18+ models, Agent OS, MCP runtime, native tool_use |
+| Hermes | ~88% | Local-first, 18+ models, Agent OS, MCP runtime, native tool_use |
 | slaude | ~92% | SOUL gate, connections, multi-channel harness, manifest import |
 
-**Done (P4–P10):** Native tool_use (Anthropic/OpenAI/Gemini), MCP stdio + agent runtime, Teams/Matrix/Email E2E, LLM SoulPolicy, token audit + `anvio usage stats` + Prometheus metrics.
+**Done (P4–P11b):** Native tool_use (Anthropic/OpenAI/Gemini), MCP stdio + agent runtime, Teams/Matrix/Email E2E, LLM SoulPolicy, token audit + metrics, **42 built-in tools**, OTel spans, planner CLI.
 
-**Gap vs Hermes:** 60+ tool catalog breadth, desktop app, streaming STT, RL/trajectory export, remote runtimes (Daytona/Modal).
+**Gap vs Hermes:** ~29 tools remaining (RL, HA, Spotify, MoA, x_search, video, CDP) — [docs/65-hermes-tools-catalog.md](docs/65-hermes-tools-catalog.md).
 
 **Gap vs slaude:** Slack Agents API, strict MCP-only mode, `/1on1` flow, full CDP grant.
 
-Detail: [docs/50-hermes-slaude-parity.md](docs/50-hermes-slaude-parity.md) · [docs/51-gap-hermes-slaude.md](docs/51-gap-hermes-slaude.md)
+Detail: [docs/50-hermes-slaude-parity.md](docs/50-hermes-slaude-parity.md) · [docs/51-gap-hermes-slaude.md](docs/51-gap-hermes-slaude.md) · [docs/65-hermes-tools-catalog.md](docs/65-hermes-tools-catalog.md)
 
 ---
 
@@ -710,7 +710,8 @@ Contributing: [docs/21-development-guide.md](docs/21-development-guide.md) · [d
 | [Advanced Agent OS](docs/24-advanced-agent-os-overview.md) | Feature map & CLI surface |
 | [Learning loop](docs/43-learning-loop.md) | Self-improve & skill evolution |
 | [Phase L6 priorities](docs/55-phase-l6-learning-priorities.md) | Runtime learning (v1.7) |
-| [Tool gateway](docs/44-tool-gateway.md) | Built-in tools |
+| [Tool gateway](docs/44-tool-gateway.md) | Built-in tools (21) |
+| [Hermes tools catalog](docs/65-hermes-tools-catalog.md) | ~71 Hermes tools + Anvio mapping |
 | [Channel harness](docs/41-channel-harness.md) | Formatting & engagement |
 | [Workspace artifacts](docs/49-workspace-artifacts.md) | MD-first conventions |
 | [Hermes parity](docs/50-hermes-slaude-parity.md) | Gap audit |

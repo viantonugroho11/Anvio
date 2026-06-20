@@ -16,7 +16,9 @@ describe('Phase P11a — tool breadth, planner CLI, OTel helpers', () => {
     expect(tools).toContain('anvio_tools__list_dir');
     expect(tools).toContain('anvio_tools__http_request');
     expect(tools).toContain('anvio_tools__json_parse');
-    expect(tools).toContain('anvio_tools__datetime_now');
+    expect(tools).toContain('anvio_tools__web_extract');
+    expect(tools).toContain('anvio_tools__search_files');
+    expect(tools).toContain('anvio_tools__todo');
     expect(tools.length).toBeGreaterThanOrEqual(10);
   });
 
@@ -27,7 +29,7 @@ describe('Phase P11a — tool breadth, planner CLI, OTel helpers', () => {
       metadata: { name: 'default' },
       spec: { enabled: true, tools: {} },
     });
-    expect(Object.keys(config.spec.tools)).toHaveLength(21);
+    expect(Object.keys(config.spec.tools)).toHaveLength(42);
   });
 
   it('builds model tool definitions for new tools', () => {

@@ -1,9 +1,11 @@
 # Gap Register — Hermes + slaude → Anvio
 
-Status baseline: **Phase A–J + P4–P10 selesai** (Advanced Agent OS, native tools, channel E2E, observability).  
+Status baseline: **Phase A–J + P4–P11a selesai** (Advanced Agent OS, native tools, channel E2E, observability, tool breadth).  
 Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude](https://github.com/barockok/slaude) · [hermes-tech](https://github.com/viantonugroho11/hermes-tech)
 
-**Ringkasan:** arsitektur gabungan production-viable (~**87% Hermes**, ~**92% slaude** post v1.15). Di bawah ini daftar gap tersisa, diurutkan prioritas.
+**Ringkasan:** arsitektur gabungan production-viable (~**88% Hermes**, ~**92% slaude** post v1.16). Di bawah ini daftar gap tersisa, diurutkan prioritas.
+
+**Katalog tools Hermes lengkap:** [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) — ~71 built-in Hermes dengan mapping ke Anvio.
 
 ---
 
@@ -22,7 +24,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 
 | #   | Gap                                       | Hermes | slaude  | Anvio v1.15.0                                              | Target                             |
 | --- | ----------------------------------------- | ------ | ------- | ---------------------------------------------------------- | ---------------------------------- |
-| T1  | Built-in tools (60+)                      | ✅      | via MCP | 🟡 ~21 gateway tools + MCP `anvio_mcp__*` + native tool_use | Expand toward 30+ |
+| T1  | Built-in tools (60+)                      | ✅      | via MCP | 🟡 ~42 gateway tools + MCP — [catalog](./65-hermes-tools-catalog.md) | Platform integrations (HA, Spotify) via MCP |
 | T2  | Browser sandbox (Playwright)              | ✅      | —       | ✅ Playwright + fetch fallback                              | —                                  |
 | T3  | Image generation                          | ✅      | —       | ✅ DALL-E via OpenAI API                                    | —                                  |
 | T4  | Text-to-speech (tool)                     | ✅      | —       | ✅ OpenAI TTS via `@anvio/voice`                           | —                                  |
@@ -208,6 +210,8 @@ Token usage: `workspace/audit/tokens.jsonl`, `anvio usage stats`, `GET /api/metr
 
 ## Dokumen terkait
 
+- [64-phase-p11a-priorities.md](./64-phase-p11a-priorities.md) — Phase P11a (v1.16.0)
+- [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) — katalog ~71 tools Hermes + mapping Anvio
 - [63-phase-p10-priorities.md](./63-phase-p10-priorities.md) — Phase P10 (v1.15.0)
 - [62-phase-p9-priorities.md](./62-phase-p9-priorities.md) — Phase P9 (v1.14.0)
 - [61-phase-p8-priorities.md](./61-phase-p8-priorities.md) — Phase P8 (v1.13.0)
@@ -217,4 +221,4 @@ Token usage: `workspace/audit/tokens.jsonl`, `anvio usage stats`, `GET /api/metr
 - [49-workspace-artifacts.md](./49-workspace-artifacts.md) — konvensi MD vs YAML
 - [plans/2026-06-19-002-feat-unified-agent-product-plan.md](./plans/2026-06-19-002-feat-unified-agent-product-plan.md) — plan asli
 
-Terakhir diperbarui: v1.15.0 (2026-06-19).
+Terakhir diperbarui: v1.16.0 (2026-06-19).

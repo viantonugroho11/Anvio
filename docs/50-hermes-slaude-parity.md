@@ -2,9 +2,11 @@
 
 Gap register detail: [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md).
 
-**Baseline:** v1.15.0 (Phase P10 — usage CLI, IMAP, MCP health, Prometheus)
+**Baseline:** v1.16.0 (Phase P11a — 21 gateway tools, OTel, planner CLI)
 
-## Summary (v1.15.0)
+Full Hermes tool inventory: [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md)
+
+## Summary (v1.16.0)
 
 | Area | Parity | Notes |
 |------|--------|-------|
@@ -12,13 +14,13 @@ Gap register detail: [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md).
 | **Channel harness** | ✅ ~92% | Enabled by default; multi-channel approval (P5+) |
 | **SOUL.md + gate** | ✅ ~95% | Regex + LLM policy extraction (P8), contextual connections (P1) |
 | **Learning loop** | ✅ ~90% | L6 runtime learning, LLM summarizer, FTS5, Honcho, skill evolution |
-| **Tool gateway** | 🟡 ~45% | ~12 builtins + MCP agent tools; vs Hermes 60+ |
+| **Tool gateway** | 🟡 ~55% | 21 builtins + MCP; Hermes ~71 — see [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) |
 | **MCP** | ✅ ~90% | Stdio client, first-call approval, health report (P7–P10) |
 | **Native tool_use** | ✅ | Anthropic, OpenAI, Gemini (P4–P7) |
 | **Multi-channel** | ✅ ~80% | ~13 types; Teams/Matrix/Email E2E (P8–P10) |
 | **Voice** | 🟡 ~60% | CLI + Telegram/Discord hooks; no streaming STT |
 | **Remote runtimes** | 🟡 ~35% | Docker + ACP/Cursor; SSH/Daytona/Modal partial |
-| **Observability** | 🟡 ~55% | Token audit, Prometheus `/api/metrics`, `anvio usage stats` (P9–P10) |
+| **Observability** | 🟡 ~70% | Token audit, Prometheus, OTel spans in worker/API (P9–P11a) |
 | **Desktop app** | ❌ | Deferred |
 | **Contextual connections** | ✅ ~90% | Broker + login-host (P1) |
 | **Knowledge base** | ✅ | raw→wiki + `import-manifest` (slaude parity) |
@@ -26,21 +28,21 @@ Gap register detail: [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md).
 
 ## Estimated overall parity
 
-| Reference | v1.8.0 | v1.15.0 |
+| Reference | v1.8.0 | v1.16.0 |
 |-----------|--------|---------|
-| Hermes Agent | ~80% | **~87%** |
+| Hermes Agent | ~80% | **~88%** |
 | slaude | ~88% | **~92%** |
 
 ## Still missing vs Hermes
 
-- 60+ bundled tools (Anvio ~12 gateway tools + MCP; breadth gap remains)
+- ~71 Hermes built-in tools — mapping per tool: [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md)
 - Nous Portal OAuth (T6)
 - Desktop installer + tray (R8)
 - Real-time streaming STT (V4)
 - Trajectory export / Atropos RL (O1–O2)
 - Remote runtimes: SSH agent exec, Daytona, Modal production (R3–R5)
 - Signal live, Google Chat service account (C7–C8)
-- Langfuse + OTel startup wiring (O3 partial)
+- Langfuse dashboard templates (OTel wired ✅)
 
 ## Still missing vs slaude
 
