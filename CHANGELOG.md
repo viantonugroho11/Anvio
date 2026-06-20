@@ -7,20 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.17.0] - 2026-06-19
+
+**Phase P11 — Hermes tool parity (21 → 71 built-in gateway tools)**
+
 ### Added
-- **P11d** — 14 niche Hermes tools: Home Assistant (4), `mixture_of_agents`, `x_search`, `video_*`, `computer_use`, `discord_admin`, `skill_manage`, `spotify_search`, `feishu_doc_read`, `rl_tool` → **71 total**
-- MCP presets in `workspace/mcp/presets/` for Spotify, Feishu, Tinker-Atropos
-
-### Added (P11c)
-- `KanbanStore.updateTask` for comments/links; `ToolGateway.mergeContext()` for late platform wiring
-
-### Added (P11b)
-- **P11b** — 21 Hermes-parity tools: `web_extract`, `patch_file`, `search_files`, browser session tools (8), `terminal`, `process`, `todo`, `clarify`, `session_search`, `vision_analyze`, kanban tools (4) → **42 total**
-- Platform wires `searchSessions`, `kanbanEngine`, and `sessionId` into tool gateway context
+- **P11a** — Built-in catalog 12 → 21: `list_dir`, `edit_file`, `run_shell`, `http_request`, `path_exists`, `file_delete`, `append_file`, `json_parse`, `datetime_now`; OTel spans in worker/API; `anvio planner run`
+- **P11b** — +21 tools: `web_extract`, `patch_file`, `search_files`, browser session (8), `terminal`, `process`, `todo`, `clarify`, `session_search`, `vision_analyze`, kanban (4)
+- **P11c** — +15 tools: kanban depth (6), browser depth (4), `delegate_task`, `cronjob`, `skills_list`, `skill_view`, `send_message`; `KanbanStore.updateTask`; `ToolGateway.mergeContext()`
+- **P11d** — +14 tools: Home Assistant (4), `mixture_of_agents`, `x_search`, `video_*`, `computer_use`, `discord_admin`, `skill_manage`, `spotify_search`, `feishu_doc_read`, `rl_tool`; MCP presets in `workspace/mcp/presets/`
 
 ### Docs
-- [65-hermes-tools-catalog.md](./docs/65-hermes-tools-catalog.md) updated to v1.17+ (57 tools)
-- [67-phase-p11c-priorities.md](./docs/67-phase-p11c-priorities.md)
+- [65-hermes-tools-catalog.md](./docs/65-hermes-tools-catalog.md) — full Hermes → Anvio mapping
+- [64-phase-p11a-priorities.md](./docs/64-phase-p11a-priorities.md) through [68-phase-p11d-priorities.md](./docs/68-phase-p11d-priorities.md)
 
 ---
 

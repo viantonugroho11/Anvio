@@ -1,6 +1,6 @@
 # Phase P11d — Platform integrations & Hermes niche tools
 
-**Status:** shipped (unreleased)  
+**Status:** shipped (v1.17.0)  
 **Depends on:** P11c (57 tools baseline)
 
 ## Goals

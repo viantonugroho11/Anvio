@@ -2,7 +2,7 @@
 
 **Referensi Hermes:** [Built-in Tools Reference](https://hermes-agent.nousresearch.com/docs/reference/tools-reference) · [Toolsets Reference](https://hermes-agent.nousresearch.com/docs/reference/toolsets-reference)  
 **Anvio gateway:** `workspace/tools/gateway.yaml` · `@anvio/tools` · prefix `anvio_tools__*`  
-**Status Anvio:** v1.16.0+ (P11b) — **42 built-in gateway tools** + MCP `anvio_mcp__*` + harness channel tools
+**Status Anvio:** v1.17.0 (P11d) — **71 built-in gateway tools** + MCP `anvio_mcp__*` + harness channel tools
 
 Hermes registry saat ini: **~71 built-in tools** (core + plugin-registered), ditambah **MCP dynamic** (`mcp_{server}_{tool}`). Anvio menutup gap lewat gateway built-in, MCP bridge, harness, dan modul Agent OS terpisah (kanban, cron, delegation, dll.).
 
@@ -367,4 +367,4 @@ Urutan ROI untuk mendekati Hermes `hermes-cli`:
 - [64-phase-p11a-priorities.md](./64-phase-p11a-priorities.md) — P11a shipped
 - [Hermes Tools Reference](https://hermes-agent.nousresearch.com/docs/reference/tools-reference) — sumber otoritatif upstream
 
-Terakhir diperbarui: v1.16.0 (2026-06-19).
+Terakhir diperbarui: v1.17.0 (2026-06-19).

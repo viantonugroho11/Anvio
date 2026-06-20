@@ -1,6 +1,6 @@
 # Phase P11a — Tool breadth, OTel wiring, planner CLI
 
-**Status:** in progress → v1.16.0  
+**Status:** shipped (v1.17.0)  
 **Depends on:** P10 (metrics + token audit)
 
 ## Goals

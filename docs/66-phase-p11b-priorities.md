@@ -1,6 +1,6 @@
 # Phase P11b — Hermes tool parity expansion
 
-**Status:** shipped (unreleased)  
+**Status:** shipped (v1.17.0)  
 **Depends on:** P11a (21 tools baseline)
 
 ## Goals

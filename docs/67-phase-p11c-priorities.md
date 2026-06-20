@@ -1,6 +1,6 @@
 # Phase P11c — Hermes depth tools
 
-**Status:** shipped (unreleased)  
+**Status:** shipped (v1.17.0)  
 **Depends on:** P11b (42 tools baseline)
 
 ## Goals
