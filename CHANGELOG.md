@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.14.0] - 2026-06-19
+
+**Phase P9 — Token usage, MCP reconnect, SMTP, Teams cards**
+
+### Added
+- `addTokenUsage` + stream usage parsing (Gemini, OpenAI-compatible)
+- `TokenUsageAudit` → `workspace/audit/tokens.jsonl` with cost estimates
+- MCP stdio auto-reconnect (`invalidate`, max 3 restarts)
+- Email SMTP outbound via STARTTLS (`sendSmtpMail`)
+- Teams Adaptive Card approval UI + invoke handler
+
+### Changed
+- Agent runtime accumulates token usage across tool iterations
+- Worker uses `finalizeAgentRun()` for completed runs
+
+### Docs
+- [62-phase-p9-priorities.md](./docs/62-phase-p9-priorities.md)
+
+---
+
 ## [1.13.0] - 2026-06-19
 
 **Phase P8 — MCP stdio, channel E2E, LLM SoulPolicy**

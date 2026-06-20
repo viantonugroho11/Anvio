@@ -49,8 +49,6 @@ When a real model provider is available (and `SOUL_POLICY_LLM` is not `0`), `loa
 
 Cached by content hash under `workspace/souls/_cache/` (unchanged).
 
-## Remaining (P9+)
+## Remaining (P10+)
 
-- Full SMTP/IMAP email bridge
-- Real MCP server process pool + reconnect
-- Teams adaptive cards for approval actions
+See [Phase P9](./62-phase-p9-priorities.md) for completed P8 follow-ups.
