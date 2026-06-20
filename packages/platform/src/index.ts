@@ -31,6 +31,7 @@ import { createCodeExecutor } from '@anvio/execution';
 import { DagExecutor, createWorkflowRegistry } from '@anvio/workflows';
 import { Workspace } from '@anvio/workspace';
 import { findRepoRoot, findWorkspacePath } from './find-workspace.js';
+import { createTokenUsageAudit } from './token-usage-audit.js';
 
 export interface PlatformContext {
   workspace: Workspace;
@@ -363,14 +364,37 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   await hookEngine.start();
   await automationEngine.start();
 
+  const tokenUsageAudit = createTokenUsageAudit(workspace.storage);
+
   await eventBus.subscribeCore(EventSubjects.AGENT_RUN_COMPLETED, async (event) => {
     const data = event.data as {
       sessionId: string;
       content?: string;
       channel?: string;
+      usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
     };
     const stored = await workspace.sessions.get(data.sessionId);
     if (!stored) return;
+
+    if (data.usage && data.usage.totalTokens > 0) {
+      let model: string | undefined;
+      try {
+        const agent = await workspace.loader.loadAgent(stored.agentName);
+        model = agent.spec.model.model;
+      } catch {
+        model = undefined;
+      }
+      await tokenUsageAudit.record({
+        sessionId: stored.id,
+        channel: data.channel ?? stored.channel,
+        agentId: stored.agentName,
+        userId: stored.userId,
+        provider: modelProvider.providerId,
+        model,
+        usage: data.usage,
+      });
+    }
+
     const soulSlug = spec.defaultSoul;
     let soul;
     if (soulSlug) {
@@ -466,3 +490,8 @@ export async function loadAgent(workspace: Workspace, name: string): Promise<Age
 export type { ChannelHubPort, AgentInbox, WhatsAppChannel };
 export { findRepoRoot, findWorkspacePath } from './find-workspace.js';
 export { publishAgentRunCompleted, finalizeAgentRun } from './agent-run.js';
+export {
+  createTokenUsageAudit,
+  estimateTokenCostUsd,
+  TokenUsageAudit,
+} from './token-usage-audit.js';

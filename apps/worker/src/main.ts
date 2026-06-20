@@ -8,7 +8,7 @@ import {
   type ApprovalRequestedData,
 } from '@anvio/events';
 import type { ChannelType } from '@anvio/core';
-import { createPlatform, loadAgent, storedSessionToRuntime } from '@anvio/platform';
+import { createPlatform, loadAgent, storedSessionToRuntime, finalizeAgentRun } from '@anvio/platform';
 
 async function main() {
   const platform = await createPlatform({
@@ -206,11 +206,12 @@ async function main() {
               agentRunCheckpoint: undefined,
             },
           });
-          await eventBus.publishCore(
-            EventSubjects.AGENT_RUN_COMPLETED,
-            'anvio.agent.run.completed',
-            { sessionId, content: fullContent, usage: chunk.usage, status: 'completed', channel },
-          );
+          await finalizeAgentRun(eventBus, {
+            sessionId,
+            content: fullContent,
+            usage: chunk.usage,
+            channel,
+          });
           if (!harness.shouldSuppressRawOutput(channel as ChannelType)) {
             await channelHub.sendMessage(channel as ChannelType, sessionId, {
               sessionId,

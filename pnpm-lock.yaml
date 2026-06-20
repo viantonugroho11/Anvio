@@ -774,6 +774,9 @@ importers:
       '@anvio/souls':
         specifier: workspace:*
         version: link:../souls
+      '@anvio/storage':
+        specifier: workspace:*
+        version: link:../storage
       '@anvio/tools':
         specifier: workspace:*
         version: link:../tools

@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "outDir": "./dist", "rootDir": "./src" },
   "include": ["src/**/*"],
+  "exclude": ["src/**/*.spec.ts"],
   "references": [
     { "path": "../core" },
     { "path": "../workspace" },
@@ -20,6 +21,7 @@
     { "path": "../learning" },
     { "path": "../tools" },
     { "path": "../integrations" },
-    { "path": "../souls" }
+    { "path": "../souls" },
+    { "path": "../storage" }
   ]
 }
