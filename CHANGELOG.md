@@ -7,13 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added — Phase P12 (integration polish)
+### Added — Phase P13 (remote, voice, email)
+- `SshRuntimeProvider.execRemote` + `anvio runtime exec ssh|daytona|modal -- <cmd>`
+- Daytona/Modal remote exec with mock mode (`ANVIO_DAYTONA_MOCK`, `ANVIO_MODAL_MOCK`)
+- Streaming STT session (`ChunkedStreamingSttSession`) + `anvio voice stream-transcribe`
+- IMAP IDLE watch (`EMAIL_IMAP_IDLE=1`) and Message-ID/References email threading
+
+### Docs
+- [73-phase-p13-priorities.md](./docs/73-phase-p13-priorities.md)
+
+---
+
+## [1.18.0] - 2026-06-20
+
+**Phase P12 — Integration polish & slaude UX**
+
+### Added
 - MCP `allowedTools` per-server allowlist; catalog filter in `loadMcpToolCatalog`
 - `anvio mcp preset list|apply <name>` — merge workspace presets into `mcp/servers.yaml`
 - Harness `toolSurface: mcp_and_channel` — hide built-in gateway tools on channels
 - `anvio session 1on1 [--agent NAME]` — dedicated CLI session with persistent metadata
 - Harness exports `anvio_channel__set_status` and `anvio_channel__edit` to model tool defs
 - Signal outbound via signal-cli REST (`SIGNAL_CLI_REST_URL`)
+
+### Fixed
+- GitHub Actions CI — remove conflicting pnpm `version` pin (use `packageManager` from package.json)
 
 ### Docs
 - [69-post-v1.17-gap-register.md](./docs/69-post-v1.17-gap-register.md)

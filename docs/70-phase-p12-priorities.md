@@ -1,6 +1,6 @@
 # Phase P12 — Integration polish & slaude UX
 
-**Status:** implemented (pending v1.18.0 tag)  
+**Status:** shipped (v1.18.0)  
 **Depends on:** v1.17.0 (P11 — 71 gateway tools)
 
 ## Goals
@@ -11,15 +11,15 @@ Close operational gaps post tool-breadth: MCP presets live, harness slaude parit
 
 | Track | ID | Deliverable | Status |
 |-------|-----|-------------|--------|
-| MCP | P12-M1 | `allowedTools` per MCP server + catalog filter | |
-| MCP | P12-M2 | `anvio mcp preset list\|apply` | |
-| MCP | P12-M3 | Integration tests for presets + mock MCP | |
-| MCP | P12-M4 | [71-mcp-setup-guide.md](./71-mcp-setup-guide.md) | |
-| slaude | P12-SL1 | Harness `toolSurface: mcp_and_channel` | |
-| slaude | P12-SL2 | `anvio session 1on1` dedicated flow | |
-| slaude | P12-SL3 | Export `anvio_channel__set_status` in harness tool defs | |
-| Channel | P12-CH1 | Signal signal-cli REST outbound | |
-| Obs | P12-O1 | [72-observability-langfuse.md](./72-observability-langfuse.md) | |
+| MCP | P12-M1 | `allowedTools` per MCP server + catalog filter | ✅ |
+| MCP | P12-M2 | `anvio mcp preset list\|apply` | ✅ |
+| MCP | P12-M3 | Integration tests for presets + mock MCP | ✅ |
+| MCP | P12-M4 | [71-mcp-setup-guide.md](./71-mcp-setup-guide.md) | ✅ |
+| slaude | P12-SL1 | Harness `toolSurface: mcp_and_channel` | ✅ |
+| slaude | P12-SL2 | `anvio session 1on1` dedicated flow | ✅ |
+| slaude | P12-SL3 | Export `anvio_channel__set_status` in harness tool defs | ✅ |
+| Channel | P12-CH1 | Signal signal-cli REST outbound | ✅ |
+| Obs | P12-O1 | [72-observability-langfuse.md](./72-observability-langfuse.md) | ✅ |
 
 ## Out of scope (P13+)
 
