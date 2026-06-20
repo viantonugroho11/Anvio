@@ -1,61 +1,54 @@
-# Hermes + slaude Parity Audit (Phase J)
+# Hermes + slaude Parity Audit
 
-Honest gap analysis after sub-phases A–I. Target references:
+Gap register detail: [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md).
 
-- [Hermes Agent docs](https://hermes-agent.nousresearch.com/docs)
-- [slaude](https://github.com/barockok/slaude)
-- [hermes-tech](https://github.com/viantonugroho11/hermes-tech) (your engineering platform)
+**Baseline:** v1.7.0 (Phase L6 — runtime learning + LLM skill evolution)
 
-## Summary
+## Summary (v1.7.0)
 
-| Area | Merged? | Notes |
-|------|---------|-------|
-| **MD-first artifacts** | ✅ Phase J | Skills, souls, agents, workflows → `.md`; YAML legacy still loads |
-| **Channel harness** | ✅ ~85% | All channels stack; slaude depth on Slack/Telegram/Discord; Teams/Matrix in-memory |
-| **SOUL.md + gate** | ✅ | `soul-gate` policy parser + `souls/*/SOUL.md` identity |
-| **Learning loop** | ✅ ~70% | Skill drafts + memory nudge + Honcho delegate; no FTS5/sqlite recall yet |
-| **Tool gateway** | ⚠️ ~25% | 3 builtins vs Hermes 60+; no Nous Portal bundle |
-| **MCP** | ✅ | Full bridge; slaude parity |
-| **Cron / automation** | ✅ | Hermes-like schedules + blueprints |
-| **Workflows** | ✅ | DAG engine + blueprint step; Hermes workflows→skills pattern supported via skills |
-| **Multi-channel** | ⚠️ ~50% | 12 types registered; Hermes claims 20+ (Mattermost, DingTalk, … not yet) |
-| **Voice** | ⚠️ ~40% | CLI STT/TTS stub/API; no Telegram voice note / Discord VC |
-| **Remote runtimes** | ⚠️ ~30% | SSH test + Daytona/Modal stubs; no Singularity |
-| **Desktop app** | ❌ | U38 deferred |
-| **Contextual connections** | ⚠️ ~60% | Broker scaffold; login-host/CDP deferred |
-| **Simulation gateway** | ✅ | Harness simulate scenarios |
-| **Knowledge base** | ✅ slaude | raw→wiki ingest |
-| **Local-first** | ✅ Anvio strength | File workspace primary vs Hermes cloud/VPS focus |
+| Area | Parity | Notes |
+|------|--------|-------|
+| **MD-first artifacts** | ✅ ~95% | Skills, souls, agents, workflows, personas `.md` |
+| **Channel harness** | ✅ ~90% | Enabled by default; Mattermost + voice hooks (P2) |
+| **SOUL.md + gate** | ✅ | Policy gate + contextual connections (P1) |
+| **Learning loop** | ✅ ~85% | L6 runtime tool learning, LLM skill/session summarizer, FTS5, Honcho |
+| **Tool gateway** | 🟡 ~35% | ~8 builtins + agent tool loop; vs Hermes 60+ |
+| **MCP** | ✅ | Full bridge |
+| **Multi-channel** | ✅ ~65% | ~13 types + Mattermost; Hermes 20+ |
+| **Voice** | 🟡 ~55% | CLI + Telegram/Discord hooks; no streaming STT |
+| **Remote runtimes** | 🟡 ~35% | Docker + ACP/Cursor; SSH/Daytona/Modal partial |
+| **Desktop app** | ❌ | Deferred P3 |
+| **Contextual connections** | ✅ ~90% | Broker + login-host (P1) |
+| **Knowledge base** | ✅ | raw→wiki (slaude parity) |
+| **Local-first / Agent OS** | 🔵 | Goals, kanban, batch — Anvio strength |
 
-## Hermes features not yet in Anvio
+## Estimated overall parity
 
-- 60+ bundled tools (browser sandbox, image gen, full execute_code pipeline)
-- Nous Portal OAuth one-click setup
-- Singularity runtime backend
-- 20+ messaging platforms (Mattermost, Feishu, SMS, …)
-- RL / Atropos trajectory export
+| Reference | v1.6.0 | v1.7.0 |
+|-----------|--------|--------|
+| Hermes Agent | ~72% | **~78%** |
+| slaude | ~84% | **~86%** |
+
+## Still missing vs Hermes
+
+- 60+ bundled tools (image gen, TTS tool wired, Nous Portal)
+- Native model `tool_use` API (Anvio uses fenced `anvio_tool` blocks)
+- Scheduled LLM summarizer cron (session-end LLM ✅)
+- Singularity, RL/Atropos trajectory export
 - Desktop installer + tray
-- FTS5 + LLM summarization memory layer (Hermes closed loop depth)
+- Real-time streaming STT
 
-## slaude features not yet in Anvio
+## Still missing vs slaude
 
-- Slack-only CDP login-host for contextual connections
-- Full engagement profile tuning per Slack workspace nuance
-- slaude.json manifest import (optional path documented, not default)
+- Slack Agents API status surface
+- Strict MCP-only output mode
+- `slaude.json` manifest import
+- Full CDP browser grant
+- `/1on1` command parity
 
-## hermes-tech patterns now supported
+## Related
 
-| hermes-tech | Anvio equivalent |
-|-------------|------------------|
-| `SOUL.md` | `souls/<slug>/SOUL.md` |
-| `skills/*.md` | `skills/*.md` + `/skill-name` via agent binding |
-| `profiles/` multi-agent | `agents/*.md` + personas + delegation |
-| `workflows/` | `workflows/*.md` + `blueprints/` |
-| `configs/planner.yaml` | `automations/` + blueprint PLAN→REVIEW |
-| Cursor delegate | `runtime: cursor` + ACP (stub) |
+- [55-phase-l6-learning-priorities.md](./55-phase-l6-learning-priorities.md)
+- [52-phase-k-priorities.md](./52-phase-k-priorities.md)
 
-## Recommendation
-
-1. **Author in Markdown** — use workspace examples as templates (Phase J).
-2. **Enable harness** when testing channels: `workspace/harness/defaults.yaml` → `enabled: true`.
-3. **Next gaps to close** (post-J): tool gateway expansion, contextual connections CDP, voice on Telegram, Mattermost adapter.
+Terakhir diperbarui: v1.7.0 (2026-06-19).

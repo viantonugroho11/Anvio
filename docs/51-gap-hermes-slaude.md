@@ -3,7 +3,7 @@
 Status baseline: **Phase A–J selesai** (Advanced Agent OS + unified product plan).  
 Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude](https://github.com/barockok/slaude) · [hermes-tech](https://github.com/viantonugroho11/hermes-tech)
 
-**Ringkasan:** arsitektur gabungan sudah ada (~55–65% Hermes, ~75–85% slaude). Di bawah ini daftar gap tersisa, diurutkan prioritas.
+**Ringkasan:** arsitektur gabungan sudah ada (~78% Hermes, ~86% slaude post v1.7). Di bawah ini daftar gap tersisa, diurutkan prioritas.
 
 ---
 
@@ -25,7 +25,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 
 | #   | Gap                                       | Hermes | slaude  | Anvio hari ini                                             | Target                             |
 | --- | ----------------------------------------- | ------ | ------- | ---------------------------------------------------------- | ---------------------------------- |
-| T1  | Built-in tools (60+)                      | ✅      | via MCP | 🟡 3 tool (`web_fetch`, `web_search`, `execute_code` stub) | Expand `@anvio/tools` gateway      |
+| T1  | Built-in tools (60+)                      | ✅      | via MCP | 🟡 ~8 tools + agent tool loop      | Expand gateway + native tool_use API |
 | T2  | Browser sandbox (Playwright)              | ✅      | —       | ✅ Playwright + fetch fallback                              | —                                  |
 | T3  | Image generation                          | ✅      | —       | ❌ stub config only                                         | Provider OpenAI/Replicate/etc.     |
 | T4  | Text-to-speech (tool)                     | ✅      | —       | ❌ stub config only                                         | Wire ke `@anvio/voice`             |
@@ -78,8 +78,8 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | L2  | Memory nudge on session end       | ✅      | —      | ✅                                 | —                            |
 | L3  | Honcho provider                   | ✅      | —      | ✅ delegate + dialectic context fetch | —                            |
 | L4  | FTS5 cross-session recall         | ✅      | —      | ✅ optional sqlite FTS5                | —                            |
-| L5  | LLM periodic summarization        | ✅      | —      | 🟡 nudge only                     | Scheduled summarizer job     |
-| L6  | Skill self-improve during use     | ✅      | —      | ❌                                 | Runtime skill patch proposal |
+| L5  | LLM periodic summarization        | ✅      | —      | ✅ session-end LLM + rules fallback | Scheduled cron job (P3)     |
+| L6  | Skill self-improve during use     | ✅      | —      | ✅ runtime hook + auto-promote       | Native tool_use API optional |
 | L7  | Knowledge base raw→wiki           | —      | ✅      | ✅ `@anvio/knowledge`              | —                            |
 
 
@@ -139,7 +139,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | A2  | SOUL `.md`               | ✅          | ✅      | ✅                 | —                       |
 | A3  | Agents `.md`             | profiles   | —      | ✅                 | —                       |
 | A4  | Workflows `.md`          | skills ref | —      | ✅ frontmatter DAG | —                       |
-| A5  | Personas `.md`           | —          | —      | 🟡 masih `.yaml`  | Optional MD loader      |
+| A5  | Personas `.md`           | —          | —      | ✅ optional MD loader | —                       |
 | A6  | Blueprints / automations | YAML       | —      | YAML (by design)  | Tetap YAML (infra)      |
 | A7  | hermes-tech skill port   | ✅          | —      | 🟡 manual copy    | Import script / catalog |
 
@@ -212,6 +212,8 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | 2   | SOUL.md → enforceable policy                   | ✅                  |
 | 3   | No bypass harness output port                  | ✅ when enabled     |
 | 4   | Learning loop → skill draft                    | ✅                  |
+| 4b  | Runtime tool learning (L6)                       | ✅ v1.7.0           |
+| 4c  | LLM skill/session summarizer                     | ✅ v1.7.0           |
 | 5   | `web_fetch` without MCP                        | ✅                  |
 | 6   | Workflow DAG independent                       | ✅                  |
 | 7   | Simulation approval + engagement               | ✅                  |
@@ -224,8 +226,9 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 
 ## Dokumen terkait
 
+- [55-phase-l6-learning-priorities.md](./55-phase-l6-learning-priorities.md) — Phase L6 (v1.7.0)
 - [50-hermes-slaude-parity.md](./50-hermes-slaude-parity.md) — audit ringkas
 - [49-workspace-artifacts.md](./49-workspace-artifacts.md) — konvensi MD vs YAML
 - [plans/2026-06-19-002-feat-unified-agent-product-plan.md](./plans/2026-06-19-002-feat-unified-agent-product-plan.md) — plan asli
 
-Terakhir diperbarui: Phase J (2026-06-19).
+Terakhir diperbarui: v1.7.0 Phase L6 (2026-06-19).
