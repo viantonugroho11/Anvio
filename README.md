@@ -1,33 +1,76 @@
+<div align="center">
+
 # Anvio
 
 **Local-First AI Agent Operating System**
 
+Configure agents in **Markdown** (Hermes-style) · YAML for infra only · Run from the **CLI**
+
 [![Release](https://img.shields.io/badge/release-v1.19.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.19.0)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-%3E%3D9-orange)](https://pnpm.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-148%2B-brightgreen)](#development)
 
-Configure agents in **Markdown** (Hermes-style) with YAML for infra only. Run from the **CLI**. No database, no login, no Docker required to start.
+No database · No login · No Docker required to start
 
-Everything lives in a portable `workspace/` folder — back it up, commit it to git, or copy it to another machine.
+[Quick Start](#5-minute-quick-start) · [CLI Reference](#cli-reference) · [Docs](#documentation) · [Changelog](CHANGELOG.md)
 
-> **Priority:** CLI → API → Web UI. The full platform works from your terminal alone.
+</div>
 
-**Latest (v1.19.0):** Remote exec (SSH/Daytona/Modal), Feishu/SMS channels, Google Chat SA, trajectory export. See [P13](docs/73-phase-p13-priorities.md) · [P14](docs/75-phase-p14-priorities.md). Prior: [P12](docs/70-phase-p12-priorities.md) · [P11](docs/65-hermes-tools-catalog.md).
+---
+
+> **Philosophy:** CLI → API → Web UI. The full platform works from your terminal alone.
+>
+> Everything lives in a portable `workspace/` folder — back it up, commit it to git, or copy it to another machine.
+
+### What's new in v1.19.0
+
+| Track | Highlights |
+|-------|------------|
+| **Remote runtimes** | SSH, Daytona, Modal — `anvio runtime exec ssh\|daytona\|modal -- <cmd>` |
+| **Channels** | Feishu webhook, SMS (Twilio), Google Chat service account |
+| **Voice** | Streaming STT — `anvio voice stream-transcribe` |
+| **Email** | IMAP IDLE watch, Message-ID threading |
+| **Research** | Session trajectory export — `anvio session export <id> [--md]` |
+| **Browser** | Extended CDP grant — `ANVIO_BROWSER_CDP_GRANT=1` |
+
+Phase docs: [P13](docs/73-phase-p13-priorities.md) · [P14](docs/75-phase-p14-priorities.md) · Prior: [P12](docs/70-phase-p12-priorities.md) · [P11 tools](docs/65-hermes-tools-catalog.md)
+
+---
+
+## At a Glance
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  71 built-in tools   │  18 model providers  │  14 channel adapters         │
+│  Learning loop       │  MCP + ACP/Cursor    │  Remote exec (SSH/Daytona)   │
+│  Soul-gated evolution│  Workflow DAGs       │  Progressive L1→L4 scale path │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+| | Anvio | Typical agent stack |
+|---|-------|---------------------|
+| **Config** | Markdown + YAML in `workspace/` | PostgreSQL from day one |
+| **Auth** | Off by default | JWT / OAuth required |
+| **Start** | `pnpm build && anvio chat` | Docker Compose mandatory |
+| **Interface** | CLI-first | Web UI is the product |
+| **Skills** | Self-improving via learning loop | Static skill files only |
 
 ---
 
 ## Table of Contents
 
-- [What You Get](#what-you-get)
+- [Platform Overview](#platform-overview)
 - [5-Minute Quick Start](#5-minute-quick-start)
 - [Usage Guide](#usage-guide)
 - [Built-in Tools & Learning Loop](#built-in-tools--learning-loop)
 - [Model Providers](#model-providers)
+- [Channels & Harness](#channels--harness)
 - [Workspace Layout](#workspace-layout)
 - [Architecture](#architecture)
 - [Install](#install)
 - [CLI Reference](#cli-reference)
-- [Channels & Harness](#channels--harness)
 - [Hermes Parity](#hermes-parity)
 - [Progressive Enhancement](#progressive-enhancement)
 - [Development](#development)
@@ -37,51 +80,66 @@ Everything lives in a portable `workspace/` folder — back it up, commit it to 
 
 ---
 
-## What You Get
+## Platform Overview
 
 ```mermaid
 flowchart TB
-    subgraph You["Your machine"]
-        WS["workspace/<br/>MD + YAML config"]
+    subgraph You["🖥 Your machine"]
+        WS["workspace/<br/>agents · skills · souls<br/>tools · harness · mcp"]
         CLI["anvio CLI"]
     end
 
-    subgraph Anvio["Anvio Platform"]
-        RT["Agent Runtime<br/>+ tool loop"]
+    subgraph Core["⚙ Anvio Core"]
+        RT["Agent Runtime<br/>multi-turn tool loop"]
+        TG["Tool Gateway<br/>71 built-in tools"]
+        RTG["Model Router<br/>18 providers + fallback"]
         MEM["Memory + FTS5"]
-        LR["Learning Loop<br/>LLM skill evolution"]
-        TG["Tool Gateway<br/>web, files, browser"]
-        RTG["Model Router<br/>18+ providers"]
-        HAR["Channel Harness<br/>+ connections"]
-        AUTO["Automation & Workflows"]
-        MCP["MCP Integrations"]
+        LR["Learning Loop<br/>skill evolution"]
     end
 
-    subgraph Optional["Optional surfaces"]
+    subgraph AgentOS["🧠 Advanced Agent OS"]
+        SOUL["Souls + Soul Gate"]
+        GOAL["Goals · Kanban · Batch"]
+        WF["Workflows · Blueprints"]
+        AUTO["Cron · Hooks · Automation"]
+    end
+
+    subgraph Connect["🔌 Integrations"]
+        MCP["MCP Bridge + presets"]
+        HAR["Channel Harness"]
+        CONN["Connection Broker"]
+        RUN["Remote Runtimes<br/>SSH · Daytona · Modal"]
+    end
+
+    subgraph Surfaces["📡 Optional surfaces"]
         API["REST API"]
-        BOT["Telegram / Slack / Discord / Mattermost"]
+        GW["WebSocket Gateway"]
+        BOT["14 channel adapters"]
         ACP["Cursor via ACP"]
     end
 
     WS --> CLI
     CLI --> RT
-    RT --> MEM & RTG & TG
+    RT --> TG & RTG & MEM
     TG --> LR
-    RT --> AUTO & MCP & HAR
-    CLI -.-> API & BOT & ACP
+    RT --> AgentOS & Connect
+    CLI -.-> Surfaces
+    HAR --> RT
 ```
 
-| Layer | What it does |
-|-------|----------------|
-| **Agents** | Persona + skills + model + soul — `agents/*.md`, `skills/*.md`, `souls/*/SOUL.md` |
-| **Tool gateway** | Built-in tools (`web_fetch`, `file_read`, `browser`, …) with multi-turn agent loop |
-| **Learning loop** | Memory nudge, LLM session summary, skill drafts + **runtime self-improve** on tool use |
-| **Advanced Agent OS** | Souls, goals, kanban, batch jobs, subagent delegation |
-| **Automation** | Cron schedules, blueprints, workflow DAGs, event hooks |
-| **Harness** | Channel formatting, engagement, contextual connections (OAuth broker) |
-| **Platform** | Credential pools, provider routing, skills catalog, MCP bridge, ACP/Cursor |
-| **Models** | Anthropic, OpenAI, DeepSeek, Groq, Gemini, OpenRouter, Ollama, and more |
-| **Channels** | CLI, REST, Web Chat, Telegram, Discord, Slack, WhatsApp, Mattermost, … |
+### Capability layers
+
+| Layer | What it does | Key paths / commands |
+|-------|--------------|----------------------|
+| **Agents** | Persona + skills + model + soul | `agents/*.md`, `anvio chat --agent NAME` |
+| **Tool gateway** | 71 built-in tools, multi-turn loop | `tools/gateway.yaml`, `anvio tools list` |
+| **Learning loop** | Memory nudge, session summary, skill drafts, runtime self-improve | `anvio learning drafts` |
+| **Advanced Agent OS** | Souls, goals, kanban, batch, subagent delegation | `anvio soul`, `anvio goal`, `anvio kanban` |
+| **Automation** | Cron, blueprints, workflow DAGs, event hooks | `anvio automation`, `anvio workflow` |
+| **Harness** | Channel formatting, engagement, OAuth connections | `harness/`, `anvio connect` |
+| **Platform** | Credential pools, routing, MCP, ACP, remote runtimes | `anvio routing`, `anvio mcp`, `anvio runtime` |
+| **Models** | Anthropic, OpenAI, DeepSeek, Groq, Gemini, OpenRouter, Ollama, … | `providers/routing.yaml` |
+| **Channels** | CLI, REST, Web Chat, Telegram, Discord, Slack, … | `anvio channels status` |
 
 ### Design principles
 
@@ -94,23 +152,15 @@ flowchart TB
 | **Progressive** | Start with files only; add PostgreSQL/NATS/K8s when you need scale |
 | **Portable** | Copy `workspace/` — no migration scripts at Level 1 |
 
-### Anvio vs typical agent stacks
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Typical stack                         Anvio (Level 1)           │
-├──────────────────────────────────────────────────────────────────┤
-│  PostgreSQL from day one        →      JSON/YAML in workspace/    │
-│  Auth / JWT required            →      Auth disabled by default  │
-│  Docker Compose to start        →      pnpm build && anvio chat  │
-│  Web UI is the product          →      CLI > API > Web UI        │
-│  Static skills only             →      Learning loop + drafts    │
-└──────────────────────────────────────────────────────────────────┘
-```
-
 ---
 
 ## 5-Minute Quick Start
+
+```
+ ① Install          ② Workspace           ③ API key           ④ Chat
+ curl | bash    →   anvio init       →   export KEY=...  →   anvio chat
+                    validate              (or mock mode)
+```
 
 ### Step 1 — Install
 
@@ -150,7 +200,7 @@ export DEEPSEEK_API_KEY=sk-...        # DeepSeek
 export OPENROUTER_API_KEY=sk-or-...   # 100+ models via one key
 ```
 
-Copy `.env.example` to `.env` for the full list of supported providers.
+Copy [`.env.example`](.env.example) to `.env` for the full list of supported providers.
 
 ### Step 4 — Chat with an agent
 
@@ -165,7 +215,7 @@ anvio chat --agent architect
 anvio run architect "List trade-offs of event-driven vs request-response architecture"
 ```
 
-**You are done.** Everything else below is optional power-user features.
+**You are done.** Everything below is optional power-user features.
 
 ---
 
@@ -175,6 +225,7 @@ anvio run architect "List trade-offs of event-driven vs request-response archite
 
 ```bash
 anvio chat --agent architect
+anvio session 1on1 --agent architect    # dedicated persistent session (v1.18+)
 ```
 
 When built-in tools are enabled in `workspace/tools/gateway.yaml`, the agent can call tools in a multi-turn loop (see [Built-in Tools & Learning Loop](#built-in-tools--learning-loop)).
@@ -186,6 +237,7 @@ anvio run architect "Refactor the auth module" --detach
 anvio sessions list
 anvio logs <sessionId>
 anvio stop <sessionId>
+anvio session export <sessionId> --md    # trajectory export (v1.19+)
 ```
 
 Start the worker for detached jobs:
@@ -201,6 +253,7 @@ ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/worker dev
 | List sessions | `anvio sessions list` |
 | Session status | `anvio status [sessionId]` |
 | Message log | `anvio logs <sessionId>` |
+| Export trajectory | `anvio session export <id> [--md]` |
 | Approve a tool call | `anvio approve <session> <requestId>` |
 | Inject mid-run instruction | `anvio inbox <sessionId> "Focus on error handling"` |
 
@@ -257,6 +310,7 @@ anvio blueprint run daily-summary
 
 anvio automation list
 anvio cron next-runs "0 9 * * *"
+anvio planner run my-plan                    # plan-execute-review (v1.17+)
 ```
 
 ### Kanban, batch, workflows
@@ -281,6 +335,7 @@ anvio routing catalog
 anvio routing test coding --input "implement JWT middleware"
 anvio credentials list
 anvio credentials add --pool anthropic --value sk-ant-...
+anvio usage --last 7                           # token audit (v1.17+)
 ```
 
 ### MCP integrations
@@ -288,15 +343,22 @@ anvio credentials add --pool anthropic --value sk-ant-...
 ```bash
 anvio mcp list
 anvio mcp test github
+anvio mcp preset list                          # Spotify, Feishu, Tinker (v1.18+)
+anvio mcp preset apply spotify
 ```
 
-Edit `workspace/mcp/servers.yaml` to register servers.
+Edit `workspace/mcp/servers.yaml` to register servers. Guide: [docs/71-mcp-setup-guide.md](docs/71-mcp-setup-guide.md).
 
-### Sandboxed code execution
+### Sandboxed & remote execution
 
 ```bash
 anvio exec run --lang python --code 'print("hello")'
 anvio exec audit
+
+# Remote runtimes (v1.19+)
+ANVIO_SSH_MOCK=1 anvio runtime exec ssh -- echo hello
+ANVIO_DAYTONA_MOCK=1 anvio runtime exec daytona -- uname -a
+anvio runtime exec modal -- npm test
 ```
 
 ### Contextual connections (OAuth broker)
@@ -318,6 +380,27 @@ anvio worktree create --agent architect --branch feat/auth
 ---
 
 ## Built-in Tools & Learning Loop
+
+### Tool loop (how agents use tools)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Agent Runtime
+    participant M as Model
+    participant T as Tool Gateway
+
+    U->>A: message
+    A->>M: prompt + tool defs
+    M-->>A: text or tool_call
+    alt tool requested
+        A->>T: execute tool
+        T-->>A: result
+        A->>M: continue (up to 5 rounds)
+    end
+    A-->>U: final response
+    A->>A: learning loop (session end)
+```
 
 ### Tool gateway
 
@@ -342,9 +425,11 @@ spec:
 ```
 
 ```bash
-anvio tools list
+anvio tools list                              # 71 tools when fully enabled
 anvio tools test anvio_tools__web_fetch https://example.com
 ```
+
+**Tool categories (v1.17+):** filesystem, web, browser/CDP, terminal, kanban, delegation, Home Assistant, vision, skills management, and more. Full catalog: [docs/65-hermes-tools-catalog.md](docs/65-hermes-tools-catalog.md).
 
 Agents call tools via fenced blocks (up to 5 model round-trips):
 
@@ -354,7 +439,21 @@ Agents call tools via fenced blocks (up to 5 model round-trips):
 ```
 ````
 
+Native `tool_use` supported for Anthropic, OpenAI, and Gemini providers.
+
 ### Learning loop (Hermes-style)
+
+```mermaid
+flowchart LR
+    SE["Session end"] --> MN["Memory nudge"]
+    SE --> SS["LLM summary"]
+    SE --> SD["Skill draft"]
+    TU["Tool success"] --> AN["Pattern analysis"]
+    AN --> SD
+    SD --> PR{"Soul allows<br/>auto-update?"}
+    PR -->|yes| SK["Promoted skill"]
+    PR -->|no| DR["_drafts/ folder"]
+```
 
 | Trigger | What happens |
 |---------|----------------|
@@ -376,7 +475,7 @@ Full guide: [docs/43-learning-loop.md](docs/43-learning-loop.md) · [docs/55-pha
 
 ## Model Providers
 
-Anvio supports **18+ built-in providers**. Set the matching env var, then reference `provider` in your agent config.
+Anvio ships **18 built-in providers** plus a custom OpenAI-compatible endpoint.
 
 ```bash
 anvio routing catalog
@@ -385,12 +484,23 @@ anvio routing catalog
 | Provider | Environment variable | Example model |
 |----------|---------------------|---------------|
 | Anthropic | `ANTHROPIC_API_KEY` | `claude-sonnet-4-20250514` |
-| OpenAI | `OPENAI_API_KEY` | `gpt-4o` |
 | Gemini | `GEMINI_API_KEY` / `GOOGLE_API_KEY` | `gemini-2.0-flash` |
+| OpenAI | `OPENAI_API_KEY` | `gpt-4o` |
 | DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-chat` |
 | Groq | `GROQ_API_KEY` | `llama-3.3-70b-versatile` |
 | OpenRouter | `OPENROUTER_API_KEY` | `anthropic/claude-3.5-sonnet` |
+| Mistral | `MISTRAL_API_KEY` | `mistral-large-latest` |
+| Together | `TOGETHER_API_KEY` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` |
+| xAI | `XAI_API_KEY` | `grok-2-latest` |
+| Fireworks | `FIREWORKS_API_KEY` | `accounts/fireworks/models/llama-v3p3-70b-instruct` |
+| Moonshot | `MOONSHOT_API_KEY` | `moonshot-v1-8k` |
+| Cerebras | `CEREBRAS_API_KEY` | `llama-3.3-70b` |
+| SambaNova | `SAMBANOVA_API_KEY` | `Meta-Llama-3.1-70B-Instruct` |
+| Perplexity | `PERPLEXITY_API_KEY` | `sonar-pro` |
+| Cohere | `COHERE_API_KEY` | `command-r-plus-08-2024` |
+| Hugging Face | `HF_TOKEN` | `meta-llama/Llama-3.2-3B-Instruct` |
 | Ollama (local) | `OLLAMA_BASE_URL` + `OLLAMA_ENABLED=true` | `llama3.2` |
+| Custom | `CUSTOM_API_KEY` + `baseUrl` in agent config | any OpenAI-compatible |
 
 **Routing & fallback** — edit `workspace/providers/routing.yaml`:
 
@@ -408,6 +518,95 @@ spec:
           model: deepseek-chat
 ```
 
+Detail: [docs/36-provider-routing.md](docs/36-provider-routing.md)
+
+---
+
+## Channels & Harness
+
+One agent runtime, many surfaces:
+
+```mermaid
+flowchart TB
+    subgraph Inbound["Inbound channels"]
+        CLI["CLI"]
+        TG["Telegram"]
+        DC["Discord"]
+        SL["Slack"]
+        WA["WhatsApp"]
+        MM["Mattermost"]
+        TM["Teams"]
+        MX["Matrix"]
+        EM["Email"]
+        SG["Signal"]
+        GC["Google Chat"]
+        FS["Feishu"]
+        SMS["SMS / Twilio"]
+        WC["Web Chat"]
+        REST["REST API"]
+    end
+
+    Inbound --> HUB["ChannelHub + Harness"]
+    HUB --> RT["Agent Runtime"]
+    HUB --> FMT["Format · engage · approve"]
+```
+
+| Channel | Config key | Notes |
+|---------|------------|-------|
+| CLI | built-in | Primary interface |
+| Telegram | `channels.telegram` | Voice notes via Whisper |
+| Discord | `channels.discord` | Audio attachment STT |
+| Slack | `channels.slack` | Socket Mode |
+| WhatsApp | `channels.whatsapp` | Meta Cloud API |
+| Mattermost | `channels.mattermost` | Bot token |
+| Microsoft Teams | `channels.teams` | Bot Framework + retry |
+| Matrix | `channels.matrix` | Homeserver + room |
+| Email | `channels.email` | IMAP/SMTP, IDLE watch (v1.19+) |
+| Signal | `channels.signal` | signal-cli REST |
+| Google Chat | `channels.googleChat` | Webhook or service account |
+| Feishu | `channels.feishu` | Webhook (v1.19+) |
+| SMS | `channels.sms` | Twilio (v1.19+) |
+| Web Chat | API/gateway | Browser UI |
+
+Enable in `anvio.yaml`:
+
+```yaml
+spec:
+  harness:
+    enabled: true
+  channels:
+    voice:
+      enabled: true
+    telegram:
+      enabled: true
+      botToken: ${TELEGRAM_BOT_TOKEN}
+    feishu:
+      enabled: true
+      webhookUrl: ${FEISHU_WEBHOOK_URL}
+    mattermost:
+      enabled: true
+      serverUrl: https://mattermost.example.com
+      botToken: ${MATTERMOST_BOT_TOKEN}
+```
+
+```bash
+anvio channels status
+anvio harness simulate telegram greeting
+anvio harness status
+```
+
+Voice notes (Telegram) and audio attachments (Discord) transcribe via Whisper when `OPENAI_API_KEY` is set. Streaming STT: `anvio voice stream-transcribe sample.ogg`.
+
+Optional stack:
+
+```bash
+ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/worker dev
+ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/api dev
+ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/gateway dev
+```
+
+Detail: [docs/41-channel-harness.md](docs/41-channel-harness.md) · [docs/46-expanded-channels.md](docs/46-expanded-channels.md)
+
 ---
 
 ## Workspace Layout
@@ -415,22 +614,26 @@ spec:
 ```
 workspace/
 ├── anvio.yaml                 # Platform config (required)
+│
 ├── agents/                    # Agent definitions (*.md preferred)
 ├── personas/                  # Persona templates (*.md)
 ├── skills/                    # Installed skills + _drafts/ from learning
-├── souls/                     # SOUL.md identities
+├── souls/                     # SOUL.md identities + evolution policy
 ├── goals/                     # Persistent goals
+│
 ├── workflows/                 # DAG workflows (*.md)
-├── tools/gateway.yaml         # Built-in tool gateway
-├── harness/                   # Channel harness profiles
-├── providers/routing.yaml     # Model routing & fallback
-├── mcp/servers.yaml           # MCP server registry
-├── hooks/hooks.yaml           # Event hook registry
 ├── automations/               # Cron & event automations
 ├── blueprints/                # Workflow templates
 ├── kanban/                    # Task boards
-├── credentials/               # Encrypted credential pools
 ├── knowledge/                 # Raw → wiki knowledge bases
+│
+├── tools/gateway.yaml         # Built-in tool gateway (71 tools)
+├── harness/                   # Channel harness profiles
+├── providers/routing.yaml     # Model routing & fallback
+├── mcp/servers.yaml           # MCP server registry
+├── mcp/presets/               # Spotify, Feishu, Tinker presets
+├── hooks/hooks.yaml           # Event hook registry
+├── credentials/               # Encrypted credential pools
 │
 ├── sessions/                  # Runtime session store (gitignore)
 ├── memory/                    # Long-term memory (gitignore)
@@ -442,6 +645,8 @@ workspace/
 ```bash
 anvio workspace validate
 ```
+
+Convention guide: [docs/49-workspace-artifacts.md](docs/49-workspace-artifacts.md)
 
 ---
 
@@ -455,27 +660,31 @@ flowchart TB
         CLI["CLI"]
         API["REST API"]
         GW["WebSocket Gateway"]
-        CHN["Channels"]
+        CHN["14 Channels"]
+        ACP["ACP / Cursor"]
     end
 
     subgraph Platform["@anvio/platform"]
         HUB["Channel Hub + Harness"]
         RT["Agent Runtime + Tool Loop"]
         LE["Learning Engine"]
-        TG["Tool Gateway"]
-        RTG["Model Router"]
+        TG["Tool Gateway · 71 tools"]
+        RTG["Model Router · 18 providers"]
         AUTO["Automation / Workflows"]
         MCP["MCP Bridge"]
         CONN["Connection Broker"]
+        RUN["Runtime Providers<br/>local · docker · ssh · daytona · modal"]
     end
 
-    subgraph Data["Local-first"]
+    subgraph Data["Local-first storage"]
         WS["workspace/"]
+        MEM["memory/ + FTS5"]
+        SESS["sessions/ JSONL"]
     end
 
-    CLI & API & GW & CHN --> Platform
+    Entry --> Platform
     RT --> TG --> LE
-    Platform --> WS
+    Platform --> Data
 ```
 
 ### Monorepo layout
@@ -486,28 +695,32 @@ Anvio/
 │   ├── cli/           Primary interface
 │   ├── api/           Optional REST (NestJS)
 │   ├── worker/        Background job consumer
-│   └── gateway/       WebSocket gateway
+│   ├── gateway/       WebSocket gateway
+│   └── desktop/       Desktop shell scaffold (v1.19+)
 ├── packages/
 │   ├── core/          Schemas & ports
 │   ├── platform/      Composition factory
 │   ├── workspace/     Loader & session store
 │   ├── agents/        Runtime & orchestration
 │   ├── learning/      Skill evolution & memory nudge
-│   ├── tools/           Built-in tool gateway
-│   ├── harness/         Channel harness & connections
-│   ├── models/          Providers & routing
-│   ├── memory/          FTS5, Honcho delegate
-│   ├── channels/        Multi-platform adapters
-│   ├── voice/           STT/TTS pipeline
-│   ├── knowledge/       Raw → wiki ingest
-│   ├── acp/             Cursor / editor integration
+│   ├── tools/         Built-in tool gateway (71 tools)
+│   ├── harness/       Channel harness & connections
+│   ├── models/        Providers & routing
+│   ├── memory/        FTS5, Honcho delegate
+│   ├── channels/      Multi-platform adapters
+│   ├── voice/         STT/TTS pipeline
+│   ├── knowledge/     Raw → wiki ingest
+│   ├── runtimes/      Local, Cursor, Docker, SSH, Daytona, Modal
+│   ├── acp/           Cursor / editor integration
 │   └── …
-├── configs/           Bundled skills & blueprints
+├── configs/           Bundled skills, blueprints, observability
 ├── workspace/         Default workspace (your copy)
-└── docs/              Architecture & guides
+└── docs/              Architecture & phase guides
 ```
 
 **Dependency rule:** `apps → platform → packages → core`
+
+Detail: [docs/02-architecture.md](docs/02-architecture.md)
 
 ---
 
@@ -553,8 +766,10 @@ Run `anvio help` for the full grouped list.
 | `anvio workspace validate` | Check structure |
 | `anvio agents list` | List agents |
 | `anvio chat [--agent NAME]` | Interactive chat |
+| `anvio session 1on1 [--agent NAME]` | Dedicated persistent session |
 | `anvio run <agent> [msg] [--detach]` | One-shot or background task |
 | `anvio sessions list` | List sessions |
+| `anvio session export <id> [--md]` | Export session trajectory |
 | `anvio status` / `anvio logs` | Monitor runs |
 
 ### Tools & learning
@@ -574,6 +789,7 @@ Run `anvio help` for the full grouped list.
 | `anvio goal …` | Goal tracking |
 | `anvio blueprint …` | Workflow templates |
 | `anvio automation …` / `anvio cron …` | Schedules |
+| `anvio planner run …` | Plan-execute-review engine |
 | `anvio kanban …` / `anvio batch …` | Tasks & parallel jobs |
 | `anvio workflow …` | DAG workflows |
 | `anvio kb …` | Knowledge base ingest |
@@ -584,15 +800,16 @@ Run `anvio help` for the full grouped list.
 |---------|-------------|
 | `anvio routing …` | Model routing |
 | `anvio credentials …` | Encrypted API key pools |
+| `anvio usage …` | Token usage audit |
 | `anvio skill …` | Skills catalog |
-| `anvio mcp …` | MCP servers |
+| `anvio mcp …` / `anvio mcp preset …` | MCP servers & presets |
 | `anvio exec …` | Sandboxed execution |
+| `anvio runtime exec …` | Remote SSH/Daytona/Modal |
 | `anvio connect …` | Contextual connections |
 | `anvio harness …` | Harness simulate / status |
 | `anvio channels status` | Channel health |
 | `anvio acp serve` | Editor integration (ACP) |
-| `anvio runtime …` | Runtime providers (local, cursor, docker, …) |
-| `anvio voice …` | CLI STT/TTS |
+| `anvio voice …` | CLI STT/TTS + stream-transcribe |
 
 ### Key environment variables
 
@@ -603,59 +820,12 @@ Run `anvio help` for the full grouped list.
 | `OPENAI_API_KEY` | GPT + Whisper (voice) |
 | `ANVIO_CONNECTION_ENCRYPTION_KEY` | Connection broker |
 | `ANVIO_CHANNEL_VOICE` | Enable voice on channels |
+| `ANVIO_BROWSER_CDP_GRANT=1` | Extended browser CDP methods |
 | `WEB_SEARCH_API_KEY` | Brave web search tool |
-| `MATTERMOST_SERVER_URL` / `MATTERMOST_BOT_TOKEN` | Mattermost |
+| `EMAIL_IMAP_IDLE=1` | IMAP idle watch loop |
+| `GOOGLE_CHAT_SERVICE_ACCOUNT` | Google Chat SA delivery |
 
 See [`.env.example`](.env.example) for the complete list.
-
----
-
-## Channels & Harness
-
-One agent runtime, many surfaces:
-
-```mermaid
-flowchart LR
-    CLI["CLI"] --> HUB["ChannelHub + Harness"]
-    TG["Telegram"] --> HUB
-    DC["Discord"] --> HUB
-    SL["Slack"] --> HUB
-    MM["Mattermost"] --> HUB
-    HUB --> RT["Agent Runtime"]
-```
-
-Enable in `anvio.yaml`:
-
-```yaml
-spec:
-  harness:
-    enabled: true
-  channels:
-    voice:
-      enabled: true
-    telegram:
-      enabled: true
-      botToken: ${TELEGRAM_BOT_TOKEN}
-    mattermost:
-      enabled: true
-      serverUrl: https://mattermost.example.com
-      botToken: ${MATTERMOST_BOT_TOKEN}
-```
-
-```bash
-anvio channels status
-anvio harness simulate telegram greeting
-```
-
-Voice notes (Telegram) and audio attachments (Discord) transcribe via Whisper when `OPENAI_API_KEY` is set.
-
-Optional stack:
-
-```bash
-ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/worker dev
-ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/api dev
-ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/gateway dev
-```
 
 ---
 
@@ -665,20 +835,25 @@ Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/d
 
 | Reference | Parity (v1.19.0) | Strengths in Anvio |
 |-----------|------------------|---------------------|
-| Hermes | ~88% | Local-first, 18+ models, Agent OS, MCP runtime, native tool_use |
-| slaude | ~92% | SOUL gate, connections, multi-channel harness, manifest import |
+| Hermes | ~88% | Local-first, 18 providers, Agent OS, MCP runtime, native tool_use, 71 gateway tools |
+| slaude | ~92% | SOUL gate, connections, multi-channel harness, manifest import, `/1on1` session |
 
-**Done (P4–P11d):** Native tool_use (Anthropic/OpenAI/Gemini), MCP stdio + agent runtime, Teams/Matrix/Email E2E, LLM SoulPolicy, token audit + metrics, **71 built-in tools** (~Hermes breadth), OTel spans, planner CLI.
+**Shipped (P4–P14):** Native tool_use, MCP stdio + agent runtime, 71 built-in tools, OTel spans, planner CLI, MCP presets, harness channel tools, remote exec, Feishu/SMS, trajectory export.
 
-**Gap vs Hermes:** Sub-tool variants (Spotify/Feishu/Yuanbao/RL individual keys) via MCP presets — [docs/65-hermes-tools-catalog.md](docs/65-hermes-tools-catalog.md).
+**Remaining gaps:** OpenAI Realtime STT, live MCP E2E with real credentials, Nous Portal OAuth — see [docs/51-gap-hermes-slaude.md](docs/51-gap-hermes-slaude.md).
 
-**Gap vs slaude:** Slack Agents API, strict MCP-only mode, `/1on1` flow, full CDP grant.
-
-Detail: [docs/50-hermes-slaude-parity.md](docs/50-hermes-slaude-parity.md) · [docs/51-gap-hermes-slaude.md](docs/51-gap-hermes-slaude.md) · [docs/65-hermes-tools-catalog.md](docs/65-hermes-tools-catalog.md)
+Detail: [docs/50-hermes-slaude-parity.md](docs/50-hermes-slaude-parity.md) · [docs/65-hermes-tools-catalog.md](docs/65-hermes-tools-catalog.md)
 
 ---
 
 ## Progressive Enhancement
+
+```mermaid
+flowchart LR
+    L1["Level 1<br/>Filesystem"] --> L2["Level 2<br/>SQLite"]
+    L2 --> L3["Level 3<br/>PostgreSQL + Qdrant"]
+    L3 --> L4["Level 4<br/>K8s + managed DB"]
+```
 
 | Level | Storage | Auth | Events | Best for |
 |:-----:|---------|------|--------|----------|
@@ -686,6 +861,8 @@ Detail: [docs/50-hermes-slaude-parity.md](docs/50-hermes-slaude-parity.md) · [d
 | **2** | SQLite | Optional OAuth | Local / NATS | Small team + API |
 | **3** | PostgreSQL + Qdrant | JWT / OAuth | NATS JetStream | Multi-user production |
 | **4** | K8s + managed DB | Full RBAC | Distributed | Organization scale |
+
+Start at Level 1. Upgrade only when you need it — no rewrite required.
 
 ---
 
@@ -695,6 +872,7 @@ Detail: [docs/50-hermes-slaude-parity.md](docs/50-hermes-slaude-parity.md) · [d
 pnpm install
 pnpm build
 pnpm test              # 148+ tests
+pnpm test:integration  # phase integration suites
 pnpm typecheck
 pnpm anvio chat
 ```
@@ -705,24 +883,43 @@ Contributing: [docs/21-development-guide.md](docs/21-development-guide.md) · [d
 
 ## Documentation
 
+### Core guides
+
 | Document | Description |
 |----------|-------------|
 | [Advanced Agent OS](docs/24-advanced-agent-os-overview.md) | Feature map & CLI surface |
 | [Learning loop](docs/43-learning-loop.md) | Self-improve & skill evolution |
-| [Phase L6 priorities](docs/55-phase-l6-learning-priorities.md) | Runtime learning (v1.7) |
-| [Tool gateway](docs/44-tool-gateway.md) | Built-in tools (21) |
-| [Hermes tools catalog](docs/65-hermes-tools-catalog.md) | ~71 Hermes tools + Anvio mapping |
+| [Tool gateway](docs/44-tool-gateway.md) | Built-in tools |
+| [Hermes tools catalog](docs/65-hermes-tools-catalog.md) | 71 Hermes tools + Anvio mapping |
 | [Channel harness](docs/41-channel-harness.md) | Formatting & engagement |
 | [Workspace artifacts](docs/49-workspace-artifacts.md) | MD-first conventions |
+| [MCP setup](docs/71-mcp-setup-guide.md) | MCP servers & presets |
+| [Provider routing](docs/36-provider-routing.md) | Model fallback |
+| [Runtime providers](docs/30-runtime-providers.md) | Local, Cursor, Docker, SSH, … |
+| [Voice mode](docs/48-voice-mode.md) | STT/TTS + streaming |
+| [Observability](docs/72-observability-langfuse.md) | Langfuse dashboard template |
+
+### Parity & gaps
+
+| Document | Description |
+|----------|-------------|
 | [Hermes parity](docs/50-hermes-slaude-parity.md) | Gap audit |
 | [Gap register](docs/51-gap-hermes-slaude.md) | Full gap list |
-| [Architecture](docs/02-architecture.md) | Package boundaries |
-| [Provider routing](docs/36-provider-routing.md) | Model fallback |
-| [Runtime providers](docs/30-runtime-providers.md) | Local, Cursor, Docker, … |
-| [Voice mode](docs/48-voice-mode.md) | STT/TTS |
-| [Development guide](docs/21-development-guide.md) | Contributor setup |
+| [Post-v1.17 gaps](docs/69-post-v1.17-gap-register.md) | Remaining items |
 
-Phase docs: [K](docs/52-phase-k-priorities.md) · [P1](docs/53-phase-p1-priorities.md) · [P2](docs/54-phase-p2-priorities.md) · [L6](docs/55-phase-l6-learning-priorities.md)
+### Phase roadmap
+
+| Phase | Doc | Version |
+|-------|-----|---------|
+| K — MD-first | [52](docs/52-phase-k-priorities.md) | v1.2 |
+| P1 — Connections | [53](docs/53-phase-p1-priorities.md) | v1.5 |
+| L6 — Runtime learning | [55](docs/55-phase-l6-learning-priorities.md) | v1.7 |
+| P11 — 71 tools | [65](docs/65-hermes-tools-catalog.md) | v1.17 |
+| P12 — slaude UX | [70](docs/70-phase-p12-priorities.md) | v1.18 |
+| P13 — Remote runtimes | [73](docs/73-phase-p13-priorities.md) | v1.19 |
+| P14 — Research polish | [75](docs/75-phase-p14-priorities.md) | v1.19 |
+
+Architecture: [docs/02-architecture.md](docs/02-architecture.md) · Development: [docs/21-development-guide.md](docs/21-development-guide.md)
 
 ---
 
@@ -730,11 +927,14 @@ Phase docs: [K](docs/52-phase-k-priorities.md) · [P1](docs/53-phase-p1-prioriti
 
 | Version | Highlights |
 |---------|------------|
-| **[v1.7.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.7.0)** | Runtime learning, tool loop, LLM skill evolution |
+| **[v1.19.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.19.0)** | Remote exec (SSH/Daytona/Modal), Feishu/SMS channels, streaming STT, trajectory export, CDP grant |
+| [v1.18.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.18.0) | MCP presets, `/1on1` session, harness channel tools, Signal outbound |
+| [v1.17.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.17.0) | 71 built-in tools (~Hermes parity), OTel spans, planner CLI |
+| [v1.7.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.7.0) | Runtime learning, tool loop, LLM skill evolution |
 | [v1.6.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.6.0) | Mattermost, voice on Telegram/Discord |
 | [v1.5.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.5.0) | Harness depth, connection broker |
 | [v1.4.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.4.0) | FTS5, browser sandbox, ACP/Cursor |
-| [v1.2.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.2.0) | MD-first Phase J, Advanced Agent OS |
+| [v1.2.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.2.0) | MD-first Phase K, Advanced Agent OS |
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 
