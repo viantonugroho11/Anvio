@@ -6,15 +6,15 @@
 
 Configure agents in **Markdown** (Hermes-style) · YAML for infra only · Run from the **CLI**
 
-[![Release](https://img.shields.io/badge/release-v1.19.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.19.0)
+[![Release](https://img.shields.io/badge/release-v1.20.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.20.0)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D9-orange)](https://pnpm.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-148%2B-brightgreen)](#development)
+[![Tests](https://img.shields.io/badge/tests-190%2B-brightgreen)](#development)
 
 No database · No login · No Docker required to start
 
-[Quick Start](#5-minute-quick-start) · [CLI Reference](#cli-reference) · [Docs](#documentation) · [Changelog](CHANGELOG.md)
+[Quick Start](#5-minute-quick-start) · [Unified Gateway](#unified-gateway-hermes-style) · [CLI Reference](#cli-reference) · [Docs](#documentation) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -23,6 +23,16 @@ No database · No login · No Docker required to start
 > **Philosophy:** CLI → API → Web UI. The full platform works from your terminal alone.
 >
 > Everything lives in a portable `workspace/` folder — back it up, commit it to git, or copy it to another machine.
+
+### What's new in v1.20.0
+
+| Track | Highlights |
+|-------|------------|
+| **Unified gateway** | One daemon — `anvio gateway start` (channels + worker + API + WebSocket) |
+| **SQLite sessions** | Hermes-style `state.db` + FTS5 search — `storage.provider: sqlite` |
+| **Realtime STT** | OpenAI Realtime WebSocket — `anvio voice realtime-transcribe` |
+
+Prior: [v1.19](docs/75-phase-p14-priorities.md) · [Unified gateway guide](docs/76-unified-gateway.md)
 
 ### What's new in v1.19.0
 
@@ -63,6 +73,7 @@ Phase docs: [P13](docs/73-phase-p13-priorities.md) · [P14](docs/75-phase-p14-pr
 
 - [Platform Overview](#platform-overview)
 - [5-Minute Quick Start](#5-minute-quick-start)
+- [Unified Gateway (Hermes-style)](#unified-gateway-hermes-style)
 - [Usage Guide](#usage-guide)
 - [Built-in Tools & Learning Loop](#built-in-tools--learning-loop)
 - [Model Providers](#model-providers)
@@ -216,6 +227,55 @@ anvio run architect "List trade-offs of event-driven vs request-response archite
 ```
 
 **You are done.** Everything below is optional power-user features.
+
+---
+
+## Unified Gateway (Hermes-style)
+
+One process replaces separate worker + API + WebSocket — equivalent to Hermes `GatewayRunner`.
+
+```bash
+# Enable channels in workspace/anvio.yaml, then:
+anvio gateway start              # background daemon
+anvio gateway start --foreground # foreground (Ctrl+C)
+anvio gateway status
+anvio gateway stop
+```
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  anvio gateway start  (single daemon on port 3001)          │
+├─────────────────────────────────────────────────────────────┤
+│  Channel Hub     Telegram · Slack · Discord · Email · …     │
+│  Agent worker    Detached runs · approvals · inbox          │
+│  REST API        /api/sessions · channel webhooks           │
+│  WebSocket       /ws?sessionId=<id>                       │
+│  Automation      Cron scheduler + hooks                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### SQLite sessions (Hermes `state.db`)
+
+Optional — enable in `workspace/anvio.yaml`:
+
+```yaml
+spec:
+  storage:
+    provider: sqlite
+    basePath: .
+```
+
+Sessions persist in `workspace/state.db` with **FTS5** message search (powers `session_search` tool).
+
+### OpenAI Realtime STT
+
+```bash
+export OPENAI_API_KEY=sk-...
+anvio voice realtime-transcribe sample.wav
+# or: ANVIO_VOICE_REALTIME=1 anvio voice stream-transcribe sample.wav
+```
+
+Full guide: [docs/76-unified-gateway.md](docs/76-unified-gateway.md)
 
 ---
 
@@ -595,14 +655,20 @@ anvio harness simulate telegram greeting
 anvio harness status
 ```
 
-Voice notes (Telegram) and audio attachments (Discord) transcribe via Whisper when `OPENAI_API_KEY` is set. Streaming STT: `anvio voice stream-transcribe sample.ogg`.
+Voice notes (Telegram) and audio attachments (Discord) transcribe via Whisper when `OPENAI_API_KEY` is set. Use **Realtime STT** for live transcription: `anvio voice realtime-transcribe`.
 
-Optional stack:
+**Recommended:** run everything via unified gateway:
+
+```bash
+anvio gateway start
+anvio channels status
+```
+
+Legacy split stack (development only):
 
 ```bash
 ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/worker dev
 ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/api dev
-ANVIO_WORKSPACE=./workspace pnpm --filter @anvio/gateway dev
 ```
 
 Detail: [docs/41-channel-harness.md](docs/41-channel-harness.md) · [docs/46-expanded-channels.md](docs/46-expanded-channels.md)
@@ -635,7 +701,9 @@ workspace/
 ├── hooks/hooks.yaml           # Event hook registry
 ├── credentials/               # Encrypted credential pools
 │
-├── sessions/                  # Runtime session store (gitignore)
+├── sessions/                  # Runtime sessions (filesystem mode; gitignore)
+├── state.db                   # SQLite sessions (when storage.provider: sqlite)
+├── .gateway/                  # Gateway pid file (gitignore)
 ├── memory/                    # Long-term memory (gitignore)
 ├── inbox/                     # Agent inbox (gitignore)
 ├── artifacts/                 # Agent output files
@@ -758,6 +826,14 @@ pnpm anvio chat
 
 Run `anvio help` for the full grouped list.
 
+### Gateway (Hermes-style)
+
+| Command | Description |
+|---------|-------------|
+| `anvio gateway start [--foreground]` | Unified daemon (channels + worker + API + WS) |
+| `anvio gateway stop` | Stop background gateway |
+| `anvio gateway status` | Health check on port 3001 |
+
 ### Core
 
 | Command | Description |
@@ -809,7 +885,7 @@ Run `anvio help` for the full grouped list.
 | `anvio harness …` | Harness simulate / status |
 | `anvio channels status` | Channel health |
 | `anvio acp serve` | Editor integration (ACP) |
-| `anvio voice …` | CLI STT/TTS + stream-transcribe |
+| `anvio voice …` | CLI STT/TTS + stream/realtime transcribe |
 
 ### Key environment variables
 
@@ -823,7 +899,9 @@ Run `anvio help` for the full grouped list.
 | `ANVIO_BROWSER_CDP_GRANT=1` | Extended browser CDP methods |
 | `WEB_SEARCH_API_KEY` | Brave web search tool |
 | `EMAIL_IMAP_IDLE=1` | IMAP idle watch loop |
-| `GOOGLE_CHAT_SERVICE_ACCOUNT` | Google Chat SA delivery |
+| `ANVIO_GATEWAY_PORT` | Unified gateway port (default 3001) |
+| `ANVIO_VOICE_REALTIME=1` | Use OpenAI Realtime STT |
+| `OPENAI_REALTIME_MODEL` | Realtime transcription model |
 
 See [`.env.example`](.env.example) for the complete list.
 
@@ -835,7 +913,7 @@ Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/d
 
 | Reference | Parity (v1.19.0) | Strengths in Anvio |
 |-----------|------------------|---------------------|
-| Hermes | ~88% | Local-first, 18 providers, Agent OS, MCP runtime, native tool_use, 71 gateway tools |
+| Hermes | ~92% | Local-first, unified gateway, SQLite sessions, 18 providers, 71 gateway tools |
 | slaude | ~92% | SOUL gate, connections, multi-channel harness, manifest import, `/1on1` session |
 
 **Shipped (P4–P14):** Native tool_use, MCP stdio + agent runtime, 71 built-in tools, OTel spans, planner CLI, MCP presets, harness channel tools, remote exec, Feishu/SMS, trajectory export.
@@ -871,7 +949,7 @@ Start at Level 1. Upgrade only when you need it — no rewrite required.
 ```bash
 pnpm install
 pnpm build
-pnpm test              # 148+ tests
+pnpm test              # 190+ tests
 pnpm test:integration  # phase integration suites
 pnpm typecheck
 pnpm anvio chat
@@ -896,7 +974,8 @@ Contributing: [docs/21-development-guide.md](docs/21-development-guide.md) · [d
 | [MCP setup](docs/71-mcp-setup-guide.md) | MCP servers & presets |
 | [Provider routing](docs/36-provider-routing.md) | Model fallback |
 | [Runtime providers](docs/30-runtime-providers.md) | Local, Cursor, Docker, SSH, … |
-| [Voice mode](docs/48-voice-mode.md) | STT/TTS + streaming |
+| [Unified gateway](docs/76-unified-gateway.md) | Hermes-style single daemon |
+| [Voice mode](docs/48-voice-mode.md) | STT/TTS + Realtime WebSocket |
 | [Observability](docs/72-observability-langfuse.md) | Langfuse dashboard template |
 
 ### Parity & gaps
@@ -918,6 +997,7 @@ Contributing: [docs/21-development-guide.md](docs/21-development-guide.md) · [d
 | P12 — slaude UX | [70](docs/70-phase-p12-priorities.md) | v1.18 |
 | P13 — Remote runtimes | [73](docs/73-phase-p13-priorities.md) | v1.19 |
 | P14 — Research polish | [75](docs/75-phase-p14-priorities.md) | v1.19 |
+| Unified gateway | [76](docs/76-unified-gateway.md) | v1.20 |
 
 Architecture: [docs/02-architecture.md](docs/02-architecture.md) · Development: [docs/21-development-guide.md](docs/21-development-guide.md)
 
@@ -927,7 +1007,8 @@ Architecture: [docs/02-architecture.md](docs/02-architecture.md) · Development:
 
 | Version | Highlights |
 |---------|------------|
-| **[v1.19.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.19.0)** | Remote exec (SSH/Daytona/Modal), Feishu/SMS channels, streaming STT, trajectory export, CDP grant |
+| **[v1.20.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.20.0)** | Unified gateway daemon, SQLite sessions + FTS5, OpenAI Realtime STT |
+| [v1.19.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.19.0) | Remote exec, Feishu/SMS channels, streaming STT, trajectory export |
 | [v1.18.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.18.0) | MCP presets, `/1on1` session, harness channel tools, Signal outbound |
 | [v1.17.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.17.0) | 71 built-in tools (~Hermes parity), OTel spans, planner CLI |
 | [v1.7.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.7.0) | Runtime learning, tool loop, LLM skill evolution |

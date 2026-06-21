@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.20.0] - 2026-06-20
+
+**Unified gateway + SQLite sessions + OpenAI Realtime STT**
+
+### Added
+- **Unified gateway daemon** — `anvio gateway start|stop|status` (channels + worker + REST + WebSocket in one process)
+- `startUnifiedGateway()` in `@anvio/platform` — Hermes `GatewayRunner` equivalent
+- **SQLite session store** — `storage.provider: sqlite` → `workspace/state.db` with FTS5 message search
+- **OpenAI Realtime STT** — `anvio voice realtime-transcribe`, `ANVIO_VOICE_REALTIME=1`
+- `registerGatewayWorker()` shared by gateway app and legacy worker
+
+### Docs
+- [76-unified-gateway.md](./docs/76-unified-gateway.md)
+- README updated for v1.20 gateway workflow
+
+---
+
 ## [1.19.0] - 2026-06-20
 
 **Phase P13 + P14 — Remote runtimes, channels depth, research tooling**
