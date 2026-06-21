@@ -45,5 +45,7 @@ docker/data/
 workspace/memory/
 workspace/sessions/
 workspace/inbox/
+workspace/state.db
+workspace/.gateway/
 workspace/worktrees/
 workspace/artifacts/

@@ -15,6 +15,7 @@ import {
   type SkillDefinition,
   type StoredSession,
   type SessionStore,
+  type StorageConfig,
   type WorkspaceDefinition,
   type ArtifactStore,
   type CreateArtifactInput,
@@ -25,6 +26,7 @@ import {
 import { FilesystemStorageProvider } from '@anvio/storage';
 import { v4 as uuidv4 } from 'uuid';
 import { createWorktreeManager } from './git-worktree-manager.js';
+import { openSqliteSessionStore, resolveSessionDbPath } from './sqlite-session-store.js';
 import type { WorktreeManager } from '@anvio/core';
 
 export const WORKSPACE_DIRS = [
@@ -59,16 +61,16 @@ export class Workspace {
   readonly config: WorkspaceDefinition;
   readonly storage: FilesystemStorageProvider;
   readonly loader: WorkspaceConfigLoader;
-  readonly sessions: FilesystemSessionStore;
+  readonly sessions: SessionStore;
   readonly artifacts: FilesystemArtifactStore;
   readonly worktrees: WorktreeManager | null;
 
-  private constructor(rootDir: string, config: WorkspaceDefinition) {
+  private constructor(rootDir: string, config: WorkspaceDefinition, sessions: SessionStore) {
     this.rootDir = rootDir;
     this.config = config;
     this.storage = new FilesystemStorageProvider(rootDir);
     this.loader = new WorkspaceConfigLoader(this.storage);
-    this.sessions = new FilesystemSessionStore(this.storage);
+    this.sessions = sessions;
     this.artifacts = new FilesystemArtifactStore(this.storage);
     this.worktrees = createWorktreeManager(rootDir, config.spec.worktrees);
   }
@@ -87,7 +89,8 @@ export class Workspace {
         spec: {},
       });
     }
-    return new Workspace(rootDir, config);
+    const sessions = await createSessionStore(config.spec.storage, rootDir);
+    return new Workspace(rootDir, config, sessions);
   }
 
   static async init(rootDir: string): Promise<Workspace> {
@@ -127,8 +130,9 @@ spec:
   auth:
     enabled: false
   storage:
-    provider: filesystem
+    provider: filesystem   # filesystem | sqlite (Hermes-style state.db)
     basePath: .
+    # connectionString: sqlite:./state.db
   memory:
     provider: filesystem
     basePath: memory
@@ -523,3 +527,20 @@ export class FilesystemArtifactStore implements ArtifactStore {
 }
 
 export { createWorktreeManager, GitWorktreeManager } from './git-worktree-manager.js';
+export {
+  SqliteSessionStore,
+  openSqliteSessionStore,
+  resolveSessionDbPath,
+} from './sqlite-session-store.js';
+
+export async function createSessionStore(
+  storageConfig: StorageConfig,
+  workspaceRoot: string,
+): Promise<SessionStore> {
+  if (storageConfig.provider === 'sqlite') {
+    const dbPath = resolveSessionDbPath(workspaceRoot, storageConfig.connectionString);
+    return openSqliteSessionStore(dbPath);
+  }
+  const storage = new FilesystemStorageProvider(workspaceRoot);
+  return new FilesystemSessionStore(storage);
+}
