@@ -2,6 +2,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
+import { spawn } from 'node:child_process';
 import { parse as parseYaml } from 'yaml';
 import { EventSubjects } from '@anvio/events';
 import { ChannelHub, CliChannel, probeAllChannels, summarizeChannelHealth } from '@anvio/channels';
@@ -22,7 +23,7 @@ import { VoicePipeline, createStreamingSttSession, streamTranscribe } from '@anv
 import { createGoalEngine } from '@anvio/goals';
 import { createKanbanEngine } from '@anvio/kanban';
 import { createMemoryProvider } from '@anvio/memory';
-import { createPlatform, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime, aggregateTokenUsage, parseUsageLastFlag, readTokenUsageAudit, exportSessionTrajectory, trajectoryToMarkdown } from '@anvio/platform';
+import { createPlatform, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime, aggregateTokenUsage, parseUsageLastFlag, readTokenUsageAudit, exportSessionTrajectory, trajectoryToMarkdown, startUnifiedGateway } from '@anvio/platform';
 import { createSoulService } from '@anvio/souls';
 import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
 import { ToolGateway } from '@anvio/tools';
@@ -149,6 +150,9 @@ async function main() {
     case 'voice':
       await cmdVoice(args.slice(1));
       break;
+    case 'gateway':
+      await cmdGateway(args.slice(1));
+      break;
     case 'workspace':
       await cmdWorkspace(args.slice(1));
       break;
@@ -209,7 +213,8 @@ Execution & Providers
   anvio kb list|ingest|sync|import-manifest   Knowledge base pipeline
   anvio learning drafts|promote|summarize-sessions
   anvio workflow list|validate|run     Standalone DAG workflow engine (Phase I)
-  anvio voice transcribe|speak         STT/TTS voice pipeline (Phase I)
+  anvio voice transcribe|stream-transcribe|realtime-transcribe|speak
+  anvio gateway start|stop|status         Unified Hermes-style gateway daemon
   anvio workspace validate             Validate workspace structure
 
 Environment
@@ -1915,15 +1920,17 @@ async function cmdVoice(sub: string[]) {
       console.log(text);
       break;
     }
-    case 'stream-transcribe': {
+    case 'stream-transcribe':
+    case 'realtime-transcribe': {
       const audioPath = sub[1];
-      if (!audioPath) {
-        console.error('Usage: anvio voice stream-transcribe <audio-file>');
+      const useRealtime = action === 'realtime-transcribe' || sub.includes('--realtime');
+      if (!audioPath || audioPath.startsWith('--')) {
+        console.error('Usage: anvio voice stream-transcribe|realtime-transcribe <audio-file>');
         process.exit(1);
       }
-      const fs = await import('node:fs/promises');
-      const buffer = await fs.readFile(path.resolve(audioPath));
-      const session = createStreamingSttSession();
+      const fsMod = await import('node:fs/promises');
+      const buffer = await fsMod.readFile(path.resolve(audioPath));
+      const session = createStreamingSttSession({ realtime: useRealtime });
       async function* chunks() {
         const size = 4096;
         for (let i = 0; i < buffer.length; i += size) {
@@ -1942,8 +1949,100 @@ async function cmdVoice(sub: string[]) {
       break;
     }
     default:
-      console.error('Usage: anvio voice transcribe|stream-transcribe|speak');
+      console.error('Usage: anvio voice transcribe|stream-transcribe|realtime-transcribe|speak');
       process.exit(1);
+  }
+}
+
+function gatewayPidPath(wsPath: string): string {
+  return path.join(wsPath, '.gateway', 'gateway.pid');
+}
+
+async function cmdGateway(sub: string[]) {
+  const action = sub[0] ?? 'help';
+  const wsPath = resolveWorkspacePath();
+  const port = parseInt(process.env.ANVIO_GATEWAY_PORT ?? '3001', 10);
+
+  switch (action) {
+    case 'start': {
+      const foreground = sub.includes('--foreground') || sub.includes('-f');
+      if (foreground) {
+        const handle = await startUnifiedGateway({ workspacePath: wsPath });
+        console.log(`Gateway running on port ${handle.port} (Ctrl+C to stop)`);
+        const shutdown = async () => {
+          await handle.shutdown();
+          process.exit(0);
+        };
+        process.on('SIGINT', shutdown);
+        process.on('SIGTERM', shutdown);
+        return;
+      }
+
+      const pidFile = gatewayPidPath(wsPath);
+      await fs.mkdir(path.dirname(pidFile), { recursive: true });
+      try {
+        const existing = await fs.readFile(pidFile, 'utf-8');
+        process.kill(parseInt(existing.trim(), 10), 0);
+        console.log(`Gateway already running (pid ${existing.trim()}). Use: anvio gateway stop`);
+        return;
+      } catch {
+        /* not running */
+      }
+
+      const repoRoot = findRepoRoot(process.cwd());
+      if (!repoRoot) {
+        console.error('Cannot locate gateway binary. Use: anvio gateway start --foreground');
+        process.exit(1);
+      }
+      const gatewayBin = path.join(repoRoot, 'apps/gateway/dist/main.js');
+      const child = spawn(process.execPath, [gatewayBin], {
+        detached: true,
+        stdio: 'ignore',
+        env: { ...process.env, ANVIO_WORKSPACE: wsPath },
+      });
+      child.unref();
+      if (child.pid) {
+        await fs.writeFile(pidFile, String(child.pid), 'utf-8');
+        console.log(`Gateway started (pid ${child.pid}) on port ${port}`);
+        console.log(`  anvio gateway status`);
+        console.log(`  anvio gateway stop`);
+      }
+      break;
+    }
+    case 'stop': {
+      const pidFile = gatewayPidPath(wsPath);
+      try {
+        const pid = parseInt((await fs.readFile(pidFile, 'utf-8')).trim(), 10);
+        process.kill(pid, 'SIGTERM');
+        await fs.unlink(pidFile);
+        console.log(`Gateway stopped (pid ${pid})`);
+      } catch {
+        console.log('Gateway is not running');
+      }
+      break;
+    }
+    case 'status': {
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/health`);
+        const body = (await res.json()) as Record<string, unknown>;
+        console.log(JSON.stringify({ ok: res.ok, port, ...body }, null, 2));
+      } catch {
+        console.log(JSON.stringify({ ok: false, port, error: 'Gateway not reachable' }, null, 2));
+        process.exit(1);
+      }
+      break;
+    }
+    default:
+      console.log(`anvio gateway — Hermes-style unified daemon
+
+  anvio gateway start [--foreground]   Start gateway (channels + worker + API + WS)
+  anvio gateway stop                     Stop background gateway
+  anvio gateway status                   Health check
+
+Environment:
+  ANVIO_GATEWAY_PORT                   Default 3001
+  ANVIO_WORKSPACE                      Workspace path
+  storage.provider: sqlite in anvio.yaml for Hermes-style state.db sessions`);
   }
 }
 
