@@ -12,13 +12,9 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@anvio/channels": "workspace:*",
-    "@anvio/events": "workspace:*",
-    "@anvio/platform": "workspace:*",
-    "ws": "^8.18.2"
+    "@anvio/platform": "workspace:*"
   },
   "devDependencies": {
-    "@types/ws": "^8.18.1",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vitest": "^3.1.4"

@@ -1,31 +1,27 @@
-import { ActionExecutor, createAutomationEngine, type AutomationEngine } from '@anvio/automation';
+import { ActionExecutor, createAutomationEngine } from '@anvio/automation';
 import { BlueprintExecutor, createCatalogRegistry } from '@anvio/blueprints';
-import { createIntegrationRegistry, createMcpBridge, createMcpFirstCallGate, createMcpToolPort, loadMcpToolCatalog, type McpFirstCallGate } from '@anvio/integrations';
-import { createHookEngine, type HookEngine } from '@anvio/hooks';
+import { createIntegrationRegistry, createMcpBridge, createMcpFirstCallGate, createMcpToolPort, loadMcpToolCatalog } from '@anvio/integrations';
+import { createHookEngine } from '@anvio/hooks';
 import { DefaultAgentRuntime } from '@anvio/agents';
 import { createChannelHub, ChannelHub, FilesystemAgentInbox, type WhatsAppChannel } from '@anvio/channels';
 import { createAuthProvider } from '@anvio/auth';
 import type {
-  AgentDefinition,
-  AuthProvider,
   ChannelHubPort,
   AgentInbox,
   ModelProvider,
-  Session,
   ChannelType,
 } from '@anvio/core';
-import { createEventBus, EventSubjects, type EventBusLike } from '@anvio/events';
+import { createEventBus, EventSubjects } from '@anvio/events';
 import { createMemoryProvider } from '@anvio/memory';
 import {
   createModelProviderRegistryFromEnv,
   createModelProviderRegistryInstance,
   allKnownProviderIds,
-  type ModelProviderRegistry,
 } from '@anvio/models';
 import { PersonaService } from '@anvio/personas';
 import { createSoulService } from '@anvio/souls';
 import { SkillRegistry, createSkillCatalogResolver } from '@anvio/skills';
-import { createHarnessFromWorkspace, createHarnessAwareToolPort, type HarnessGateway } from '@anvio/harness';
+import { createHarnessFromWorkspace, createHarnessAwareToolPort } from '@anvio/harness';
 import { createKanbanEngine } from '@anvio/kanban';
 import { LearningEngine } from '@anvio/learning';
 import { ToolGateway } from '@anvio/tools';
@@ -34,25 +30,10 @@ import { DagExecutor, createWorkflowRegistry } from '@anvio/workflows';
 import { Workspace } from '@anvio/workspace';
 import { findRepoRoot, findWorkspacePath } from './find-workspace.js';
 import { createTokenUsageAudit } from './token-usage-audit.js';
+import type { PlatformContext } from './platform-context.js';
+import { storedSessionToRuntime } from './session-runtime.js';
 
-export interface PlatformContext {
-  workspace: Workspace;
-  auth: AuthProvider;
-  runtime: DefaultAgentRuntime;
-  eventBus: EventBusLike;
-  modelProvider: ModelProvider;
-  modelProviders: ModelProviderRegistry;
-  channelHub: ChannelHubPort;
-  inbox: AgentInbox;
-  whatsapp?: WhatsAppChannel;
-  blueprintExecutor: BlueprintExecutor;
-  automationEngine: AutomationEngine;
-  hookEngine: HookEngine;
-  harness: HarnessGateway;
-  learningEngine: LearningEngine;
-  toolGateway: ToolGateway;
-  mcpFirstCallGate: McpFirstCallGate;
-}
+export type { PlatformContext } from './platform-context.js';
 
 export interface PlatformOptions {
   workspacePath?: string;
@@ -183,6 +164,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       return [];
     },
     searchSessions: async (query, limit = 10) => {
+      if (workspace.sessions.searchMessages) {
+        return workspace.sessions.searchMessages(query, limit);
+      }
       const q = query.toLowerCase();
       const sessions = await workspace.sessions.list();
       const results: Array<{ sessionId: string; agentName: string; channel: string; snippet: string }> = [];
@@ -612,35 +596,9 @@ function createMockModelProvider(): ModelProvider {
   };
 }
 
-export function storedSessionToRuntime(session: {
-  id: string;
-  userId: string;
-  agentName: string;
-  channel: string;
-  messages: Session['state']['messages'];
-  status: Session['state']['status'];
-  lastActiveAt: string;
-  pendingApproval?: Session['state']['pendingApproval'];
-  metadata?: Record<string, unknown>;
-}): Session {
-  return {
-    id: session.id,
-    userId: session.userId,
-    agentId: session.agentName,
-    channel: session.channel,
-    state: {
-      status: session.status,
-      messages: session.messages,
-      pendingApproval: session.pendingApproval,
-      metadata: session.metadata,
-    },
-    lastActiveAt: new Date(session.lastActiveAt),
-  };
-}
-
-export async function loadAgent(workspace: Workspace, name: string): Promise<AgentDefinition> {
-  return workspace.loader.loadAgent(name);
-}
+export { loadAgent, storedSessionToRuntime } from './session-runtime.js';
+export { registerGatewayWorker } from './gateway-worker.js';
+export { startUnifiedGateway, type UnifiedGatewayHandle, type UnifiedGatewayOptions } from './unified-gateway.js';
 
 export type { ChannelHubPort, AgentInbox, WhatsAppChannel };
 export { findRepoRoot, findWorkspacePath } from './find-workspace.js';

@@ -36,7 +36,9 @@
     "@anvio/kanban": "workspace:*",
     "@anvio/soul-gate": "workspace:*",
     "@anvio/workflows": "workspace:*",
-    "@anvio/workspace": "workspace:*"
+    "@anvio/workspace": "workspace:*",
+    "ws": "^8.18.2"
   },
-  "devDependencies": { "typescript": "^5.8.3", "vitest": "^3.1.4" }
+  "devDependencies": {
+    "@types/ws": "^8.18.1", "typescript": "^5.8.3", "vitest": "^3.1.4" }
 }
