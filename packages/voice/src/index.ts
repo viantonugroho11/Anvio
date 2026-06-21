@@ -5,7 +5,14 @@ export {
   ChunkedStreamingSttSession,
   type StreamingSttSession,
   type StreamingSttChunk,
+  type CreateStreamingSttOptions,
 } from './streaming-stt.js';
+export {
+  OpenAiRealtimeSttSession,
+  createRealtimeSttSession,
+  streamRealtimeTranscribe,
+  type RealtimeTranscriptEvent,
+} from './adapters/openai-realtime-stt.js';
 export {
   isChannelVoiceEnabled,
   transcribeInboundAudio,

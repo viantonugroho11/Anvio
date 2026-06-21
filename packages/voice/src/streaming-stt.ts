@@ -1,4 +1,5 @@
 import { OpenAiSpeechAdapter } from './adapters/openai-speech.js';
+import { createRealtimeSttSession } from './adapters/openai-realtime-stt.js';
 
 export interface StreamingSttChunk {
   text: string;
@@ -8,6 +9,11 @@ export interface StreamingSttChunk {
 export interface StreamingSttSession {
   feed(chunk: Buffer): void;
   end(): Promise<string>;
+}
+
+export interface CreateStreamingSttOptions {
+  realtime?: boolean;
+  onPartial?: (text: string) => void;
 }
 
 /** Accumulates audio chunks then transcribes (OpenAI Whisper) or mock. */
@@ -42,6 +48,9 @@ export async function* streamTranscribe(
   yield { text, final: true };
 }
 
-export function createStreamingSttSession(): StreamingSttSession {
+export function createStreamingSttSession(options: CreateStreamingSttOptions = {}): StreamingSttSession {
+  if (options.realtime || process.env.ANVIO_VOICE_REALTIME === '1') {
+    return createRealtimeSttSession({ onPartial: options.onPartial });
+  }
   return new ChunkedStreamingSttSession();
 }
