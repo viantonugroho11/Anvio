@@ -22,6 +22,11 @@ import { PersonaService } from '@anvio/personas';
 import { createSoulService } from '@anvio/souls';
 import { SkillRegistry, createSkillCatalogResolver } from '@anvio/skills';
 import { createHarnessFromWorkspace, createHarnessAwareToolPort } from '@anvio/harness';
+import {
+  CLAUDE_CODE_CONNECTION_SERVICE,
+  createRuntimeFactory,
+  parseClaudeCodeConnectionPayload,
+} from '@anvio/runtimes';
 import { createKanbanEngine } from '@anvio/kanban';
 import { LearningEngine } from '@anvio/learning';
 import { ToolGateway } from '@anvio/tools';
@@ -32,6 +37,7 @@ import { findRepoRoot, findWorkspacePath } from './find-workspace.js';
 import { createTokenUsageAudit } from './token-usage-audit.js';
 import type { PlatformContext } from './platform-context.js';
 import { storedSessionToRuntime } from './session-runtime.js';
+import { RuntimeRoutingAgentRuntime } from './runtime-routing-agent-runtime.js';
 
 export type { PlatformContext } from './platform-context.js';
 
@@ -270,7 +276,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     });
   }
 
-  const runtime = new DefaultAgentRuntime({
+  const localRuntime = new DefaultAgentRuntime({
     personaService,
     skillRegistry,
     memoryStore: memoryProvider,
@@ -286,6 +292,35 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       });
     },
   });
+
+  const runtimeFactory = createRuntimeFactory({
+    agentRuntime: localRuntime,
+    options: {
+      defaultRuntime: spec.runtime.default,
+      acpEndpoint: spec.acp.enabled
+        ? `http://${spec.acp.host}:${spec.acp.port}`
+        : process.env.ANVIO_ACP_ENDPOINT,
+      claudeCodeCwd: workspacePath,
+      resolveClaudeCodeOAuthToken: harness.connectBroker
+        ? async ({ userId, channel, threadId }) => {
+            const payload = await harness.connectBroker!.getPayloadForAccess({
+              requesterUserId: userId,
+              channel,
+              threadId,
+              service: CLAUDE_CODE_CONNECTION_SERVICE,
+            });
+            return payload ? parseClaudeCodeConnectionPayload(payload) : null;
+          }
+        : undefined,
+    },
+    codeExecutor,
+  });
+
+  const runtime = new RuntimeRoutingAgentRuntime(
+    localRuntime,
+    runtimeFactory,
+    spec.runtime.default,
+  );
 
   await channelHub.startAll();
 
@@ -556,6 +591,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     workspace,
     auth,
     runtime,
+    runtimeFactory,
     eventBus,
     modelProvider,
     modelProviders,

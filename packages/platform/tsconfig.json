@@ -12,6 +12,7 @@
     { "path": "../personas" },
     { "path": "../skills" },
     { "path": "../agents" },
+    { "path": "../runtimes" },
     { "path": "../automation" },
     { "path": "../blueprints" },
     { "path": "../hooks" },

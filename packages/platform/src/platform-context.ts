@@ -1,4 +1,5 @@
-import type { DefaultAgentRuntime } from '@anvio/agents';
+import type { AgentRuntime } from '@anvio/core';
+import type { RuntimeFactory } from '@anvio/runtimes';
 import type { AuthProvider, AgentInbox, ChannelHubPort, ModelProvider } from '@anvio/core';
 import type { AutomationEngine } from '@anvio/automation';
 import type { BlueprintExecutor } from '@anvio/blueprints';
@@ -15,7 +16,8 @@ import type { Workspace } from '@anvio/workspace';
 export interface PlatformContext {
   workspace: Workspace;
   auth: AuthProvider;
-  runtime: DefaultAgentRuntime;
+  runtime: AgentRuntime;
+  runtimeFactory: RuntimeFactory;
   eventBus: EventBusLike;
   modelProvider: ModelProvider;
   modelProviders: ModelProviderRegistry;
