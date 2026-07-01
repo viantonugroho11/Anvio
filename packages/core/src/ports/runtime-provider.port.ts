@@ -48,6 +48,13 @@ export interface RuntimeFactoryOptions {
   defaultRuntime?: RuntimeProviderId;
   acpEndpoint?: string;
   claudeCodeBinary?: string;
+  claudeCodeCwd?: string;
+  claudeCodeOAuthToken?: string;
+  resolveClaudeCodeOAuthToken?: (input: {
+    userId: string;
+    channel: string;
+    threadId: string;
+  }) => Promise<string | null>;
   codexBinary?: string;
   sshHost?: string;
   sshUser?: string;
