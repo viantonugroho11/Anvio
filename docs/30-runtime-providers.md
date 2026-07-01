@@ -97,9 +97,9 @@ anvio runtime test claude-code
 | `--claude` | `claude setup-token` | OAuth token (Pro/Max) |
 | `--cursor` | `agent login` | Cursor CLI session |
 | `--codex` | `codex login` | `~/.codex/auth.json` snapshot |
-| `--antigravity` | `agy auth login` (or first `agy -p`) | Google Sign-In / system keyring snapshot |
+| `--antigravity` | `agy auth login` (auto-installs CLI if missing) | Google Sign-In / system keyring snapshot |
 
-Optional: `--token TOKEN` (claude/codex/antigravity), `--binary NAME` (custom CLI path, e.g. `--binary agy`).
+Optional: `--token TOKEN` (claude/codex/antigravity), `--binary NAME` (custom CLI path), `--no-install` (skip Antigravity auto-install).
 
 Antigravity CLI: [github.com/google-antigravity/antigravity-cli](https://github.com/google-antigravity/antigravity-cli) · [antigravity.google/product/antigravity-cli](https://antigravity.google/product/antigravity-cli)
 

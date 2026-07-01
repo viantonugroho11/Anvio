@@ -1,5 +1,9 @@
 import { AnvioError } from '@anvio/core';
 import { combinedOutput, spawnVendorCli } from './spawn-vendor-cli.js';
+import {
+  ANTIGRAVITY_CLI_INSTALL_URL,
+  ensureAntigravityCli,
+} from './vendor-cli-install.js';
 
 export const ANTIGRAVITY_CONNECTION_SERVICE = 'antigravity';
 export const DEFAULT_ANTIGRAVITY_BINARY = 'agy';
@@ -8,6 +12,8 @@ export interface AntigravitySetupTokenOptions {
   binary?: string;
   timeoutMs?: number;
   explicitToken?: string;
+  /** When true (default), run official install.sh if `agy` is missing. */
+  autoInstall?: boolean;
 }
 
 function isAuthSuccess(output: string, exitCode: number | null): boolean {
@@ -33,14 +39,20 @@ export async function runAntigravitySetupToken(
     };
   }
 
-  const binary = options.binary ?? DEFAULT_ANTIGRAVITY_BINARY;
   const timeoutMs = options.timeoutMs ?? 300_000;
+
+  const { binary, env, installed } = await ensureAntigravityCli({
+    binary: options.binary ?? DEFAULT_ANTIGRAVITY_BINARY,
+    autoInstall: options.autoInstall,
+    timeoutMs,
+  });
 
   // Prefer documented auth subcommand; CLI may also authenticate on first `-p` run.
   let result = await spawnVendorCli({
     binary,
     args: ['auth', 'login'],
     timeoutMs,
+    env,
   });
 
   let output = combinedOutput(result);
@@ -49,6 +61,7 @@ export async function runAntigravitySetupToken(
       binary,
       args: ['-p', 'verify anvio setup-token authentication'],
       timeoutMs,
+      env,
     });
     output = combinedOutput(result);
   }
@@ -58,7 +71,9 @@ export async function runAntigravitySetupToken(
       'VALIDATION_ERROR',
       [
         `Antigravity CLI (\`${binary}\`) authentication failed.`,
-        'Install: curl -fsSL https://antigravity.google/cli/install.sh | bash',
+        installed
+          ? `CLI was installed from ${ANTIGRAVITY_CLI_INSTALL_URL}.`
+          : `Install: curl -fsSL ${ANTIGRAVITY_CLI_INSTALL_URL} | bash`,
         'Docs: https://antigravity.google/docs/cli-overview',
         'Headless: pass --token (ANTIGRAVITY_TOKEN) after completing Google Sign-In elsewhere.',
         output,
@@ -66,14 +81,17 @@ export async function runAntigravitySetupToken(
     );
   }
 
+  const installNote = installed ? ' (CLI auto-installed via official Google install script)' : '';
+
   return {
     payload: JSON.stringify({
       authMethod: 'agy-google-oauth',
       binary,
       status: output,
       loggedInAt: new Date().toISOString(),
+      autoInstalled: installed,
     }),
     message:
-      'Antigravity CLI (agy) Google OAuth session saved — system keyring / Google Sign-In, not GEMINI_API_KEY.',
+      `Antigravity CLI (agy) Google OAuth session saved${installNote} — system keyring / Google Sign-In, not GEMINI_API_KEY.`,
   };
 }

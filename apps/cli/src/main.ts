@@ -737,7 +737,7 @@ async function cmdSetupToken(sub: string[]) {
   const vendor = detectSetupTokenVendor(sub);
   if (!vendor) {
     console.error(
-      'Usage: anvio setup-token --claude|--cursor|--codex|--antigravity [--token TOKEN] [--binary NAME] [--list]',
+      'Usage: anvio setup-token --claude|--cursor|--codex|--antigravity [--token TOKEN] [--binary NAME] [--no-install] [--list]',
     );
     process.exit(1);
   }
@@ -745,6 +745,7 @@ async function cmdSetupToken(sub: string[]) {
   const { workspace, broker, flag } = await openConnectBroker(sub);
   const explicitToken = flag('--token');
   const binary = flag('--binary');
+  const autoInstall = !sub.includes('--no-install');
   const threadId = flag('--thread') ?? 'default';
   const channel = flag('--channel') ?? 'cli';
   const userId = flag('--user') ?? workspace.config.spec.defaultUserId;
@@ -754,6 +755,7 @@ async function cmdSetupToken(sub: string[]) {
     const result = await runRuntimeSetupToken(vendor, {
       explicitToken,
       binary,
+      autoInstall,
     });
     const stored = await broker.putConnection({
       channel,

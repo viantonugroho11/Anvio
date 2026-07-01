@@ -36,6 +36,7 @@ export interface RunRuntimeSetupTokenOptions {
   binary?: string;
   explicitToken?: string;
   timeoutMs?: number;
+  autoInstall?: boolean;
 }
 
 export interface RuntimeSetupTokenResult {
@@ -106,6 +107,8 @@ export async function runRuntimeSetupToken(
       const result = await runAntigravitySetupToken({
         binary: options.binary,
         explicitToken: options.explicitToken,
+        timeoutMs: options.timeoutMs,
+        autoInstall: options.autoInstall,
       });
       return { vendor, service, ...result };
     }

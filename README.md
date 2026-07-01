@@ -305,9 +305,9 @@ flowchart LR
 | **`claude-code`** | OAuth via `anvio setup-token --claude` | Claude Pro/Max subscription, Agent SDK features |
 | **`cursor`** | OAuth via `anvio setup-token --cursor` | Cursor subscription, editor-integrated agent |
 | **`codex`** | OAuth via `anvio setup-token --codex` | OpenAI Codex CLI subscription |
-| **`antigravity`** | Google Sign-In via `anvio setup-token --antigravity` | [Antigravity CLI](https://github.com/google-antigravity/antigravity-cli) (`agy`) — Gemini agent harness |
+| **`antigravity`** | Google Sign-In via `anvio setup-token --antigravity` | [Antigravity CLI](https://github.com/google-antigravity/antigravity-cli) (`agy`) — auto-installs if missing |
 
-Install Antigravity CLI: `curl -fsSL https://antigravity.google/cli/install.sh | bash` · [Product page](https://antigravity.google/product/antigravity-cli)
+`anvio setup-token --antigravity` runs Google's official install script when `agy` is not on PATH (macOS/Linux). Skip with `--no-install` if you prefer manual setup.
 
 ### Unified vendor login
 

@@ -66,8 +66,8 @@ Adopt a **two-layer auth model**:
 ### Antigravity (partial today)
 
 - Official **[Antigravity CLI](https://github.com/google-antigravity/antigravity-cli)** (`agy`) — Google Sign-In via system keyring; local browser or SSH authorization URL.
-- Install: `curl -fsSL https://antigravity.google/cli/install.sh | bash`
 - `anvio setup-token --antigravity` wraps `agy auth login` (falls back to first `-p` prompt).
+- **Auto-install:** if `agy` is missing, Anvio runs `curl -fsSL https://antigravity.google/cli/install.sh | bash` (macOS/Linux). Pass `--no-install` to skip.
 - Headless/CI: pass `--token` (`ANTIGRAVITY_TOKEN`) after completing Google Sign-In elsewhere.
 - **Not** `GEMINI_API_KEY` — Antigravity runtime uses Google account OAuth, not Gemini API billing.
 - `AntigravityRuntimeProvider` wiring pending; setup-token + broker storage implemented.
