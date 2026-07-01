@@ -72,6 +72,43 @@ spec:
     model: claude-sonnet-4-20250514
 ```
 
+## Claude Code OAuth (subscription auth)
+
+Claude Code runtime uses **`@anthropic-ai/claude-agent-sdk`** with OAuth — not `ANTHROPIC_API_KEY`. See [ADR 0009](./adr/0009-runtime-oauth-authentication.md).
+
+```bash
+# Unified vendor login (recommended)
+anvio setup-token --claude
+anvio setup-token --cursor
+anvio setup-token --codex
+anvio setup-token --list
+
+# Verify
+anvio runtime test claude-code
+```
+
+| Flag | Official CLI | Auth stored as |
+|------|--------------|----------------|
+| `--claude` | `claude setup-token` | OAuth token (Pro/Max) |
+| `--cursor` | `agent login` | Cursor CLI session |
+| `--codex` | `codex login` | `~/.codex/auth.json` snapshot |
+| `--antigravity` | (pending) | manual `--token` only |
+
+Optional: `--token TOKEN` (claude/codex/antigravity), `--binary NAME` (custom CLI path).
+
+Agent binding:
+
+```yaml
+spec:
+  runtime:
+    provider: claude-code
+    fallback: local
+```
+
+When `fallback: local`, the `model` block is used only if Claude Code OAuth is unavailable.
+
+Server/Docker OAuth: see [ADR 0009 — Docker, server, and headless OAuth](./adr/0009-runtime-oauth-authentication.md#docker-server-and-headless-oauth).
+
 ## Architecture
 
 ```mermaid
