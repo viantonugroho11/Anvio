@@ -11,6 +11,20 @@ export {
   runClaudeSetupToken,
 } from './claude-code/claude-code-auth.js';
 export { CodexRuntimeProvider } from './codex/codex-runtime.js';
+export {
+  CODEX_ACCESS_TOKEN_ENV,
+  buildCodexAgentEnv,
+  parseCodexAuthJson,
+  resolveCodexAuthJson,
+} from './codex/codex-auth.js';
+export { AntigravityRuntimeProvider } from './antigravity/antigravity-runtime.js';
+export {
+  ANTIGRAVITY_TOKEN_ENV,
+  buildAntigravityAgentEnv,
+  parseAntigravityConnectionPayload,
+  resolveAntigravityOAuthToken,
+} from './antigravity/antigravity-auth.js';
+export { isCursorRuntimeConfigured, parseCursorConnectionPayload } from './cursor/cursor-auth.js';
 export { SshRuntimeProvider } from './ssh/ssh-runtime.js';
 export { DaytonaRuntimeProvider, ModalRuntimeProvider, type RemoteExecResult } from './remote/remote-runtime-stub.js';
 export { RuntimeFactory, createRuntimeFactory, type RuntimeFactoryDeps } from './runtime-factory.js';

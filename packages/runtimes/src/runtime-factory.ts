@@ -6,6 +6,7 @@ import type {
   RuntimeProvider,
   RuntimeProviderId,
 } from '@anvio/core';
+import { AntigravityRuntimeProvider } from './antigravity/antigravity-runtime.js';
 import { ClaudeCodeRuntimeProvider } from './claude-code/claude-code-runtime.js';
 import { CodexRuntimeProvider } from './codex/codex-runtime.js';
 import { CursorRuntimeProvider } from './cursor/cursor-runtime.js';
@@ -25,9 +26,19 @@ export class RuntimeFactory {
 
   constructor(deps: RuntimeFactoryDeps) {
     const opts = deps.options ?? {};
+    const resolveConnectionPayload = opts.resolveConnectionPayload;
+
     this.providers = new Map<RuntimeProviderId, RuntimeProvider>([
       ['local', new LocalRuntimeProvider(deps.agentRuntime)],
-      ['cursor', new CursorRuntimeProvider({ acpEndpoint: opts.acpEndpoint })],
+      [
+        'cursor',
+        new CursorRuntimeProvider({
+          acpEndpoint: opts.acpEndpoint,
+          agentBinary: opts.cursorAgentBinary,
+          cwd: opts.claudeCodeCwd,
+          resolveConnectionPayload,
+        }),
+      ],
       [
         'claude-code',
         new ClaudeCodeRuntimeProvider({
@@ -36,7 +47,22 @@ export class RuntimeFactory {
           resolveOAuthToken: opts.resolveClaudeCodeOAuthToken,
         }),
       ],
-      ['codex', new CodexRuntimeProvider({ binary: opts.codexBinary })],
+      [
+        'codex',
+        new CodexRuntimeProvider({
+          binary: opts.codexBinary,
+          cwd: opts.codexCwd ?? opts.claudeCodeCwd,
+          resolveConnectionPayload,
+        }),
+      ],
+      [
+        'antigravity',
+        new AntigravityRuntimeProvider({
+          binary: opts.antigravityBinary,
+          cwd: opts.antigravityCwd ?? opts.claudeCodeCwd,
+          resolveConnectionPayload,
+        }),
+      ],
       ['ssh', new SshRuntimeProvider({ host: opts.sshHost, user: opts.sshUser })],
       ['docker', new DockerRuntimeProvider({ image: opts.dockerImage, codeExecutor: deps.codeExecutor })],
       ['daytona', new DaytonaRuntimeProvider({ apiKey: opts.daytonaApiKey })],

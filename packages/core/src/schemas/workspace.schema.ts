@@ -35,7 +35,7 @@ export const memoryConfigSchema = z.object({
 });
 
 export const runtimeConfigSchema = z.object({
-  default: z.enum(['local', 'cursor', 'claude-code', 'codex']).default('local'),
+  default: z.enum(['local', 'cursor', 'claude-code', 'codex', 'antigravity']).default('local'),
 });
 
 export const executionConfigSchema = z.object({

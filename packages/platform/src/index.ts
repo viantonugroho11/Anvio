@@ -293,6 +293,26 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     },
   });
 
+  const resolveConnectionPayload = harness.connectBroker
+    ? async ({
+        userId,
+        channel,
+        threadId,
+        service,
+      }: {
+        userId: string;
+        channel: string;
+        threadId: string;
+        service: string;
+      }) =>
+        harness.connectBroker!.getPayloadForAccess({
+          requesterUserId: userId,
+          channel,
+          threadId,
+          service,
+        })
+    : undefined;
+
   const runtimeFactory = createRuntimeFactory({
     agentRuntime: localRuntime,
     options: {
@@ -301,10 +321,13 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         ? `http://${spec.acp.host}:${spec.acp.port}`
         : process.env.ANVIO_ACP_ENDPOINT,
       claudeCodeCwd: workspacePath,
-      resolveClaudeCodeOAuthToken: harness.connectBroker
+      codexCwd: workspacePath,
+      antigravityCwd: workspacePath,
+      resolveConnectionPayload,
+      resolveClaudeCodeOAuthToken: resolveConnectionPayload
         ? async ({ userId, channel, threadId }) => {
-            const payload = await harness.connectBroker!.getPayloadForAccess({
-              requesterUserId: userId,
+            const payload = await resolveConnectionPayload({
+              userId,
               channel,
               threadId,
               service: CLAUDE_CODE_CONNECTION_SERVICE,

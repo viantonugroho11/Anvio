@@ -52,25 +52,22 @@ Adopt a **two-layer auth model**:
        model: claude-sonnet-4-20250514
    ```
 
-### Cursor (planned — partial today)
+### Cursor (implemented)
 
-- Auth via **Cursor desktop app session**, not `CURSOR_API_KEY`.
-- Anvio delegates through `anvio acp serve` → `CursorRuntimeProvider`.
-- No Anvio-hosted OAuth UI.
+- Auth via **Cursor agent CLI** (`agent login`) or **ACP** (`anvio acp serve`).
+- `anvio setup-token --cursor` stores CLI session in connection broker.
+- `CursorRuntimeProvider` uses ACP when `ANVIO_ACP_ENDPOINT` is set; otherwise `agent -p`.
 
-### Codex (partial today)
+### Codex (implemented)
 
-- Auth via **OpenAI Codex CLI** (`codex login`) → `~/.codex/auth.json`.
-- `anvio setup-token --codex` wraps official login.
+- Auth via **OpenAI Codex CLI** (`codex login`) → broker stores `~/.codex/auth.json` snapshot.
+- `CodexRuntimeProvider` runs `codex exec` with isolated auth home; strips `OPENAI_API_KEY`.
 
-### Antigravity (partial today)
+### Antigravity (implemented)
 
-- Official **[Antigravity CLI](https://github.com/google-antigravity/antigravity-cli)** (`agy`) — Google Sign-In via system keyring; local browser or SSH authorization URL.
-- `anvio setup-token --antigravity` wraps `agy auth login` (falls back to first `-p` prompt).
-- **Auto-install:** if `agy` is missing, Anvio runs `curl -fsSL https://antigravity.google/cli/install.sh | bash` (macOS/Linux). Pass `--no-install` to skip.
-- Headless/CI: pass `--token` (`ANTIGRAVITY_TOKEN`) after completing Google Sign-In elsewhere.
-- **Not** `GEMINI_API_KEY` — Antigravity runtime uses Google account OAuth, not Gemini API billing.
-- `AntigravityRuntimeProvider` wiring pending; setup-token + broker storage implemented.
+- Official **[Antigravity CLI](https://github.com/google-antigravity/antigravity-cli)** (`agy`) — Google Sign-In via system keyring.
+- `anvio setup-token --antigravity` wraps `agy auth login` (auto-installs CLI if missing).
+- `AntigravityRuntimeProvider` runs `agy -p`; strips `GEMINI_API_KEY`; optional `ANTIGRAVITY_TOKEN` for CI.
 
 ### Platform routing
 
@@ -80,7 +77,7 @@ Adopt a **two-layer auth model**:
 
 Fallback is **runtime → runtime**, one hop, triggered when the primary runtime is **not configured** (`isConfigured()`), not on mid-run auth errors.
 
-Allowed values today: `local`, `cursor`, `claude-code`, `codex` (`antigravity` setup-token ✅; runtime provider pending).
+Allowed values today: `local`, `cursor`, `claude-code`, `codex`, `antigravity`.
 
 ```yaml
 # Claude primary, Cursor secondary, API key only if both missing

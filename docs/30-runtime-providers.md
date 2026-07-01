@@ -34,8 +34,8 @@ interface RuntimeCapabilities {
 |---------|-----|----------|
 | **Claude Code Runtime** | `claude-code` | Anthropic CLI agent |
 | **Cursor Runtime** | `cursor` | Cursor agent via MCP/ACP |
-| **Codex Runtime** | `codex` | OpenAI Codex CLI |
-| **Antigravity Runtime** | `antigravity` | Google Antigravity CLI (`agy`) |
+| **Codex Runtime** | `codex` | OpenAI Codex CLI (`codex exec`) |
+| **Antigravity Runtime** | `antigravity` | Google Antigravity CLI (`agy -p`) |
 | **Local Runtime** | `local` | Direct model provider (default Level 1) |
 
 ## Configuration
@@ -88,8 +88,16 @@ anvio setup-token --codex
 anvio setup-token --antigravity
 anvio setup-token --list
 
-# Verify
+# Per-user OAuth on one workspace
+export ANVIO_CONNECTION_ENCRYPTION_KEY=your-secret
+anvio setup-token --claude --user alice
+anvio setup-token --codex  --user bob
+anvio setup-token --antigravity --user carol
+
+# Verify runtime OAuth
 anvio runtime test claude-code
+anvio runtime test codex
+anvio runtime test antigravity
 ```
 
 | Flag | Official CLI | Auth stored as |
@@ -108,7 +116,7 @@ Agent binding:
 ```yaml
 spec:
   runtime:
-    provider: claude-code
+    provider: claude-code   # or cursor | codex | antigravity
     fallback: local
 ```
 

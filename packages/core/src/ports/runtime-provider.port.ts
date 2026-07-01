@@ -7,10 +7,21 @@ export type RuntimeProviderId =
   | 'cursor'
   | 'claude-code'
   | 'codex'
+  | 'antigravity'
   | 'ssh'
   | 'docker'
   | 'daytona'
   | 'modal';
+
+export interface RuntimeConnectionContext {
+  userId: string;
+  channel: string;
+  threadId: string;
+}
+
+export type RuntimeConnectionResolver = (
+  input: RuntimeConnectionContext & { service: string },
+) => Promise<string | null>;
 
 export interface RuntimeCapabilities {
   supportsTools: boolean;
@@ -50,12 +61,13 @@ export interface RuntimeFactoryOptions {
   claudeCodeBinary?: string;
   claudeCodeCwd?: string;
   claudeCodeOAuthToken?: string;
-  resolveClaudeCodeOAuthToken?: (input: {
-    userId: string;
-    channel: string;
-    threadId: string;
-  }) => Promise<string | null>;
+  resolveClaudeCodeOAuthToken?: (input: RuntimeConnectionContext) => Promise<string | null>;
+  resolveConnectionPayload?: RuntimeConnectionResolver;
   codexBinary?: string;
+  codexCwd?: string;
+  antigravityBinary?: string;
+  antigravityCwd?: string;
+  cursorAgentBinary?: string;
   sshHost?: string;
   sshUser?: string;
   dockerImage?: string;

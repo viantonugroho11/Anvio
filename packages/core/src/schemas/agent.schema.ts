@@ -49,8 +49,8 @@ export const agentWorkspaceSchema = z.object({
 });
 
 export const agentRuntimeBindingSchema = z.object({
-  provider: z.enum(['local', 'cursor', 'claude-code', 'codex']).optional(),
-  fallback: z.enum(['local', 'cursor', 'claude-code', 'codex']).optional(),
+  provider: z.enum(['local', 'cursor', 'claude-code', 'codex', 'antigravity']).optional(),
+  fallback: z.enum(['local', 'cursor', 'claude-code', 'codex', 'antigravity']).optional(),
 });
 
 export const agentSpecSchema = z.object({
