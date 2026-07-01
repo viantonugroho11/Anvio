@@ -93,4 +93,14 @@ describe('Runtime Providers', () => {
       cursor.run({ session, agent: mockAgent('architect'), input: { content: 'Hi' } }),
     ).rejects.toThrow(AnvioError);
   });
+
+  it('claude-code is configured when OAuth token is available', () => {
+    const factory = createRuntimeFactory({
+      agentRuntime: createMockRuntime(),
+      options: { claudeCodeOAuthToken: 'sk-ant-oat01-test' },
+    });
+    const claude = factory.get('claude-code');
+    expect(claude.isConfigured()).toBe(true);
+    expect(claude.capabilities().supportsSubagents).toBe(true);
+  });
 });
