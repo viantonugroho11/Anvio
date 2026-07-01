@@ -6,7 +6,7 @@
 
 Configure agents in **Markdown** (Hermes-style) · YAML for infra only · Run from the **CLI**
 
-[![Release](https://img.shields.io/badge/release-v1.21.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.0)
+[![Release](https://img.shields.io/badge/release-v1.21.1-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.1)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D9-orange)](https://pnpm.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -25,6 +25,16 @@ File-first by default · SQLite when you need it · Vendor OAuth optional · No 
 > Everything lives in a portable `workspace/` folder — back it up, commit it to git, or copy it to another machine.
 >
 > **Start simple:** filesystem sessions, model API key (or mock mode), no Docker. Add SQLite, vendor OAuth, gateway, or PostgreSQL only when you need them.
+
+### What's new in v1.21.1
+
+| Track | Highlights |
+|-------|------------|
+| **Full OAuth runtimes** | Codex, Cursor, Antigravity wired to broker — not just Claude Code |
+| **Chain fallback** | `runtime.fallbacks: [cursor, codex, local]` + auth failure retry |
+| **Antigravity auto-install** | `setup-token --antigravity` installs `agy` if missing |
+
+Prior: [ADR 0009](docs/adr/0009-runtime-oauth-authentication.md) · [Runtime providers](docs/30-runtime-providers.md)
 
 ### What's new in v1.21.0
 
@@ -1190,7 +1200,8 @@ Architecture: [docs/02-architecture.md](docs/02-architecture.md) · Development:
 
 | Version | Highlights |
 |---------|------------|
-| **[v1.21.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.0)** | Runtime OAuth (`setup-token`), Claude Code Agent SDK, multi-runtime routing |
+| **[v1.21.1](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.1)** | Codex/Cursor/Antigravity OAuth runtimes, chain fallback, Antigravity auto-install |
+| [v1.21.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.0) | Runtime OAuth (`setup-token`), Claude Code Agent SDK, multi-runtime routing |
 | [v1.20.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.20.0) | Unified gateway daemon, SQLite sessions + FTS5, OpenAI Realtime STT |
 | [v1.19.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.19.0) | Remote exec, Feishu/SMS channels, streaming STT, trajectory export |
 | [v1.18.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.18.0) | MCP presets, `/1on1` session, harness channel tools, Signal outbound |

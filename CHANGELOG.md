@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.21.1] - 2026-07-02
+
+**Runtime OAuth polish — full vendor runtimes + chain fallback**
+
+### Added
+- **Codex, Cursor, Antigravity runtime providers** — OAuth via connection broker (`codex exec`, `agent -p`, `agy -p`)
+- **Antigravity CLI auto-install** — `anvio setup-token --antigravity` runs official Google install script when `agy` is missing
+- **Chain fallback** — `runtime.fallbacks: [cursor, codex, local]` walks A → B → C
+- **Auth failure-time failover** — OAuth expired / 401 mid-run retries next runtime in chain
+
+### Docs
+- README storage/OAuth/model auth catalog; ADR 0009 updated for implemented runtimes and fallback chain
+
+---
+
 ## [1.21.0] - 2026-07-02
 
 **Runtime OAuth — Claude Code, Cursor, Codex vendor login**

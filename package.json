@@ -1,6 +1,6 @@
 {
   "name": "anvio",
-  "version": "1.21.0",
+  "version": "1.21.1",
   "private": true,
   "type": "module",
   "description": "Anvio AI Agent Operating System",
