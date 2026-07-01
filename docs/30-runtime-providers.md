@@ -117,7 +117,8 @@ Agent binding:
 spec:
   runtime:
     provider: claude-code   # or cursor | codex | antigravity
-    fallback: local
+    fallbacks: [cursor, codex, local]   # chain A → B → C (auth failover)
+    # fallback: local                    # shorthand single hop
 ```
 
 When `fallback: local`, the `model` block is used only if Claude Code OAuth is unavailable.

@@ -333,7 +333,7 @@ Tokens are stored encrypted under `workspace/connections/`. On headless/Docker h
 spec:
   runtime:
     provider: claude-code    # primary
-    fallback: local          # if OAuth not configured
+    fallbacks: [cursor, codex, local]   # chain on auth failure / not configured
   model:
     provider: anthropic      # used only when fallback → local
     model: claude-sonnet-4-20250514
@@ -1101,7 +1101,7 @@ Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/d
 
 **Shipped (P4–P14 + v1.21):** Native tool_use, MCP stdio + agent runtime, 71 built-in tools, OTel spans, planner CLI, MCP presets, harness channel tools, remote exec, Feishu/SMS, trajectory export, Claude Code OAuth runtime, `anvio setup-token`.
 
-**Remaining gaps:** live MCP E2E with real credentials, Nous Portal OAuth, chain fallback A→B→C — see [Post-v1.17 gap register](docs/69-post-v1.17-gap-register.md).
+**Remaining gaps:** live MCP E2E with real credentials, Nous Portal OAuth — see [Post-v1.17 gap register](docs/69-post-v1.17-gap-register.md).
 
 Detail: [Hermes tools catalog](docs/65-hermes-tools-catalog.md) · [Post-v1.17 gaps](docs/69-post-v1.17-gap-register.md)
 

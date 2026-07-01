@@ -79,4 +79,5 @@ export interface RuntimeFactoryOptions {
 export interface AgentRuntimeBinding {
   provider?: RuntimeProviderId;
   fallback?: RuntimeProviderId;
+  fallbacks?: RuntimeProviderId[];
 }

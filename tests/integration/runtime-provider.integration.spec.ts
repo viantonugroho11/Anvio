@@ -103,4 +103,24 @@ describe('Runtime Providers', () => {
     expect(claude.isConfigured()).toBe(true);
     expect(claude.capabilities().supportsSubagents).toBe(true);
   });
+
+  it('resolves third hop in chain when earlier runtimes are unconfigured', () => {
+    const factory = createRuntimeFactory({
+      agentRuntime: createMockRuntime(),
+      options: { claudeCodeOAuthToken: 'sk-ant-oat01-test' },
+    });
+    const agent = {
+      ...mockAgent('architect'),
+      spec: {
+        ...mockAgent('architect').spec,
+        runtime: {
+          provider: 'cursor',
+          fallbacks: ['claude-code', 'local'],
+        },
+      },
+    };
+    const provider = factory.resolveForAgent(agent);
+    expect(provider.runtimeId).toBe('claude-code');
+    expect(factory.resolveChainForAgent(agent)).toEqual(['cursor', 'claude-code', 'local']);
+  });
 });

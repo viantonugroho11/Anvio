@@ -9,8 +9,9 @@ import type {
 } from '@anvio/core';
 import type { DefaultAgentRuntime } from '@anvio/agents';
 import type { RuntimeFactory } from '@anvio/runtimes';
+import { runWithRuntimeFallback, streamWithRuntimeFallback } from '@anvio/runtimes';
 
-/** Routes agent runs to external runtime providers when configured; otherwise uses local model loop. */
+/** Routes agent runs through runtime fallback chain (A→B→C) with auth failure failover. */
 export class RuntimeRoutingAgentRuntime implements AgentRuntime {
   constructor(
     private readonly local: DefaultAgentRuntime,
@@ -23,26 +24,28 @@ export class RuntimeRoutingAgentRuntime implements AgentRuntime {
   }
 
   async run(session: Session, agent: AgentDefinition, input: UserInput): Promise<AgentResult> {
-    const provider = this.factory.resolveForAgent(agent, this.defaultRuntime);
-    if (provider.runtimeId !== 'local') {
-      const result = await provider.run({ session, agent, input });
-      return {
-        sessionId: result.sessionId,
-        content: result.content,
-        usage: result.usage,
-        status: result.status,
-      };
-    }
-    return this.local.run(session, agent, input);
+    const result = await runWithRuntimeFallback(
+      this.factory,
+      agent,
+      { session, agent, input },
+      this.defaultRuntime,
+    );
+
+    return {
+      sessionId: result.sessionId,
+      content: result.content,
+      usage: result.usage,
+      status: result.status,
+    };
   }
 
   async *stream(session: Session, agent: AgentDefinition, input: UserInput) {
-    const provider = this.factory.resolveForAgent(agent, this.defaultRuntime);
-    if (provider.runtimeId !== 'local') {
-      yield* provider.stream({ session, agent, input });
-      return;
-    }
-    yield* this.local.stream(session, agent, input);
+    yield* streamWithRuntimeFallback(
+      this.factory,
+      agent,
+      { session, agent, input },
+      this.defaultRuntime,
+    );
   }
 
   async resume(

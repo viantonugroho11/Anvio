@@ -75,22 +75,26 @@ Adopt a **two-layer auth model**:
 
 ### Runtime fallback (cross-vendor)
 
-Fallback is **runtime → runtime**, one hop, triggered when the primary runtime is **not configured** (`isConfigured()`), not on mid-run auth errors.
-
-Allowed values today: `local`, `cursor`, `claude-code`, `codex`, `antigravity`.
+Fallback walks an **ordered chain** `A → B → C` when a runtime is not configured or fails at runtime with auth errors (token expired, 401, OAuth not set).
 
 ```yaml
-# Claude primary, Cursor secondary, API key only if both missing
+# Chain: claude-code → cursor → codex → local
 spec:
   runtime:
     provider: claude-code
-    fallback: cursor
+    fallbacks: [cursor, codex, local]
   model:
     provider: anthropic   # used only when fallback reaches `local`
     model: claude-sonnet-4-20250514
 ```
 
-Chain fallback (`A → B → C`) and failure-time fallback (token expired mid-run) are **not** implemented yet.
+Shorthand (single hop) still works: `fallback: local` → `[provider, local]`.
+
+| Trigger | Behavior |
+|---------|----------|
+| Primary **not configured** (`isConfigured()`) | Skip to next in chain |
+| Primary **auth failure mid-run** | Retry next in chain (OAuth expired, 401, login required) |
+| Non-auth error | Fail immediately (no failover) |
 
 ### Per-agent and per-user runtime
 

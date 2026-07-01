@@ -29,6 +29,19 @@ export { SshRuntimeProvider } from './ssh/ssh-runtime.js';
 export { DaytonaRuntimeProvider, ModalRuntimeProvider, type RemoteExecResult } from './remote/remote-runtime-stub.js';
 export { RuntimeFactory, createRuntimeFactory, type RuntimeFactoryDeps } from './runtime-factory.js';
 export {
+  buildAgentRuntimeChain,
+  dedupeRuntimeChain,
+  firstConfiguredRuntimeId,
+  isRuntimeFailoverRetryable,
+  isRuntimeFailoverRetryableMessage,
+  type AgentRuntimeProviderId,
+  type RuntimeFallbackAttempt,
+} from './runtime-fallback-chain.js';
+export {
+  runWithRuntimeFallback,
+  streamWithRuntimeFallback,
+} from './runtime-fallback-executor.js';
+export {
   ANTIGRAVITY_CONNECTION_SERVICE,
   CODEX_CONNECTION_SERVICE,
   CURSOR_CONNECTION_SERVICE,

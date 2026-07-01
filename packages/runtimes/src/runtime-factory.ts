@@ -14,6 +14,10 @@ import { LocalRuntimeProvider } from './local/local-runtime.js';
 import { DockerRuntimeProvider } from './docker/docker-runtime.js';
 import { DaytonaRuntimeProvider, ModalRuntimeProvider } from './remote/remote-runtime-stub.js';
 import { SshRuntimeProvider } from './ssh/ssh-runtime.js';
+import {
+  buildAgentRuntimeChain,
+  firstConfiguredRuntimeId,
+} from './runtime-fallback-chain.js';
 
 export interface RuntimeFactoryDeps {
   agentRuntime: AgentRuntime;
@@ -82,11 +86,16 @@ export class RuntimeFactory {
     agent: AgentDefinition,
     defaultRuntime: RuntimeProviderId = 'local',
   ): RuntimeProvider {
-    const preferred = agent.spec.runtime?.provider ?? defaultRuntime;
-    const fallback = agent.spec.runtime?.fallback ?? 'local';
-    const primary = this.get(preferred);
-    if (primary.isConfigured()) return primary;
-    return this.get(fallback);
+    const chain = buildAgentRuntimeChain(agent, defaultRuntime);
+    const selected = firstConfiguredRuntimeId(chain, (id) => this.get(id).isConfigured());
+    return this.get(selected);
+  }
+
+  resolveChainForAgent(
+    agent: AgentDefinition,
+    defaultRuntime: RuntimeProviderId = 'local',
+  ): RuntimeProviderId[] {
+    return buildAgentRuntimeChain(agent, defaultRuntime);
   }
 
   list(): Array<{ id: RuntimeProviderId; configured: boolean; capabilities: ReturnType<RuntimeProvider['capabilities']> }> {
