@@ -17,7 +17,14 @@ import { createModelRouter, MODEL_PROVIDER_IDS, OPENAI_COMPATIBLE_PROVIDER_SPECS
 import { createSkillCatalogResolver, createSkillInstaller } from '@anvio/skills';
 import { createAcpServer } from '@anvio/acp';
 import { createCodeExecutor, ExecutionAuditLog } from '@anvio/execution';
-import { createRuntimeFactory, SshRuntimeProvider, DaytonaRuntimeProvider, ModalRuntimeProvider } from '@anvio/runtimes';
+import {
+  detectSetupTokenVendor,
+  runRuntimeSetupToken,
+  RUNTIME_SETUP_TOKEN_VENDORS,
+  SshRuntimeProvider,
+  DaytonaRuntimeProvider,
+  ModalRuntimeProvider,
+} from '@anvio/runtimes';
 import { DagExecutor, createWorkflowRegistry } from '@anvio/workflows';
 import { VoicePipeline, createStreamingSttSession, streamTranscribe } from '@anvio/voice';
 import { createGoalEngine } from '@anvio/goals';
@@ -82,6 +89,9 @@ async function main() {
       break;
     case 'connect':
       await cmdConnect(args.slice(1));
+      break;
+    case 'setup-token':
+      await cmdSetupToken(args.slice(1));
       break;
     case 'soul':
       await cmdSoul(args.slice(1));
@@ -181,7 +191,8 @@ Core
   anvio worktree list|create|remove    Git worktree isolation
   anvio channels status [--json]       Channel adapter health check
   anvio harness status|simulate        Channel harness (Phase G)
-  anvio connect list|put|revoke|login-host  Contextual connections broker
+  anvio connect list|put|revoke|login-host|login  Contextual connections broker
+  anvio setup-token --claude|--cursor|--codex|--antigravity  Official runtime OAuth login
 
 Advanced Agent OS — Identity & Goals
   anvio soul list|show|create          Persistent agent souls
@@ -688,8 +699,7 @@ async function cmdSoul(sub: string[]) {
   }
 }
 
-async function cmdConnect(sub: string[]) {
-  const action = sub[0] ?? 'list';
+async function openConnectBroker(sub: string[]) {
   const wsPath = resolveWorkspacePath();
   const workspace = await Workspace.open(wsPath);
   const defaults = await loadHarnessConfig(wsPath);
@@ -712,6 +722,58 @@ async function cmdConnect(sub: string[]) {
     return i >= 0 ? sub[i + 1] : undefined;
   };
 
+  return { workspace, broker, flag };
+}
+
+async function cmdSetupToken(sub: string[]) {
+  if (sub.includes('--list')) {
+    console.log('Supported runtime vendors:');
+    for (const vendor of RUNTIME_SETUP_TOKEN_VENDORS) {
+      console.log(`  --${vendor}`);
+    }
+    return;
+  }
+
+  const vendor = detectSetupTokenVendor(sub);
+  if (!vendor) {
+    console.error(
+      'Usage: anvio setup-token --claude|--cursor|--codex|--antigravity [--token TOKEN] [--binary NAME] [--list]',
+    );
+    process.exit(1);
+  }
+
+  const { workspace, broker, flag } = await openConnectBroker(sub);
+  const explicitToken = flag('--token');
+  const binary = flag('--binary');
+  const threadId = flag('--thread') ?? 'default';
+  const channel = flag('--channel') ?? 'cli';
+  const userId = flag('--user') ?? workspace.config.spec.defaultUserId;
+
+  console.log(`Running official ${vendor} login flow…`);
+  try {
+    const result = await runRuntimeSetupToken(vendor, {
+      explicitToken,
+      binary,
+    });
+    const stored = await broker.putConnection({
+      channel,
+      userId,
+      service: result.service,
+      threadId,
+      payload: result.payload,
+      ttlSeconds: 365 * 24 * 3600,
+    });
+    console.log(result.message);
+    console.log(JSON.stringify(stored, null, 2));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+}
+
+async function cmdConnect(sub: string[]) {
+  const action = sub[0] ?? 'list';
+  const { workspace, broker, flag } = await openConnectBroker(sub);
   switch (action) {
     case 'list': {
       const userId = flag('--user') ?? workspace.config.spec.defaultUserId;
@@ -757,6 +819,16 @@ async function cmdConnect(sub: string[]) {
       console.log(ok ? 'Revoked.' : 'Not found.');
       break;
     }
+    case 'login': {
+      const target = sub[1];
+      if (target === 'claude-code' || target === 'claude') {
+        console.log('Tip: prefer `anvio setup-token --claude`');
+        await cmdSetupToken(['--claude', ...sub.slice(2)]);
+        break;
+      }
+      console.error('Usage: anvio connect login claude-code  (prefer: anvio setup-token --claude)');
+      process.exit(1);
+    }
     case 'login-host': {
       const port = Number(flag('--port') ?? '9876');
       const service = flag('--service') ?? 'oauth';
@@ -779,7 +851,7 @@ async function cmdConnect(sub: string[]) {
       break;
     }
     default:
-      console.error('Usage: anvio connect list|put|revoke|login-host');
+      console.error('Usage: anvio connect list|put|revoke|login claude-code|login-host');
       process.exit(1);
   }
 }
@@ -1351,16 +1423,7 @@ async function cmdBatch(sub: string[]) {
 async function cmdRuntime(sub: string[]) {
   const action = sub[0] ?? 'list';
   const platform = await getPlatform();
-  const ws = platform.workspace;
-  const factory = createRuntimeFactory({
-    agentRuntime: platform.runtime,
-    options: {
-      defaultRuntime: ws.config.spec.runtime.default,
-      acpEndpoint: ws.config.spec.acp.enabled
-        ? `http://${ws.config.spec.acp.host}:${ws.config.spec.acp.port}`
-        : undefined,
-    },
-  });
+  const factory = platform.runtimeFactory;
 
   switch (action) {
     case 'list': {
