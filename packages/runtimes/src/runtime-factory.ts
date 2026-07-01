@@ -28,7 +28,14 @@ export class RuntimeFactory {
     this.providers = new Map<RuntimeProviderId, RuntimeProvider>([
       ['local', new LocalRuntimeProvider(deps.agentRuntime)],
       ['cursor', new CursorRuntimeProvider({ acpEndpoint: opts.acpEndpoint })],
-      ['claude-code', new ClaudeCodeRuntimeProvider({ binary: opts.claudeCodeBinary })],
+      [
+        'claude-code',
+        new ClaudeCodeRuntimeProvider({
+          cwd: opts.claudeCodeCwd,
+          oauthToken: opts.claudeCodeOAuthToken,
+          resolveOAuthToken: opts.resolveClaudeCodeOAuthToken,
+        }),
+      ],
       ['codex', new CodexRuntimeProvider({ binary: opts.codexBinary })],
       ['ssh', new SshRuntimeProvider({ host: opts.sshHost, user: opts.sshUser })],
       ['docker', new DockerRuntimeProvider({ image: opts.dockerImage, codeExecutor: deps.codeExecutor })],

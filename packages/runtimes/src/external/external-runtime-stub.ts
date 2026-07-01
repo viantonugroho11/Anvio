@@ -67,14 +67,6 @@ export class CursorRuntimeProvider extends ExternalRuntimeStub {
   }
 }
 
-export class ClaudeCodeRuntimeProvider extends ExternalRuntimeStub {
-  readonly runtimeId = 'claude-code' as const;
-
-  constructor(options: Omit<ExternalRuntimeOptions, 'runtimeId'> = {}) {
-    super({ runtimeId: 'claude-code', binary: options.binary ?? 'claude', ...options });
-  }
-}
-
 export class CodexRuntimeProvider extends ExternalRuntimeStub {
   readonly runtimeId = 'codex' as const;
 
