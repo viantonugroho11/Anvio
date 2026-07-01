@@ -12,7 +12,7 @@ Today, Claude is accessed primarily via `@anthropic-ai/sdk` and `ANTHROPIC_API_K
 
 - **Vendor-native runtimes** authenticate through the official app/CLI OAuth or session (Pro/Max subscription), not Anvio-managed API keys.
 - **`local` runtime** continues to use API keys / credential pools for direct provider access and fallback.
-- Future parity targets: Cursor (ACP + app session), Antigravity, OpenAI Codex CLI.
+- Future parity targets: Cursor (ACP + app session), OpenAI Codex CLI, Google Antigravity CLI.
 
 Anthropic policy note: third-party products must not host claude.ai login UI or resell subscription rate limits. Anvio therefore **delegates login to the official Claude Code CLI** (`claude setup-token`) and only stores the resulting token locally (encrypted connection broker).
 
@@ -58,10 +58,19 @@ Adopt a **two-layer auth model**:
 - Anvio delegates through `anvio acp serve` → `CursorRuntimeProvider`.
 - No Anvio-hosted OAuth UI.
 
-### Antigravity & Codex (planned)
+### Codex (partial today)
 
-- Same pattern: official CLI/setup flow → encrypted `anvio connect` store → runtime provider reads token at execution time.
-- Runtime IDs reserved; stubs remain until vendor SDK/CLI integration lands.
+- Auth via **OpenAI Codex CLI** (`codex login`) → `~/.codex/auth.json`.
+- `anvio setup-token --codex` wraps official login.
+
+### Antigravity (partial today)
+
+- Official **[Antigravity CLI](https://github.com/google-antigravity/antigravity-cli)** (`agy`) — Google Sign-In via system keyring; local browser or SSH authorization URL.
+- Install: `curl -fsSL https://antigravity.google/cli/install.sh | bash`
+- `anvio setup-token --antigravity` wraps `agy auth login` (falls back to first `-p` prompt).
+- Headless/CI: pass `--token` (`ANTIGRAVITY_TOKEN`) after completing Google Sign-In elsewhere.
+- **Not** `GEMINI_API_KEY` — Antigravity runtime uses Google account OAuth, not Gemini API billing.
+- `AntigravityRuntimeProvider` wiring pending; setup-token + broker storage implemented.
 
 ### Platform routing
 
@@ -71,7 +80,7 @@ Adopt a **two-layer auth model**:
 
 Fallback is **runtime → runtime**, one hop, triggered when the primary runtime is **not configured** (`isConfigured()`), not on mid-run auth errors.
 
-Allowed values today: `local`, `cursor`, `claude-code`, `codex` (`antigravity` pending).
+Allowed values today: `local`, `cursor`, `claude-code`, `codex` (`antigravity` setup-token ✅; runtime provider pending).
 
 ```yaml
 # Claude primary, Cursor secondary, API key only if both missing

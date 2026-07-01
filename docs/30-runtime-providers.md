@@ -35,6 +35,7 @@ interface RuntimeCapabilities {
 | **Claude Code Runtime** | `claude-code` | Anthropic CLI agent |
 | **Cursor Runtime** | `cursor` | Cursor agent via MCP/ACP |
 | **Codex Runtime** | `codex` | OpenAI Codex CLI |
+| **Antigravity Runtime** | `antigravity` | Google Antigravity CLI (`agy`) |
 | **Local Runtime** | `local` | Direct model provider (default Level 1) |
 
 ## Configuration
@@ -57,6 +58,9 @@ spec:
       codex:
         enabled: false
         binary: codex
+      antigravity:
+        enabled: false
+        binary: agy
 ```
 
 ## Agent Runtime Binding
@@ -81,6 +85,7 @@ Claude Code runtime uses **`@anthropic-ai/claude-agent-sdk`** with OAuth — not
 anvio setup-token --claude
 anvio setup-token --cursor
 anvio setup-token --codex
+anvio setup-token --antigravity
 anvio setup-token --list
 
 # Verify
@@ -92,9 +97,11 @@ anvio runtime test claude-code
 | `--claude` | `claude setup-token` | OAuth token (Pro/Max) |
 | `--cursor` | `agent login` | Cursor CLI session |
 | `--codex` | `codex login` | `~/.codex/auth.json` snapshot |
-| `--antigravity` | (pending) | manual `--token` only |
+| `--antigravity` | `agy auth login` (or first `agy -p`) | Google Sign-In / system keyring snapshot |
 
-Optional: `--token TOKEN` (claude/codex/antigravity), `--binary NAME` (custom CLI path).
+Optional: `--token TOKEN` (claude/codex/antigravity), `--binary NAME` (custom CLI path, e.g. `--binary agy`).
+
+Antigravity CLI: [github.com/google-antigravity/antigravity-cli](https://github.com/google-antigravity/antigravity-cli) · [antigravity.google/product/antigravity-cli](https://antigravity.google/product/antigravity-cli)
 
 Agent binding:
 

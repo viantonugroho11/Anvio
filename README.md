@@ -293,6 +293,7 @@ flowchart LR
     RT -->|configured| CC["claude-code<br/>Agent SDK OAuth"]
     RT -->|configured| CU["cursor<br/>ACP / CLI OAuth"]
     RT -->|configured| CX["codex<br/>CLI OAuth"]
+    RT -->|configured| AG["antigravity<br/>agy CLI OAuth"]
     RT -->|fallback| LO["local<br/>API key + tool loop"]
 ```
 
@@ -304,6 +305,9 @@ flowchart LR
 | **`claude-code`** | OAuth via `anvio setup-token --claude` | Claude Pro/Max subscription, Agent SDK features |
 | **`cursor`** | OAuth via `anvio setup-token --cursor` | Cursor subscription, editor-integrated agent |
 | **`codex`** | OAuth via `anvio setup-token --codex` | OpenAI Codex CLI subscription |
+| **`antigravity`** | Google Sign-In via `anvio setup-token --antigravity` | [Antigravity CLI](https://github.com/google-antigravity/antigravity-cli) (`agy`) — Gemini agent harness |
+
+Install Antigravity CLI: `curl -fsSL https://antigravity.google/cli/install.sh | bash` · [Product page](https://antigravity.google/product/antigravity-cli)
 
 ### Unified vendor login
 
@@ -313,6 +317,7 @@ export ANVIO_CONNECTION_ENCRYPTION_KEY=your-secret   # required for broker stora
 anvio setup-token --claude          # wraps `claude setup-token`
 anvio setup-token --cursor          # Cursor agent login
 anvio setup-token --codex           # Codex CLI login
+anvio setup-token --antigravity     # Google Antigravity CLI (`agy`) Google Sign-In
 anvio setup-token --list            # show supported vendors
 
 # Per-user tokens (multi-tenant / shared server)
@@ -668,7 +673,7 @@ Anvio picks auth based on how the agent runs, not on provider name alone:
 
 | Situation | Auth | Setup |
 |-----------|------|-------|
-| Agent uses **vendor runtime** (`claude-code`, `cursor`, `codex`) | Official SDK/CLI **OAuth** (Pro/Max subscription quota) | `anvio setup-token --claude\|--cursor\|--codex` |
+| Agent uses **vendor runtime** (`claude-code`, `cursor`, `codex`, `antigravity`) | Official SDK/CLI **OAuth** (subscription / Google Sign-In) | `anvio setup-token --claude\|--cursor\|--codex\|--antigravity` |
 | Agent uses **`local` runtime** (default) or **runtime fallback** | **API key** / credential pool | `export ANTHROPIC_API_KEY=…` or `anvio credentials add` |
 
 ```yaml
@@ -694,7 +699,8 @@ spec:
 | Claude Code | `@anthropic-ai/claude-agent-sdk` | `anvio setup-token --claude` | `ANTHROPIC_API_KEY` |
 | Cursor | Cursor agent / ACP | `anvio setup-token --cursor` | — (runtime-only today) |
 | Codex | OpenAI Codex CLI | `anvio setup-token --codex` | `OPENAI_API_KEY` |
-| *(all others)* | Direct provider SDK/HTTP | — | env var / credential pool |
+| Antigravity | [Antigravity CLI](https://github.com/google-antigravity/antigravity-cli) (`agy`) | `anvio setup-token --antigravity` | — (runtime-only; not `GEMINI_API_KEY`) |
+| *(model catalog)* | Direct provider SDK/HTTP | — | env var / credential pool |
 
 > **Rule:** If a vendor ships an official runtime SDK with subscription OAuth, bind that runtime and use `setup-token`. Otherwise configure the model provider with an API key. Never set `ANTHROPIC_API_KEY` alongside `claude-code` runtime — it shadows OAuth and bills API credits instead of subscription quota.
 
@@ -723,7 +729,7 @@ This table is for the **`local` runtime** (direct API access). The **Auth** colu
 | Ollama (local) | Local inference (no cloud OAuth) | `OLLAMA_BASE_URL` + `OLLAMA_ENABLED=true` | `llama3.2` |
 | Custom | API key only | `CUSTOM_API_KEY` + `baseUrl` in agent config | any OpenAI-compatible |
 
-**Runtime OAuth outside this table:** `cursor` and `antigravity` are subscription runtimes with no matching model-provider row — use `anvio setup-token --cursor` or `--antigravity` (stub). **Cursor** is runtime-only; it does not appear in the catalog above.
+**Runtime-only (no model catalog row):** `cursor` and `antigravity` — subscription/agent runtimes without a matching API provider row. Use `anvio setup-token --cursor` or `--antigravity`. Antigravity uses Google Sign-In via the official `agy` binary ([docs](https://antigravity.google/docs/cli-overview)); do **not** set `GEMINI_API_KEY` when targeting Antigravity runtime.
 
 | Auth value | Meaning |
 |------------|---------|
