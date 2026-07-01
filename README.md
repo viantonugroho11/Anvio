@@ -6,7 +6,7 @@
 
 Configure agents in **Markdown** (Hermes-style) · YAML for infra only · Run from the **CLI**
 
-[![Release](https://img.shields.io/badge/release-v1.20.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.20.0)
+[![Release](https://img.shields.io/badge/release-v1.21.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.0)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D9-orange)](https://pnpm.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -23,6 +23,16 @@ No database · No login · No Docker required to start
 > **Philosophy:** CLI → API → Web UI. The full platform works from your terminal alone.
 >
 > Everything lives in a portable `workspace/` folder — back it up, commit it to git, or copy it to another machine.
+
+### What's new in v1.21.0
+
+| Track | Highlights |
+|-------|------------|
+| **Runtime OAuth** | `anvio setup-token --claude\|--cursor\|--codex` — vendor subscription login |
+| **Claude Code runtime** | Agent SDK OAuth (Pro/Max), not `ANTHROPIC_API_KEY` |
+| **Multi-runtime routing** | Per-agent runtime + cross-vendor fallback via connection broker |
+
+Prior: [ADR 0009](docs/adr/0009-runtime-oauth-authentication.md) · [Runtime providers](docs/30-runtime-providers.md)
 
 ### What's new in v1.20.0
 
@@ -1007,7 +1017,8 @@ Architecture: [docs/02-architecture.md](docs/02-architecture.md) · Development:
 
 | Version | Highlights |
 |---------|------------|
-| **[v1.20.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.20.0)** | Unified gateway daemon, SQLite sessions + FTS5, OpenAI Realtime STT |
+| **[v1.21.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.0)** | Runtime OAuth (`setup-token`), Claude Code Agent SDK, multi-runtime routing |
+| [v1.20.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.20.0) | Unified gateway daemon, SQLite sessions + FTS5, OpenAI Realtime STT |
 | [v1.19.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.19.0) | Remote exec, Feishu/SMS channels, streaming STT, trajectory export |
 | [v1.18.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.18.0) | MCP presets, `/1on1` session, harness channel tools, Signal outbound |
 | [v1.17.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.17.0) | 71 built-in tools (~Hermes parity), OTel spans, planner CLI |

@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.21.0] - 2026-07-02
+
+**Runtime OAuth — Claude Code, Cursor, Codex vendor login**
+
+### Added
+- **Claude Code OAuth runtime** — `ClaudeCodeRuntimeProvider` via `@anthropic-ai/claude-agent-sdk` (Pro/Max subscription, not API key)
+- **`anvio setup-token`** — unified vendor login: `--claude`, `--cursor`, `--codex`, `--antigravity`, `--list`
+- **Runtime routing** — `RuntimeRoutingAgentRuntime` delegates to external runtimes when configured; falls back to local model loop
+- **Connection broker integration** — per-user OAuth tokens (`anvio setup-token --claude --user alice`)
+- Cross-runtime fallback binding (`claude-code` → `cursor` → `local`)
+
+### Docs
+- [ADR 0009 — Runtime OAuth authentication](./docs/adr/0009-runtime-oauth-authentication.md)
+- Docker/server/headless OAuth patterns and multi-user deployment guide
+
+---
+
 ## [1.20.0] - 2026-06-20
 
 **Unified gateway + SQLite sessions + OpenAI Realtime STT**
