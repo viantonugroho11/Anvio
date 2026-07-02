@@ -476,3 +476,64 @@ export async function yuanbaoTool(
 }
 
 export { YB_ACTIONS };
+
+const HONCHO_ACTIONS = ['context', 'profile', 'search', 'conclude'] as const;
+
+export type HonchoAction = (typeof HONCHO_ACTIONS)[number];
+
+function isHonchoMockMode(): boolean {
+  return process.env.ANVIO_HONCHO_MOCK === '1';
+}
+
+/** Deterministic synthetic responses for ANVIO_HONCHO_MOCK=1 (dev/test — no network). */
+function mockHonchoResult(action: HonchoAction, params: Record<string, unknown>): Record<string, unknown> {
+  switch (action) {
+    case 'context':
+      return { insights: ['Mock long-term insight about the user.'], mock: true };
+    case 'profile':
+      return { userId: params.userId ?? 'local-user', traits: { mock: true }, mock: true };
+    case 'search':
+      return { query: params.query ?? '', results: [], mock: true };
+    case 'conclude':
+      return { stored: true, content: params.content ?? '', mock: true };
+    default:
+      return { mock: true };
+  }
+}
+
+/**
+ * Honcho (getHoncho.dev) user-memory ops — dialectic context, profile,
+ * search, and conclude — via MCP delegate (`@anvio/memory` Honcho provider
+ * already handles the direct HTTP path for context recall/storage), with
+ * `ANVIO_HONCHO_MOCK=1` for dev/test.
+ */
+export async function honchoTool(
+  action: HonchoAction,
+  params: Record<string, unknown> = {},
+  mcp?: McpDelegateFn,
+): Promise<BuiltinToolResult> {
+  const toolName = `honcho_${action}`;
+  const mcpResult = await tryMcp(mcp, 'honcho', toolName, params);
+  if (mcpResult) {
+    mcpResult.name = `anvio_tools__${toolName}`;
+    return mcpResult;
+  }
+
+  if (isHonchoMockMode()) {
+    return { name: `anvio_tools__${toolName}`, output: mockHonchoResult(action, params), status: 'completed' };
+  }
+
+  return {
+    name: `anvio_tools__${toolName}`,
+    output: {
+      action,
+      params,
+      note:
+        'Honcho tools require the @anvio/memory Honcho provider (HONCHO_API_URL/HONCHO_API_KEY) wired as ' +
+        'memoryRecall, an MCP honcho server, or ANVIO_HONCHO_MOCK=1 for local dev.',
+    },
+    status: 'completed',
+  };
+}
+
+export { HONCHO_ACTIONS };

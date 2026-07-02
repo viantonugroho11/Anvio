@@ -10,5 +10,6 @@ Copy snippets into `workspace/mcp/servers.yaml` and enable servers as needed.
 | `tinker-atropos.yaml.example` | `rl_*` via MCP; gateway `rl_tool` delegates here |
 | `yuanbao.yaml.example` | `yb_*` via MCP; gateway `yb_tool` delegates here |
 | `video-gen.yaml.example` | video generation via MCP; gateway `video_generate` delegates here |
+| `honcho.yaml.example` | `honcho_*` via MCP; gateway `honcho_tool` delegates here |
 
 Built-in gateway tools (no MCP required): `ha_*`, `x_search`, `mixture_of_agents`, `video_analyze` (ffmpeg + vision), `discord_admin`, `skill_manage`.

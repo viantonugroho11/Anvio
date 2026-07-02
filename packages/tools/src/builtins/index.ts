@@ -59,8 +59,10 @@ import {
   feishuDocRead,
   rlTool,
   yuanbaoTool,
+  honchoTool,
   type RlAction,
   type YbAction,
+  type HonchoAction,
   type McpDelegateFn,
 } from './niche-tools.js';
 
@@ -813,6 +815,12 @@ export async function runBuiltinTool(
     case 'yb_tool':
       return yuanbaoTool(
         String(call.arguments.action ?? 'query_group_info') as YbAction,
+        (call.arguments.params as Record<string, unknown> | undefined) ?? {},
+        ctx.callMcpTool,
+      );
+    case 'honcho_tool':
+      return honchoTool(
+        String(call.arguments.action ?? 'context') as HonchoAction,
         (call.arguments.params as Record<string, unknown> | undefined) ?? {},
         ctx.callMcpTool,
       );

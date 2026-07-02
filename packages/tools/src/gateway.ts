@@ -161,6 +161,8 @@ spec:
       enabled: false
     yb_tool:
       enabled: false
+    honcho_tool:
+      enabled: false
   webSearch:
     provider: brave
     apiKeyEnv: WEB_SEARCH_API_KEY

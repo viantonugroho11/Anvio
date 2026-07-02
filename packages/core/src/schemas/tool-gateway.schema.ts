@@ -81,6 +81,7 @@ export const toolGatewaySpecSchema = z.object({
       feishu_doc_read: toolGatewayToolSchema.default({ enabled: false }),
       rl_tool: toolGatewayToolSchema.default({ enabled: false }),
       yb_tool: toolGatewayToolSchema.default({ enabled: false }),
+      honcho_tool: toolGatewayToolSchema.default({ enabled: false }),
     })
     .default({}),
   webSearch: z

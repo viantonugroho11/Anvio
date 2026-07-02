@@ -1,0 +1,9 @@
+# Merge into mcp/servers.yaml spec.servers
+honcho:
+  command: npx
+  args: ['-y', 'honcho-mcp-server']
+  transport: stdio
+  enabled: false
+  env:
+    HONCHO_API_URL: ${HONCHO_API_URL}
+    HONCHO_API_KEY: ${HONCHO_API_KEY}

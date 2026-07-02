@@ -417,6 +417,14 @@ const TOOL_SCHEMAS: Record<string, Record<string, unknown>> = {
     },
     required: ['action'],
   },
+  honcho_tool: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['context', 'profile', 'search', 'conclude'] },
+      params: { type: 'object' },
+    },
+    required: ['action'],
+  },
 };
 
 export function buildModelToolDefinitions(toolNames: string[]): ModelToolDefinition[] {

@@ -6,7 +6,7 @@ import { patchFile } from './patch-file.js';
 import { todoTool, clarifyTool } from './agent-session-tools.js';
 import { kanbanCommentTask, kanbanCompleteTask } from './kanban-tools.js';
 import { skillsListTool } from './orchestration-tools.js';
-import { xSearch, rlTool, yuanbaoTool, videoAnalyze, videoGenerate } from './niche-tools.js';
+import { xSearch, rlTool, yuanbaoTool, videoAnalyze, videoGenerate, honchoTool } from './niche-tools.js';
 import { haListEntities } from './homeassistant-tools.js';
 import type { KanbanStore } from '@anvio/core';
 
@@ -237,5 +237,27 @@ describe('P11d niche tools', () => {
     const result = await videoGenerate('a cat riding a bike');
     expect(result.status).toBe('completed');
     expect(JSON.stringify(result.output)).toContain('video-gen');
+  });
+
+  it('honchoTool returns MCP setup note when no MCP/mock configured', async () => {
+    delete process.env.ANVIO_HONCHO_MOCK;
+    const result = await honchoTool('context');
+    expect(result.status).toBe('completed');
+    expect(JSON.stringify(result.output)).toContain('Honcho');
+  });
+
+  it('honchoTool returns deterministic mock data when ANVIO_HONCHO_MOCK=1', async () => {
+    process.env.ANVIO_HONCHO_MOCK = '1';
+    try {
+      const context = await honchoTool('context', { userId: 'u1' });
+      expect(context.status).toBe('completed');
+      expect((context.output as { insights: string[] }).insights.length).toBeGreaterThan(0);
+
+      const conclude = await honchoTool('conclude', { content: 'user prefers dark mode' });
+      expect((conclude.output as { stored: boolean; content: string }).stored).toBe(true);
+      expect((conclude.output as { stored: boolean; content: string }).content).toBe('user prefers dark mode');
+    } finally {
+      delete process.env.ANVIO_HONCHO_MOCK;
+    }
   });
 });
