@@ -6,7 +6,7 @@ import { patchFile } from './patch-file.js';
 import { todoTool, clarifyTool } from './agent-session-tools.js';
 import { kanbanCommentTask, kanbanCompleteTask } from './kanban-tools.js';
 import { skillsListTool } from './orchestration-tools.js';
-import { xSearch, rlTool } from './niche-tools.js';
+import { xSearch, rlTool, videoAnalyze, videoGenerate } from './niche-tools.js';
 import { haListEntities } from './homeassistant-tools.js';
 import type { KanbanStore } from '@anvio/core';
 
@@ -186,5 +186,34 @@ describe('P11d niche tools', () => {
     } finally {
       delete process.env.ANVIO_ATROPOS_MOCK;
     }
+  });
+
+  it('videoAnalyze returns mock analysis when ANVIO_VIDEO_MOCK=1', async () => {
+    process.env.ANVIO_VIDEO_MOCK = '1';
+    try {
+      const result = await videoAnalyze('https://example.com/clip.mp4');
+      expect(result.status).toBe('completed');
+      expect((result.output as { mock: boolean }).mock).toBe(true);
+    } finally {
+      delete process.env.ANVIO_VIDEO_MOCK;
+    }
+  });
+
+  it('videoGenerate returns mock video url when ANVIO_VIDEO_MOCK=1', async () => {
+    process.env.ANVIO_VIDEO_MOCK = '1';
+    try {
+      const result = await videoGenerate('a cat riding a bike');
+      expect(result.status).toBe('completed');
+      expect((result.output as { videoUrl: string }).videoUrl).toContain('mock://');
+    } finally {
+      delete process.env.ANVIO_VIDEO_MOCK;
+    }
+  });
+
+  it('videoGenerate returns MCP setup note when unconfigured', async () => {
+    delete process.env.ANVIO_VIDEO_MOCK;
+    const result = await videoGenerate('a cat riding a bike');
+    expect(result.status).toBe('completed');
+    expect(JSON.stringify(result.output)).toContain('video-gen');
   });
 });

@@ -1,0 +1,8 @@
+# Merge into mcp/servers.yaml spec.servers
+video-gen:
+  command: npx
+  args: ['-y', 'video-gen-mcp-server']
+  transport: stdio
+  enabled: false
+  env:
+    VIDEO_GEN_API_KEY: ${VIDEO_GEN_API_KEY}

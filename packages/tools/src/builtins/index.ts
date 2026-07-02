@@ -776,7 +776,7 @@ export async function runBuiltinTool(
         call.arguments.prompt ? String(call.arguments.prompt) : undefined,
       );
     case 'video_generate':
-      return videoGenerate(String(call.arguments.prompt ?? ''));
+      return videoGenerate(String(call.arguments.prompt ?? ''), ctx.callMcpTool);
     case 'computer_use':
       return computerUse(
         String(call.arguments.action ?? 'click'),

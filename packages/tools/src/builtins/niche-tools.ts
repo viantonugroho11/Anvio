@@ -1,3 +1,7 @@
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import type { BuiltinToolResult } from '@anvio/core';
 import { visionAnalyze } from './vision-analyze.js';
 
@@ -82,38 +86,97 @@ export async function xSearch(query: string, limit = 10): Promise<BuiltinToolRes
   };
 }
 
+function isVideoMockMode(): boolean {
+  return process.env.ANVIO_VIDEO_MOCK === '1';
+}
+
+function ffmpegBinary(): string {
+  return process.env.FFMPEG_BINARY ?? 'ffmpeg';
+}
+
+const VIDEO_FILE_EXT = /\.(mp4|mov|avi|mkv|webm|m4v)(\?.*)?$/i;
+
+/** Extract a single frame via ffmpeg to a temp PNG. Returns null if ffmpeg is unavailable or fails. */
+async function extractVideoFrame(videoUrlOrPath: string, atSeconds = 1): Promise<string | null> {
+  const outFile = path.join(os.tmpdir(), `anvio-video-frame-${process.pid}-${Math.random().toString(36).slice(2)}.png`);
+  const result = spawnSync(
+    ffmpegBinary(),
+    ['-y', '-ss', String(atSeconds), '-i', videoUrlOrPath, '-frames:v', '1', outFile],
+    { encoding: 'utf-8', timeout: 30_000 },
+  );
+  if (result.error || result.status !== 0) return null;
+  try {
+    await fs.access(outFile);
+    return outFile;
+  } catch {
+    return null;
+  }
+}
+
+/** Analyze video content — extracts a frame via ffmpeg (local file or remote URL) then delegates to vision_analyze. */
 export async function videoAnalyze(
   videoUrlOrPath: string,
   prompt = 'Summarize this video content.',
 ): Promise<BuiltinToolResult> {
-  if (videoUrlOrPath.startsWith('http://') || videoUrlOrPath.startsWith('https://')) {
+  if (isVideoMockMode()) {
     return {
       name: 'anvio_tools__video_analyze',
-      output: {
-        videoUrlOrPath,
-        note: 'Remote video analysis requires ffmpeg frame extraction or MCP video server. Use vision_analyze on a screenshot/frame URL.',
-        prompt,
-      },
+      output: { videoUrlOrPath, prompt, analysis: 'Mock video analysis — frame sampled at 1s.', mock: true },
       status: 'completed',
     };
   }
+
+  const isRemote = videoUrlOrPath.startsWith('http://') || videoUrlOrPath.startsWith('https://');
+  const isVideoFile = VIDEO_FILE_EXT.test(videoUrlOrPath);
+
+  if (isRemote || isVideoFile) {
+    const framePath = await extractVideoFrame(videoUrlOrPath);
+    if (!framePath) {
+      return {
+        name: 'anvio_tools__video_analyze',
+        output: {
+          videoUrlOrPath,
+          prompt,
+          note: 'ffmpeg frame extraction failed — install ffmpeg (FFMPEG_BINARY to override the binary path) or set ANVIO_VIDEO_MOCK=1 for local dev.',
+        },
+        status: 'completed',
+      };
+    }
+    try {
+      const result = await visionAnalyze(framePath, prompt);
+      return {
+        ...result,
+        name: 'anvio_tools__video_analyze',
+        output: { ...(result.output as Record<string, unknown> | null), videoUrlOrPath, frameExtracted: true },
+      };
+    } finally {
+      await fs.unlink(framePath).catch(() => {});
+    }
+  }
+
   return visionAnalyze(videoUrlOrPath, prompt);
 }
 
-export async function videoGenerate(prompt: string): Promise<BuiltinToolResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+export async function videoGenerate(prompt: string, mcp?: McpDelegateFn): Promise<BuiltinToolResult> {
+  const mcpResult = await tryMcp(mcp, 'video-gen', 'video_generate', { prompt });
+  if (mcpResult) {
+    mcpResult.name = 'anvio_tools__video_generate';
+    return mcpResult;
+  }
+
+  if (isVideoMockMode()) {
     return {
       name: 'anvio_tools__video_generate',
-      output: { prompt, note: 'Video generation not configured — use MCP video_gen server or external provider' },
+      output: { prompt, videoUrl: 'mock://video-gen/result.mp4', mock: true },
       status: 'completed',
     };
   }
+
   return {
     name: 'anvio_tools__video_generate',
     output: {
       prompt,
-      note: 'OpenAI video API not wired — enable MCP preset workspace/mcp/presets/video-gen.yaml.example',
+      note: 'Video generation requires MCP preset (workspace/mcp/presets/video-gen.yaml.example) or ANVIO_VIDEO_MOCK=1 for local dev.',
     },
     status: 'completed',
   };
