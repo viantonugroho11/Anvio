@@ -75,7 +75,7 @@ Phase docs: [P13](docs/73-phase-p13-priorities.md) · [P14](docs/75-phase-p14-pr
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  71 built-in tools   │  18 model providers  │  14 channel adapters         │
+│  73 built-in tools   │  18 model providers  │  14 channel adapters         │
 │  Learning loop       │  MCP + ACP/Cursor    │  Remote exec (SSH/Daytona)   │
 │  Soul-gated evolution│  Workflow DAGs       │  Multi-runtime OAuth (v1.21+) │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -147,7 +147,7 @@ flowchart TB
 
     subgraph Core["⚙ Anvio Core"]
         RT["Agent Runtime<br/>multi-turn tool loop"]
-        TG["Tool Gateway<br/>71 built-in tools"]
+        TG["Tool Gateway<br/>73 built-in tools"]
         RTG["Model Router<br/>18 providers + fallback"]
         MEM["Memory + FTS5"]
         LR["Learning Loop<br/>skill evolution"]
@@ -188,7 +188,7 @@ flowchart TB
 | Layer | What it does | Key paths / commands |
 |-------|--------------|----------------------|
 | **Agents** | Persona + skills + model + soul | `agents/*.md`, `anvio chat --agent NAME` |
-| **Tool gateway** | 71 built-in tools, multi-turn loop | `tools/gateway.yaml`, `anvio tools list` |
+| **Tool gateway** | 73 built-in tools, multi-turn loop | `tools/gateway.yaml`, `anvio tools list` |
 | **Learning loop** | Memory nudge, session summary, skill drafts, runtime self-improve | `anvio learning drafts` |
 | **Advanced Agent OS** | Souls, goals, kanban, batch, subagent delegation | `anvio soul`, `anvio goal`, `anvio kanban` |
 | **Automation** | Cron, blueprints, workflow DAGs, event hooks | `anvio automation`, `anvio workflow` |
@@ -311,7 +311,7 @@ flowchart LR
 
 | Path | Auth | Best for |
 |------|------|----------|
-| **`local` (default)** | Model API key (`ANTHROPIC_API_KEY`, …) | Full control, 71 built-in tools, any of 18 providers |
+| **`local` (default)** | Model API key (`ANTHROPIC_API_KEY`, …) | Full control, 73 built-in tools, any of 18 providers |
 | **`claude-code`** | OAuth via `anvio setup-token --claude` | Claude Pro/Max subscription, Agent SDK features |
 | **`cursor`** | OAuth via `anvio setup-token --cursor` | Cursor subscription, editor-integrated agent |
 | **`codex`** | OAuth via `anvio setup-token --codex` | OpenAI Codex CLI subscription |
@@ -628,7 +628,7 @@ spec:
 ```
 
 ```bash
-anvio tools list                              # 71 tools when fully enabled
+anvio tools list                              # 73 tools when fully enabled
 anvio tools test anvio_tools__web_fetch https://example.com
 ```
 
@@ -885,7 +885,7 @@ workspace/
 ├── kanban/                    # Task boards
 ├── knowledge/                 # Raw → wiki knowledge bases
 │
-├── tools/gateway.yaml         # Built-in tool gateway (71 tools)
+├── tools/gateway.yaml         # Built-in tool gateway (73 tools)
 ├── harness/                   # Channel harness profiles
 ├── providers/routing.yaml     # Model routing & fallback
 ├── mcp/servers.yaml           # MCP server registry
@@ -929,7 +929,7 @@ flowchart TB
         HUB["Channel Hub + Harness"]
         RT["Agent Runtime + Tool Loop"]
         LE["Learning Engine"]
-        TG["Tool Gateway · 71 tools"]
+        TG["Tool Gateway · 73 tools"]
         RTG["Model Router · 18 providers"]
         AUTO["Automation / Workflows"]
         MCP["MCP Bridge"]
@@ -966,7 +966,7 @@ Anvio/
 │   ├── workspace/     Loader & session store
 │   ├── agents/        Runtime & orchestration
 │   ├── learning/      Skill evolution & memory nudge
-│   ├── tools/         Built-in tool gateway (71 tools)
+│   ├── tools/         Built-in tool gateway (73 tools)
 │   ├── harness/       Channel harness & connections
 │   ├── models/        Providers & routing
 │   ├── memory/        FTS5, Honcho delegate
@@ -1111,9 +1111,9 @@ Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/d
 
 | Reference | Parity (v1.21.0) | Strengths in Anvio |
 |-----------|------------------|---------------------|
-| Hermes | ~93% | Local-first, unified gateway, SQLite sessions, runtime OAuth, SOUL gate, multi-channel harness, 18 providers, 71 gateway tools |
+| Hermes | ~93% | Local-first, unified gateway, SQLite sessions, runtime OAuth, SOUL gate, multi-channel harness, 18 providers, 73 gateway tools |
 
-**Shipped (P4–P14 + v1.21–v1.22):** Native tool_use, MCP stdio + agent runtime, 71 built-in tools, OTel spans, planner CLI, MCP presets, harness channel tools, remote exec (SSH/Daytona/Modal/Singularity), Feishu/SMS, trajectory export, Claude Code OAuth runtime, `anvio setup-token` (incl. Nous Portal 1-click OAuth).
+**Shipped (P4–P14 + v1.21–v1.22):** Native tool_use, MCP stdio + agent runtime, 73 built-in tools, OTel spans, planner CLI, MCP presets, harness channel tools, remote exec (SSH/Daytona/Modal/Singularity), Feishu/SMS, trajectory export, Claude Code OAuth runtime, `anvio setup-token` (incl. Nous Portal 1-click OAuth).
 
 **Remaining gaps:** live MCP E2E with real credentials, a genuinely live Atropos RL training run (needs a real Tinker-Atropos service) — see [Post-v1.17 gap register](docs/69-post-v1.17-gap-register.md).
 

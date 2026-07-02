@@ -133,10 +133,10 @@ Hermes registry saat ini: **~71 built-in tools** (core + plugin-registered), dit
 |-------------|-------|
 | `memory` | 🟡 `memory_recall` + `@anvio/memory` |
 | `session_search` | OS `anvio sessions` / workspace sessions 🟡 |
-| `honcho_context` | ✅ Honcho provider `@anvio/memory` |
-| `honcho_profile` | ✅ Honcho provider |
-| `honcho_search` | ✅ Honcho provider |
-| `honcho_conclude` | ✅ Honcho provider |
+| `honcho_context` | ✅ `honcho_tool` gateway (MCP + `@anvio/memory` Honcho provider) |
+| `honcho_profile` | ✅ `honcho_tool` gateway |
+| `honcho_search` | ✅ `honcho_tool` gateway |
+| `honcho_conclude` | ✅ `honcho_tool` gateway |
 
 ### `skills`
 
@@ -260,11 +260,11 @@ Hermes registry saat ini: **~71 built-in tools** (core + plugin-registered), dit
 
 | Hermes tool | Anvio |
 |-------------|-------|
-| `yb_query_group_info` | ❌ |
-| `yb_query_group_members` | ❌ |
-| `yb_send_dm` | ❌ |
-| `yb_search_sticker` | ❌ |
-| `yb_send_sticker` | ❌ |
+| `yb_query_group_info` | ✅ `yb_tool` (action bundle, MCP + `ANVIO_YUANBAO_MOCK=1`) |
+| `yb_query_group_members` | ✅ `yb_tool` |
+| `yb_send_dm` | ✅ `yb_tool` |
+| `yb_search_sticker` | ✅ `yb_tool` |
+| `yb_send_sticker` | ✅ `yb_tool` |
 
 ---
 
@@ -281,13 +281,13 @@ Platform presets menentukan bundle tools per deployment. Anvio setara via harnes
 | `hermes-discord` | + discord, discord_admin | Discord adapter |
 | `hermes-slack` | Full | Slack adapter |
 | `hermes-whatsapp` | Full | WhatsApp adapter |
-| `hermes-signal` | Full | Signal stub 🟡 |
+| `hermes-signal` | Full | Signal `signal-cli` REST ✅ |
 | `hermes-matrix` | Full | Matrix webhook ✅ |
-| `hermes-email` | Full | Email IMAP/SMTP ✅ |
-| `hermes-homeassistant` | Full + ha_* | ❌ |
+| `hermes-email` | Full | Email IMAP/SMTP ✅ (IDLE via RFC 2177) |
+| `hermes-homeassistant` | Full + ha_* | ✅ `ha_*` gateway tools (REST) |
 | `hermes-gateway` | Union all platforms | `@anvio/channels` ChannelHub |
-| `hermes-feishu` | + feishu_* | ❌ |
-| `hermes-yuanbao` | + yb_* | ❌ |
+| `hermes-feishu` | + feishu_* | ✅ `FeishuChannel` + `feishu_doc_read` (MCP) |
+| `hermes-yuanbao` | + yb_* | ✅ `yb_tool` (MCP) + `yuanbao.yaml.example` preset |
 
 Composite Hermes:
 

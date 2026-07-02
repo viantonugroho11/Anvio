@@ -1,10 +1,10 @@
 # Gap Register — Hermes + slaude → Anvio
 
-Status baseline: **Phase A–J + P4–P11d selesai** (v1.17.0 — 71 gateway tools, Hermes tool breadth).  
+Status baseline: **Phase A–J + P4–P14 + v1.20–v1.21.1 selesai** (72 gateway tools, unified gateway, runtime OAuth chain fallback).  
 Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude](https://github.com/barockok/slaude) · [hermes-tech](https://github.com/viantonugroho11/hermes-tech)
 
-**Ringkasan:** arsitektur gabungan production-viable (~**93% Hermes**, ~**94% slaude** post v1.17).  
-**Gap tersisa (post-P11):** [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md) — roadmap P12+.
+**Ringkasan:** arsitektur gabungan production-viable (~**97% Hermes**, ~**98% slaude** as of 2026-07-02).  
+**Gap tersisa (dikoreksi 2026-07-02 — P12/P13/P14 sudah shipped, dokumen sebelumnya basi):** [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md).
 
 **Katalog tools Hermes lengkap:** [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md)
 

@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Nous Portal OAuth** — `anvio setup-token --nous` (1-click model + tools login via local OAuth callback host, no vendor CLI required; `--token` for headless, `ANVIO_NOUS_MOCK=1` for dev/test)
 - **Singularity/Apptainer runtime** — `SingularityRuntimeProvider`, `anvio runtime exec singularity -- <cmd>` (local HPC container exec, `SINGULARITY_IMAGE` + `SINGULARITY_BINARY`, `ANVIO_SINGULARITY_MOCK=1` for dev/test)
 - **Atropos RL training — live fallback** — `rl_tool` now calls a direct Tinker-Atropos HTTP API (`ATROPOS_API_URL`/`ATROPOS_API_KEY`) when MCP isn't configured, with `ANVIO_ATROPOS_MOCK=1` for dev/test, instead of only returning a static MCP-setup note
+- **Yuanbao tools** — `yb_tool` action bundle (`query_group_info`, `query_group_members`, `send_dm`, `search_sticker`, `send_sticker`) via MCP preset (`workspace/mcp/presets/yuanbao.yaml.example`) or `ANVIO_YUANBAO_MOCK=1` for dev/test
+- **Video tools — real implementation** — `video_analyze` now extracts a frame via `ffmpeg` (local files and remote URLs, `FFMPEG_BINARY` to override the binary) and runs vision analysis on it instead of returning a stub note; `video_generate` now delegates to an MCP `video-gen` preset with `ANVIO_VIDEO_MOCK=1` for dev/test
+- **Real IMAP IDLE (RFC 2177)** — `idleWatchInbox` now issues a genuine `IDLE` command over a persistent connection and wakes immediately on untagged `EXISTS`/`RECENT`/`EXPUNGE` (falls back to the fixed-interval poll loop when the server's `CAPABILITY` doesn't advertise `IDLE`)
+- **Honcho gateway tools** — `honcho_tool` action bundle (`context`, `profile`, `search`, `conclude`) exposing the existing `@anvio/memory` Honcho provider via MCP preset (`workspace/mcp/presets/honcho.yaml.example`) or `ANVIO_HONCHO_MOCK=1` for dev/test
+- **hermes-tech skills catalog CI** — [`.github/workflows/hermes-skills-catalog.yml`](.github/workflows/hermes-skills-catalog.yml) runs `scripts/import-hermes-skills.sh` weekly (+ manual dispatch) and opens a PR when the imported skill catalog changes, instead of requiring a manual local run
+
+### Fixed
+- **Stale gap-register docs** — [69-post-v1.17-gap-register.md](docs/69-post-v1.17-gap-register.md) and [51-gap-hermes-slaude.md](docs/51-gap-hermes-slaude.md) hadn't been updated since the v1.17 baseline despite P12/P13/P14 (v1.18–v1.19) already shipping most of their listed gaps — corrected to reflect actual shipped state
 
 ---
 
