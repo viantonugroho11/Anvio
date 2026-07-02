@@ -406,6 +406,17 @@ const TOOL_SCHEMAS: Record<string, Record<string, unknown>> = {
     },
     required: ['action'],
   },
+  yb_tool: {
+    type: 'object',
+    properties: {
+      action: {
+        type: 'string',
+        enum: ['query_group_info', 'query_group_members', 'send_dm', 'search_sticker', 'send_sticker'],
+      },
+      params: { type: 'object' },
+    },
+    required: ['action'],
+  },
 };
 
 export function buildModelToolDefinitions(toolNames: string[]): ModelToolDefinition[] {

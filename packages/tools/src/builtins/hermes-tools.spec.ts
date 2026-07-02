@@ -6,7 +6,7 @@ import { patchFile } from './patch-file.js';
 import { todoTool, clarifyTool } from './agent-session-tools.js';
 import { kanbanCommentTask, kanbanCompleteTask } from './kanban-tools.js';
 import { skillsListTool } from './orchestration-tools.js';
-import { xSearch, rlTool, videoAnalyze, videoGenerate } from './niche-tools.js';
+import { xSearch, rlTool, yuanbaoTool, videoAnalyze, videoGenerate } from './niche-tools.js';
 import { haListEntities } from './homeassistant-tools.js';
 import type { KanbanStore } from '@anvio/core';
 
@@ -185,6 +185,28 @@ describe('P11d niche tools', () => {
       expect((status.output as { status: string }).status).toBe('running');
     } finally {
       delete process.env.ANVIO_ATROPOS_MOCK;
+    }
+  });
+
+  it('yuanbaoTool returns MCP setup note when no MCP/mock configured', async () => {
+    delete process.env.ANVIO_YUANBAO_MOCK;
+    const result = await yuanbaoTool('query_group_info');
+    expect(result.status).toBe('completed');
+    expect(JSON.stringify(result.output)).toContain('Yuanbao');
+  });
+
+  it('yuanbaoTool returns deterministic mock data when ANVIO_YUANBAO_MOCK=1', async () => {
+    process.env.ANVIO_YUANBAO_MOCK = '1';
+    try {
+      const info = await yuanbaoTool('query_group_info', { groupId: 'g1' });
+      expect(info.status).toBe('completed');
+      expect((info.output as { group: { id: string } }).group.id).toBe('g1');
+
+      const sticker = await yuanbaoTool('send_sticker', { stickerId: 's1' });
+      expect((sticker.output as { sent: boolean; stickerId: string }).sent).toBe(true);
+      expect((sticker.output as { sent: boolean; stickerId: string }).stickerId).toBe('s1');
+    } finally {
+      delete process.env.ANVIO_YUANBAO_MOCK;
     }
   });
 

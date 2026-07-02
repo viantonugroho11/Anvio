@@ -58,7 +58,9 @@ import {
   spotifySearch,
   feishuDocRead,
   rlTool,
+  yuanbaoTool,
   type RlAction,
+  type YbAction,
   type McpDelegateFn,
 } from './niche-tools.js';
 
@@ -805,6 +807,12 @@ export async function runBuiltinTool(
     case 'rl_tool':
       return rlTool(
         String(call.arguments.action ?? 'list_environments') as RlAction,
+        (call.arguments.params as Record<string, unknown> | undefined) ?? {},
+        ctx.callMcpTool,
+      );
+    case 'yb_tool':
+      return yuanbaoTool(
+        String(call.arguments.action ?? 'query_group_info') as YbAction,
         (call.arguments.params as Record<string, unknown> | undefined) ?? {},
         ctx.callMcpTool,
       );

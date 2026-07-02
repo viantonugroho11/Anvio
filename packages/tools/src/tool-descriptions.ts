@@ -70,6 +70,7 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   spotify_search: 'Search Spotify (MCP or API). Args: { "query" }',
   feishu_doc_read: 'Read Feishu doc (MCP). Args: { "document_id" }',
   rl_tool: 'RL training ops via MCP, direct Tinker-Atropos HTTP, or mock. Args: { "action", "params"? }',
+  yb_tool: 'Yuanbao group/DM/sticker ops via MCP or mock. Args: { "action", "params"? }',
 };
 
 export function describeBuiltinTool(toolName: string): string {

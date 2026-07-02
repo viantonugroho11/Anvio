@@ -411,3 +411,68 @@ export async function rlTool(
 }
 
 export { RL_ACTIONS };
+
+const YB_ACTIONS = [
+  'query_group_info',
+  'query_group_members',
+  'send_dm',
+  'search_sticker',
+  'send_sticker',
+] as const;
+
+export type YbAction = (typeof YB_ACTIONS)[number];
+
+function isYuanbaoMockMode(): boolean {
+  return process.env.ANVIO_YUANBAO_MOCK === '1';
+}
+
+/** Deterministic synthetic responses for ANVIO_YUANBAO_MOCK=1 (dev/test — no network). */
+function mockYuanbaoResult(action: YbAction, params: Record<string, unknown>): Record<string, unknown> {
+  switch (action) {
+    case 'query_group_info':
+      return { group: { id: params.groupId ?? 'mock-group', name: 'Mock Group', memberCount: 3 }, mock: true };
+    case 'query_group_members':
+      return { members: [{ id: 'mock-user-1', name: 'Mock User' }], mock: true };
+    case 'send_dm':
+      return { sent: true, to: params.userId ?? null, mock: true };
+    case 'search_sticker':
+      return { stickers: [{ id: 'mock-sticker-1', keyword: params.keyword ?? '' }], mock: true };
+    case 'send_sticker':
+      return { sent: true, stickerId: params.stickerId ?? null, mock: true };
+    default:
+      return { mock: true };
+  }
+}
+
+/**
+ * Yuanbao (Tencent messaging) group/DM/sticker ops — MCP-delegate only (no
+ * documented public REST API), with `ANVIO_YUANBAO_MOCK=1` for dev/test.
+ */
+export async function yuanbaoTool(
+  action: YbAction,
+  params: Record<string, unknown> = {},
+  mcp?: McpDelegateFn,
+): Promise<BuiltinToolResult> {
+  const toolName = `yb_${action}`;
+  const mcpResult = await tryMcp(mcp, 'yuanbao', toolName, params);
+  if (mcpResult) {
+    mcpResult.name = `anvio_tools__${toolName}`;
+    return mcpResult;
+  }
+
+  if (isYuanbaoMockMode()) {
+    return { name: `anvio_tools__${toolName}`, output: mockYuanbaoResult(action, params), status: 'completed' };
+  }
+
+  return {
+    name: `anvio_tools__${toolName}`,
+    output: {
+      action,
+      params,
+      note: 'Yuanbao tools require MCP preset (workspace/mcp/presets/yuanbao.yaml.example) or ANVIO_YUANBAO_MOCK=1 for local dev.',
+    },
+    status: 'completed',
+  };
+}
+
+export { YB_ACTIONS };

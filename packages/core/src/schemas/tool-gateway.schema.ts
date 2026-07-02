@@ -80,6 +80,7 @@ export const toolGatewaySpecSchema = z.object({
       spotify_search: toolGatewayToolSchema.default({ enabled: false }),
       feishu_doc_read: toolGatewayToolSchema.default({ enabled: false }),
       rl_tool: toolGatewayToolSchema.default({ enabled: false }),
+      yb_tool: toolGatewayToolSchema.default({ enabled: false }),
     })
     .default({}),
   webSearch: z

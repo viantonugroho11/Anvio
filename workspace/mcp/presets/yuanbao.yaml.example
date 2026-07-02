@@ -1,0 +1,8 @@
+# Merge into mcp/servers.yaml spec.servers
+yuanbao:
+  command: npx
+  args: ['-y', 'yuanbao-mcp-server']
+  transport: stdio
+  enabled: false
+  env:
+    YUANBAO_ACCESS_TOKEN: ${YUANBAO_ACCESS_TOKEN}
