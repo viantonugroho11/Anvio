@@ -69,7 +69,7 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   skill_manage: 'Manage skill drafts. Args: { "action": "promote"|"list_drafts", "slug"? }',
   spotify_search: 'Search Spotify (MCP or API). Args: { "query" }',
   feishu_doc_read: 'Read Feishu doc (MCP). Args: { "document_id" }',
-  rl_tool: 'RL training ops via MCP. Args: { "action", "params"? }',
+  rl_tool: 'RL training ops via MCP, direct Tinker-Atropos HTTP, or mock. Args: { "action", "params"? }',
 };
 
 export function describeBuiltinTool(toolName: string): string {

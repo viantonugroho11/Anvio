@@ -86,6 +86,7 @@ anvio setup-token --claude
 anvio setup-token --cursor
 anvio setup-token --codex
 anvio setup-token --antigravity
+anvio setup-token --nous
 anvio setup-token --list
 
 # Per-user OAuth on one workspace
@@ -106,10 +107,28 @@ anvio runtime test antigravity
 | `--cursor` | `agent login` | Cursor CLI session |
 | `--codex` | `codex login` | `~/.codex/auth.json` snapshot |
 | `--antigravity` | `agy auth login` (auto-installs CLI if missing) | Google Sign-In / system keyring snapshot |
+| `--nous` | none (browser 1-click) — local OAuth callback host | Nous Portal access token (model + tools grant) |
 
-Optional: `--token TOKEN` (claude/codex/antigravity), `--binary NAME` (custom CLI path), `--no-install` (skip Antigravity auto-install).
+Optional: `--token TOKEN` (claude/codex/antigravity/nous), `--binary NAME` (custom CLI path), `--no-install` (skip Antigravity auto-install).
 
 Antigravity CLI: [github.com/google-antigravity/antigravity-cli](https://github.com/google-antigravity/antigravity-cli) · [antigravity.google/product/antigravity-cli](https://antigravity.google/product/antigravity-cli)
+
+### Nous Portal OAuth (1-click model + tools)
+
+Unlike the other vendors, [Nous Portal](https://portal.nousresearch.com) has no
+official CLI — `anvio setup-token --nous` spins up a local OAuth callback host
+(same primitive as `anvio connect login-host`) and prints an authorize URL to
+open in a browser:
+
+```bash
+anvio setup-token --nous                    # prints authorize URL, waits for callback
+anvio setup-token --nous --token TOKEN      # headless — paste a token from the portal UI
+ANVIO_NOUS_MOCK=1 anvio setup-token --nous  # dev/test — synthetic token, no network
+```
+
+Env: `NOUS_PORTAL_URL` (defaults to the public portal). The stored connection
+(`service: nous`) currently gates access only — no `nous` model-provider row
+in the routing catalog yet (see [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md)).
 
 Agent binding:
 

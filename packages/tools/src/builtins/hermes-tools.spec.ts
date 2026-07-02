@@ -164,9 +164,27 @@ describe('P11d niche tools', () => {
     if (prevToken) process.env.HOME_ASSISTANT_TOKEN = prevToken;
   });
 
-  it('rlTool returns MCP setup note', async () => {
+  it('rlTool returns MCP setup note when no MCP/API/mock configured', async () => {
+    delete process.env.ANVIO_ATROPOS_MOCK;
+    delete process.env.ATROPOS_API_URL;
     const result = await rlTool('list_environments');
     expect(result.status).toBe('completed');
     expect(JSON.stringify(result.output)).toContain('Tinker-Atropos');
+  });
+
+  it('rlTool runs a live-shaped mock training loop when ANVIO_ATROPOS_MOCK=1', async () => {
+    process.env.ANVIO_ATROPOS_MOCK = '1';
+    try {
+      const started = await rlTool('start_training', { environment: 'demo' });
+      expect(started.status).toBe('completed');
+      const startedOutput = started.output as { jobId: string; status: string };
+      expect(startedOutput.jobId).toMatch(/^mock-rl-/);
+
+      const status = await rlTool('check_status', { jobId: startedOutput.jobId });
+      expect(status.status).toBe('completed');
+      expect((status.output as { status: string }).status).toBe('running');
+    } finally {
+      delete process.env.ANVIO_ATROPOS_MOCK;
+    }
   });
 });

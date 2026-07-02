@@ -27,6 +27,7 @@ export {
 export { isCursorRuntimeConfigured, parseCursorConnectionPayload } from './cursor/cursor-auth.js';
 export { SshRuntimeProvider } from './ssh/ssh-runtime.js';
 export { DaytonaRuntimeProvider, ModalRuntimeProvider, type RemoteExecResult } from './remote/remote-runtime-stub.js';
+export { SingularityRuntimeProvider } from './singularity/singularity-runtime.js';
 export { RuntimeFactory, createRuntimeFactory, type RuntimeFactoryDeps } from './runtime-factory.js';
 export {
   buildAgentRuntimeChain,
@@ -45,13 +46,17 @@ export {
   ANTIGRAVITY_CONNECTION_SERVICE,
   CODEX_CONNECTION_SERVICE,
   CURSOR_CONNECTION_SERVICE,
+  DEFAULT_NOUS_PORTAL_URL,
+  NOUS_CONNECTION_SERVICE,
   RUNTIME_CONNECTION_SERVICE,
   RUNTIME_SETUP_TOKEN_VENDORS,
   detectSetupTokenVendor,
+  parseNousConnectionPayload,
   parseRuntimeSetupTokenVendor,
   runAntigravitySetupToken,
   runCodexSetupToken,
   runCursorSetupToken,
+  runNousSetupToken,
   runRuntimeSetupToken,
   type RuntimeSetupTokenResult,
   type RuntimeSetupTokenVendor,

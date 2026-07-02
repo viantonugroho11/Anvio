@@ -24,6 +24,7 @@ import {
   SshRuntimeProvider,
   DaytonaRuntimeProvider,
   ModalRuntimeProvider,
+  SingularityRuntimeProvider,
 } from '@anvio/runtimes';
 import { DagExecutor, createWorkflowRegistry } from '@anvio/workflows';
 import { VoicePipeline, createStreamingSttSession, streamTranscribe } from '@anvio/voice';
@@ -192,7 +193,7 @@ Core
   anvio channels status [--json]       Channel adapter health check
   anvio harness status|simulate        Channel harness (Phase G)
   anvio connect list|put|revoke|login-host|login  Contextual connections broker
-  anvio setup-token --claude|--cursor|--codex|--antigravity  Official runtime OAuth login
+  anvio setup-token --claude|--cursor|--codex|--antigravity|--nous  Official runtime OAuth login
 
 Advanced Agent OS — Identity & Goals
   anvio soul list|show|create          Persistent agent souls
@@ -737,7 +738,7 @@ async function cmdSetupToken(sub: string[]) {
   const vendor = detectSetupTokenVendor(sub);
   if (!vendor) {
     console.error(
-      'Usage: anvio setup-token --claude|--cursor|--codex|--antigravity [--token TOKEN] [--binary NAME] [--no-install] [--list]',
+      'Usage: anvio setup-token --claude|--cursor|--codex|--antigravity|--nous [--token TOKEN] [--binary NAME] [--no-install] [--list]',
     );
     process.exit(1);
   }
@@ -756,6 +757,10 @@ async function cmdSetupToken(sub: string[]) {
       explicitToken,
       binary,
       autoInstall,
+      onAuthorizeUrl: (url) => {
+        console.log(`Open this URL to complete Nous Portal 1-click login:\n  ${url}`);
+        console.log('Waiting for callback…');
+      },
     });
     const stored = await broker.putConnection({
       channel,
@@ -1440,7 +1445,7 @@ async function cmdRuntime(sub: string[]) {
       const dashIdx = sub.indexOf('--');
       const command = dashIdx >= 0 ? sub.slice(dashIdx + 1).join(' ') : '';
       if (!command) {
-        console.error('Usage: anvio runtime exec <ssh|daytona|modal> -- <command>');
+        console.error('Usage: anvio runtime exec <ssh|daytona|modal|singularity> -- <command>');
         process.exit(1);
       }
       const provider = factory.get(id);
@@ -1458,7 +1463,14 @@ async function cmdRuntime(sub: string[]) {
         if (result.exitCode !== 0) process.exitCode = result.exitCode;
         break;
       }
-      console.error('exec supported for: ssh, daytona, modal');
+      if (id === 'singularity') {
+        const singularity = provider as SingularityRuntimeProvider;
+        const result = await singularity.execRemote(command);
+        console.log(JSON.stringify({ id, ...result }, null, 2));
+        if (result.exitCode !== 0) process.exitCode = result.exitCode;
+        break;
+      }
+      console.error('exec supported for: ssh, daytona, modal, singularity');
       process.exit(1);
     }
     case 'test': {
@@ -1482,7 +1494,7 @@ async function cmdRuntime(sub: string[]) {
       break;
     }
     default:
-      console.error('Usage: anvio runtime list|test|exec <ssh|daytona|modal> -- <command>');
+      console.error('Usage: anvio runtime list|test|exec <ssh|daytona|modal|singularity> -- <command>');
       process.exit(1);
   }
 }

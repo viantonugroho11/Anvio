@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.195",
-    "@anvio/core": "workspace:*"
+    "@anvio/core": "workspace:*",
+    "@anvio/harness": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

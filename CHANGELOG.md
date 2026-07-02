@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Nous Portal OAuth** — `anvio setup-token --nous` (1-click model + tools login via local OAuth callback host, no vendor CLI required; `--token` for headless, `ANVIO_NOUS_MOCK=1` for dev/test)
+- **Singularity/Apptainer runtime** — `SingularityRuntimeProvider`, `anvio runtime exec singularity -- <cmd>` (local HPC container exec, `SINGULARITY_IMAGE` + `SINGULARITY_BINARY`, `ANVIO_SINGULARITY_MOCK=1` for dev/test)
+- **Atropos RL training — live fallback** — `rl_tool` now calls a direct Tinker-Atropos HTTP API (`ATROPOS_API_URL`/`ATROPOS_API_KEY`) when MCP isn't configured, with `ANVIO_ATROPOS_MOCK=1` for dev/test, instead of only returning a static MCP-setup note
+
 ---
 
 ## [1.21.1] - 2026-07-02

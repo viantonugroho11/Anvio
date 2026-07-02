@@ -30,7 +30,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | T3  | Image generation                          | ✅      | —       | ✅ DALL-E via OpenAI API                                    | —                                  |
 | T4  | Text-to-speech (tool)                     | ✅      | —       | ✅ OpenAI TTS via `@anvio/voice`                           | —                                  |
 | T5  | `execute_code` programmatic multi-step    | ✅      | —       | ✅ `execute_code_pipeline`                                  | —                                  |
-| T6  | Nous Portal OAuth (1-click model + tools) | ✅      | —       | ❌                                                          | Generic OAuth env; Portal opsional |
+| T6  | Nous Portal OAuth (1-click model + tools) | ✅      | —       | ✅ `anvio setup-token --nous` (browser callback host, no vendor CLI) | Model/tools routing off the grant is a follow-up |
 | T7  | MCP tool filtering / toolsets             | ✅      | ✅       | ✅ bridge + stdio client + first-call approval + health     | Per-server allowlist (fine-tune)   |
 
 ---
@@ -87,7 +87,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | R3  | SSH remote                    | ✅       | —      | 🟡 connectivity test only      | Agent exec over SSH               |
 | R4  | Daytona serverless            | ✅       | —      | 🟡 stub                        | API integration                   |
 | R5  | Modal serverless              | ✅       | —      | 🟡 stub                        | API integration                   |
-| R6  | Singularity                   | ✅       | —      | ❌                             | Low priority                      |
+| R6  | Singularity                   | ✅       | —      | ✅ `SingularityRuntimeProvider` (local `singularity exec`) | —                    |
 | R7  | Cursor / Claude Code / Codex  | partial | —      | ✅ ACP serve + Cursor delegate | Claude Code / Codex stubs remain |
 | R8  | Desktop app (installer, tray) | ✅       | —      | ❌ deferred                    | `apps/desktop` optional           |
 
@@ -136,7 +136,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 | #   | Gap                           | Hermes       | Anvio v1.15.0                                            |
 | --- | ----------------------------- | ------------ | -------------------------------------------------------- |
 | O1  | Trajectory export             | ✅            | ❌                                                        |
-| O2  | Atropos / RL training         | ✅            | ❌                                                        |
+| O2  | Atropos / RL training         | ✅            | 🟡 MCP preset + direct HTTP fallback (`rl_tool`); live external training run still requires a real Tinker-Atropos service |
 | O3  | Langfuse / OTel (hermes-tech) | custom stack | 🟡 OTel wired in worker/api; Langfuse via OTLP env | Dashboard templates |
 
 Token usage: `workspace/audit/tokens.jsonl`, `anvio usage stats`, `GET /api/metrics` (P9–P10).

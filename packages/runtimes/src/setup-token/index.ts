@@ -15,14 +15,19 @@ import {
   CURSOR_CONNECTION_SERVICE,
   runCursorSetupToken,
 } from './cursor-setup-token.js';
+import {
+  NOUS_CONNECTION_SERVICE,
+  runNousSetupToken,
+} from './nous-setup-token.js';
 
-export type RuntimeSetupTokenVendor = 'claude' | 'cursor' | 'codex' | 'antigravity';
+export type RuntimeSetupTokenVendor = 'claude' | 'cursor' | 'codex' | 'antigravity' | 'nous';
 
 export const RUNTIME_SETUP_TOKEN_VENDORS: RuntimeSetupTokenVendor[] = [
   'claude',
   'cursor',
   'codex',
   'antigravity',
+  'nous',
 ];
 
 export const RUNTIME_CONNECTION_SERVICE: Record<RuntimeSetupTokenVendor, string> = {
@@ -30,6 +35,7 @@ export const RUNTIME_CONNECTION_SERVICE: Record<RuntimeSetupTokenVendor, string>
   cursor: CURSOR_CONNECTION_SERVICE,
   codex: CODEX_CONNECTION_SERVICE,
   antigravity: ANTIGRAVITY_CONNECTION_SERVICE,
+  nous: NOUS_CONNECTION_SERVICE,
 };
 
 export interface RunRuntimeSetupTokenOptions {
@@ -37,6 +43,8 @@ export interface RunRuntimeSetupTokenOptions {
   explicitToken?: string;
   timeoutMs?: number;
   autoInstall?: boolean;
+  /** Nous only — called with the authorize URL before waiting for the OAuth callback. */
+  onAuthorizeUrl?: (url: string) => void;
 }
 
 export interface RuntimeSetupTokenResult {
@@ -57,6 +65,8 @@ export function parseRuntimeSetupTokenVendor(flag: string): RuntimeSetupTokenVen
       return 'codex';
     case 'antigravity':
       return 'antigravity';
+    case 'nous':
+      return 'nous';
     default:
       return null;
   }
@@ -112,6 +122,14 @@ export async function runRuntimeSetupToken(
       });
       return { vendor, service, ...result };
     }
+    case 'nous': {
+      const result = await runNousSetupToken({
+        explicitToken: options.explicitToken,
+        timeoutMs: options.timeoutMs,
+        onAuthorizeUrl: options.onAuthorizeUrl,
+      });
+      return { vendor, service, ...result };
+    }
     default: {
       const _exhaustive: never = vendor;
       throw new AnvioError('VALIDATION_ERROR', `Unsupported setup-token vendor: ${_exhaustive}`);
@@ -132,3 +150,9 @@ export {
   CURSOR_CONNECTION_SERVICE,
   runCursorSetupToken,
 } from './cursor-setup-token.js';
+export {
+  DEFAULT_NOUS_PORTAL_URL,
+  NOUS_CONNECTION_SERVICE,
+  parseNousConnectionPayload,
+  runNousSetupToken,
+} from './nous-setup-token.js';

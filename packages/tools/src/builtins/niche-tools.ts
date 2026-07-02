@@ -237,6 +237,88 @@ const RL_ACTIONS = [
 
 export type RlAction = (typeof RL_ACTIONS)[number];
 
+function isAtroposMockMode(): boolean {
+  return process.env.ANVIO_ATROPOS_MOCK === '1';
+}
+
+/** Deterministic synthetic responses for ANVIO_ATROPOS_MOCK=1 (dev/test — no network). */
+function mockAtroposResult(action: RlAction, params: Record<string, unknown>): Record<string, unknown> {
+  switch (action) {
+    case 'list_environments':
+      return { environments: ['tinker-atropos-demo'], mock: true };
+    case 'select_environment':
+      return { selected: params.environment ?? 'tinker-atropos-demo', mock: true };
+    case 'get_current_config':
+      return { config: {}, mock: true };
+    case 'edit_config':
+      return { config: params, updated: true, mock: true };
+    case 'start_training':
+      return { jobId: `mock-rl-${Date.now()}`, status: 'queued', mock: true };
+    case 'check_status':
+      return { jobId: params.jobId ?? null, status: 'running', progress: 0.42, mock: true };
+    case 'stop_training':
+      return { jobId: params.jobId ?? null, status: 'stopped', mock: true };
+    case 'get_results':
+      return { jobId: params.jobId ?? null, metrics: { reward: 0.81 }, mock: true };
+    case 'list_runs':
+      return { runs: [], mock: true };
+    case 'test_inference':
+      return { output: 'mock inference result', mock: true };
+    default:
+      return { mock: true };
+  }
+}
+
+/**
+ * Direct Tinker-Atropos HTTP fallback — used when no MCP delegate is wired.
+ * Returns null (caller falls through to the static setup note) unless
+ * ATROPOS_API_URL or ANVIO_ATROPOS_MOCK=1 is set.
+ */
+async function atroposDirectCall(
+  action: RlAction,
+  params: Record<string, unknown>,
+): Promise<BuiltinToolResult | null> {
+  const name = `anvio_tools__rl_${action}`;
+
+  if (isAtroposMockMode()) {
+    return { name, output: mockAtroposResult(action, params), status: 'completed' };
+  }
+
+  const apiUrl = process.env.ATROPOS_API_URL;
+  if (!apiUrl) return null;
+  const apiKey = process.env.ATROPOS_API_KEY;
+
+  try {
+    const res = await fetch(`${apiUrl.replace(/\/$/, '')}/rl/${action}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
+      body: JSON.stringify(params),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      return {
+        name,
+        output: null,
+        status: 'failed',
+        error: `Atropos API HTTP ${res.status}: ${body.slice(0, 200)}`,
+      };
+    }
+    const result = await res.json();
+    return { name, output: { action, params, result }, status: 'completed' };
+  } catch (error) {
+    return {
+      name,
+      output: null,
+      status: 'failed',
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 export async function rlTool(
   action: RlAction,
   params: Record<string, unknown> = {},
@@ -248,12 +330,18 @@ export async function rlTool(
     mcpResult.name = `anvio_tools__${toolName}`;
     return mcpResult;
   }
+
+  const direct = await atroposDirectCall(action, params);
+  if (direct) return direct;
+
   return {
     name: `anvio_tools__${toolName}`,
     output: {
       action,
       params,
-      note: 'RL tools require Tinker-Atropos MCP — see workspace/mcp/presets/tinker-atropos.yaml.example',
+      note:
+        'RL tools require Tinker-Atropos MCP (workspace/mcp/presets/tinker-atropos.yaml.example), ' +
+        'ATROPOS_API_URL/ATROPOS_API_KEY for direct HTTP, or ANVIO_ATROPOS_MOCK=1 for local dev.',
     },
     status: 'completed',
   };

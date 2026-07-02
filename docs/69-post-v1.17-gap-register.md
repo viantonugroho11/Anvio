@@ -41,11 +41,11 @@ Gateway **breadth** ≈ Hermes `hermes-cli`. Gap tersisa = **sub-tools**, **dept
 | T1a | Spotify bundle (7 tools) | ✅ | 🟡 `spotify_search` + MCP preset | **P12** — test + doc MCP spotify |
 | T1b | Feishu doc/drive (5 tools) | ✅ | 🟡 `feishu_doc_read` + MCP preset | **P12** |
 | T1c | Yuanbao (`yb_*`, 5 tools) | ✅ | ❌ | **P12** — MCP plugin or defer |
-| T1d | RL (`rl_*`, 10 tools) | ✅ | 🟡 `rl_tool` action + MCP preset | **P12** — wire Tinker-Atropos live |
+| T1d | RL (`rl_*`, 10 tools) | ✅ | ✅ `rl_tool` action + MCP preset + direct Tinker-Atropos HTTP fallback (`ATROPOS_API_URL`) + mock mode | Live training loop trigger done; MCP preset E2E still optional |
 | T1e | `computer_use` (macOS CUA) | ✅ | 🟡 stub/skipped | **P13** or never (headless Linux) |
 | T1f | `video_analyze` / `video_generate` | ✅ | 🟡 note/stub | **P12** — MCP video or ffmpeg frames |
 | T1g | Full raw `browser_cdp` | ✅ | 🟡 safe allowlist only | **P12** — opt-in CDP grant (slaude-style) |
-| T1h | Nous Portal OAuth | ✅ | ❌ | **P3** — optional |
+| T1h | Nous Portal OAuth | ✅ | ✅ `anvio setup-token --nous` (browser 1-click, no vendor CLI) | Model/tools routing off the grant is a follow-up |
 | T1i | MCP per-server tool allowlist | ✅ | 🟡 first-call approval only | **P12** — fine-grain filter |
 | T1j | Honcho gateway tools (`honcho_*`) | ✅ | 🟡 `@anvio/memory` provider | OK as provider; expose as tools optional |
 
@@ -86,7 +86,7 @@ Gateway **breadth** ≈ Hermes `hermes-cli`. Gap tersisa = **sub-tools**, **dept
 | R1 | SSH remote agent execution | 🟡 connectivity test | **P13** |
 | R2 | Daytona serverless | 🟡 stub | **P13** |
 | R3 | Modal serverless | 🟡 stub | **P13** |
-| R4 | Singularity | ❌ | Low priority |
+| R4 | Singularity | ✅ `SingularityRuntimeProvider` + `anvio runtime exec singularity` | Done — local `singularity exec`, mock mode for dev/test |
 | R5 | Claude Code / Codex runtime stubs | 🟡 | **P13** — complete or document defer |
 | R6 | Desktop app (tray, installer) | ❌ deferred | **P14+** optional |
 
@@ -108,7 +108,7 @@ Gateway **breadth** ≈ Hermes `hermes-cli`. Gap tersisa = **sub-tools**, **dept
 | # | Gap | Anvio v1.17 | Target |
 |---|-----|-------------|--------|
 | O1 | Trajectory export (Hermes research) | ❌ | **P14** research |
-| O2 | Atropos RL training live | ❌ / MCP preset | **P12** MCP E2E |
+| O2 | Atropos RL training live | 🟡 MCP preset + direct HTTP fallback (`rl_tool`, `ATROPOS_API_URL`) | **P12** — MCP E2E; still needs a real Tinker-Atropos service for a genuinely live run |
 | O3 | Langfuse dashboard templates | 🟡 OTel wired | **P12** — importable dashboard JSON |
 | O4 | Token audit + Prometheus | ✅ P9–P10 | — |
 

@@ -11,7 +11,8 @@ export type RuntimeProviderId =
   | 'ssh'
   | 'docker'
   | 'daytona'
-  | 'modal';
+  | 'modal'
+  | 'singularity';
 
 export interface RuntimeConnectionContext {
   userId: string;
@@ -74,6 +75,8 @@ export interface RuntimeFactoryOptions {
   daytonaApiKey?: string;
   modalTokenId?: string;
   modalTokenSecret?: string;
+  singularityBinary?: string;
+  singularityImage?: string;
 }
 
 export interface AgentRuntimeBinding {

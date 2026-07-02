@@ -14,6 +14,7 @@ import { LocalRuntimeProvider } from './local/local-runtime.js';
 import { DockerRuntimeProvider } from './docker/docker-runtime.js';
 import { DaytonaRuntimeProvider, ModalRuntimeProvider } from './remote/remote-runtime-stub.js';
 import { SshRuntimeProvider } from './ssh/ssh-runtime.js';
+import { SingularityRuntimeProvider } from './singularity/singularity-runtime.js';
 import {
   buildAgentRuntimeChain,
   firstConfiguredRuntimeId,
@@ -71,6 +72,13 @@ export class RuntimeFactory {
       ['docker', new DockerRuntimeProvider({ image: opts.dockerImage, codeExecutor: deps.codeExecutor })],
       ['daytona', new DaytonaRuntimeProvider({ apiKey: opts.daytonaApiKey })],
       ['modal', new ModalRuntimeProvider({})],
+      [
+        'singularity',
+        new SingularityRuntimeProvider({
+          binary: opts.singularityBinary,
+          image: opts.singularityImage,
+        }),
+      ],
     ]);
   }
 

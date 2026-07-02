@@ -60,7 +60,7 @@ Prior: [v1.19](docs/75-phase-p14-priorities.md) · [Unified gateway guide](docs/
 
 | Track | Highlights |
 |-------|------------|
-| **Remote runtimes** | SSH, Daytona, Modal — `anvio runtime exec ssh\|daytona\|modal -- <cmd>` |
+| **Remote runtimes** | SSH, Daytona, Modal, Singularity — `anvio runtime exec ssh\|daytona\|modal\|singularity -- <cmd>` |
 | **Channels** | Feishu webhook, SMS (Twilio), Google Chat service account |
 | **Voice** | Streaming STT — `anvio voice stream-transcribe` |
 | **Email** | IMAP IDLE watch, Message-ID threading |
@@ -328,6 +328,7 @@ anvio setup-token --claude          # wraps `claude setup-token`
 anvio setup-token --cursor          # Cursor agent login
 anvio setup-token --codex           # Codex CLI login
 anvio setup-token --antigravity     # Google Antigravity CLI (`agy`) Google Sign-In
+anvio setup-token --nous            # Nous Portal 1-click model + tools OAuth (browser, no CLI)
 anvio setup-token --list            # show supported vendors
 
 # Per-user tokens (multi-tenant / shared server)
@@ -555,6 +556,9 @@ anvio exec audit
 ANVIO_SSH_MOCK=1 anvio runtime exec ssh -- echo hello
 ANVIO_DAYTONA_MOCK=1 anvio runtime exec daytona -- uname -a
 anvio runtime exec modal -- npm test
+
+# Singularity/Apptainer — local HPC container runtime (v1.22+)
+ANVIO_SINGULARITY_MOCK=1 anvio runtime exec singularity -- echo hello
 ```
 
 ### Contextual connections (OAuth broker)
@@ -930,7 +934,7 @@ flowchart TB
         AUTO["Automation / Workflows"]
         MCP["MCP Bridge"]
         CONN["Connection Broker"]
-        RUN["Runtime Providers<br/>local · claude-code · cursor · codex<br/>ssh · daytona · modal"]
+        RUN["Runtime Providers<br/>local · claude-code · cursor · codex<br/>ssh · daytona · modal · singularity"]
     end
 
     subgraph Data["Local-first storage"]
@@ -1073,7 +1077,7 @@ Run `anvio help` for the full grouped list.
 | `anvio exec …` | Sandboxed execution |
 | `anvio setup-token [--claude\|--cursor\|--codex]` | Vendor subscription OAuth login |
 | `anvio runtime test <provider>` | Verify runtime OAuth / config |
-| `anvio runtime exec …` | Remote SSH/Daytona/Modal |
+| `anvio runtime exec …` | Remote SSH/Daytona/Modal/Singularity |
 | `anvio connect …` | Contextual connections (channels, GitHub, …) |
 | `anvio harness …` | Harness simulate / status |
 | `anvio channels status` | Channel health |
@@ -1109,9 +1113,9 @@ Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/d
 |-----------|------------------|---------------------|
 | Hermes | ~93% | Local-first, unified gateway, SQLite sessions, runtime OAuth, SOUL gate, multi-channel harness, 18 providers, 71 gateway tools |
 
-**Shipped (P4–P14 + v1.21):** Native tool_use, MCP stdio + agent runtime, 71 built-in tools, OTel spans, planner CLI, MCP presets, harness channel tools, remote exec, Feishu/SMS, trajectory export, Claude Code OAuth runtime, `anvio setup-token`.
+**Shipped (P4–P14 + v1.21–v1.22):** Native tool_use, MCP stdio + agent runtime, 71 built-in tools, OTel spans, planner CLI, MCP presets, harness channel tools, remote exec (SSH/Daytona/Modal/Singularity), Feishu/SMS, trajectory export, Claude Code OAuth runtime, `anvio setup-token` (incl. Nous Portal 1-click OAuth).
 
-**Remaining gaps:** live MCP E2E with real credentials, Nous Portal OAuth — see [Post-v1.17 gap register](docs/69-post-v1.17-gap-register.md).
+**Remaining gaps:** live MCP E2E with real credentials, a genuinely live Atropos RL training run (needs a real Tinker-Atropos service) — see [Post-v1.17 gap register](docs/69-post-v1.17-gap-register.md).
 
 Detail: [Hermes tools catalog](docs/65-hermes-tools-catalog.md) · [Post-v1.17 gaps](docs/69-post-v1.17-gap-register.md)
 
