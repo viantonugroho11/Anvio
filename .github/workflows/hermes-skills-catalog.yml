@@ -1,0 +1,58 @@
+name: Hermes-tech skills catalog
+
+on:
+  schedule:
+    # Weekly, Monday 06:00 UTC — catches new/updated skills in hermes-tech.
+    - cron: '0 6 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Anvio
+        uses: actions/checkout@v4
+
+      - name: Checkout hermes-tech
+        uses: actions/checkout@v4
+        with:
+          repository: viantonugroho11/hermes-tech
+          path: .hermes-tech-src
+          fetch-depth: 1
+
+      - name: Import skills
+        run: ./scripts/import-hermes-skills.sh "$GITHUB_WORKSPACE/.hermes-tech-src" ./workspace/skills
+
+      - name: Remove clone scratch dir
+        run: rm -rf .hermes-tech-src
+
+      - name: Check for catalog changes
+        id: diff
+        run: |
+          if git status --porcelain workspace/skills/imported | grep -q .; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open PR with catalog updates
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: 'chore(skills): sync hermes-tech skills catalog'
+          title: 'chore(skills): sync hermes-tech skills catalog'
+          body: |
+            Automated sync from [hermes-tech](https://github.com/viantonugroho11/hermes-tech) skills/.
+
+            Review new/updated drafts, then promote with:
+            ```
+            anvio skills list
+            anvio learning promote <draft>
+            ```
+          branch: chore/hermes-skills-catalog-sync
+          add-paths: workspace/skills/imported
+          delete-branch: true
