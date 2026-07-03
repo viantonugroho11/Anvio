@@ -1,0 +1,17 @@
+name: Notify Docs Repo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.ANVIO_PAT }}
+          repository: viantonugroho11/anvio-docs
+          event-type: anvio-docs-updated
