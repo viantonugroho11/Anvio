@@ -285,6 +285,10 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     soulService,
     modelProviders,
     toolPort,
+    activeGoalSkillsResolver: async () => {
+      const activeGoals = await sharedGoalEngine.list('active');
+      return activeGoals.flatMap((g) => g.spec.skills ?? []);
+    },
     onProgress: (sessionId, phase) => {
       void eventBus.publishCore(EventSubjects.AGENT_RUN_PROGRESS, 'anvio.agent.run.progress', {
         sessionId,
@@ -351,6 +355,14 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
 
   const catalog = createCatalogRegistry(workspacePath, repoRoot);
   const workflowRegistry = createWorkflowRegistry(workspacePath, repoRoot);
+
+  // Shared goal engine — wired before workflowExecutor so onComplete.workflow can reference it
+  const sharedGoalEngine = createGoalEngine(workspace.storage, {
+    onWorkflowTrigger: async (wfSlug) => {
+      await workflowExecutor.run(wfSlug, {});
+    },
+  });
+
   const workflowExecutor = new DagExecutor({
     registry: workflowRegistry,
     runAgent: async (agentId, input) => {
@@ -578,7 +590,6 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       const { executeSkill, createComposableSkillRegistry } = await import('@anvio/skills');
       const skill = await skillCatalog.load(slug);
       const reg = createComposableSkillRegistry([], skillCatalog, toolGateway);
-      const goalEngine = createGoalEngine(workspace.storage);
       const result = await executeSkill({
         skill,
         params,
@@ -586,10 +597,10 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         ctx: { sessionId: 'skill_call', agentId: 'skill_call' },
         resolveSkill: (s) => reg.resolve(s),
         updateGoalProgress: async (goalSlug, increment) => {
-          const goal = await goalEngine.get(goalSlug);
+          const goal = await sharedGoalEngine.get(goalSlug);
           if (!goal) return;
           const newPercent = Math.min(100, goal.spec.progress.percent + increment);
-          await goalEngine.updateProgress(goalSlug, { percent: newPercent });
+          await sharedGoalEngine.updateProgress(goalSlug, { percent: newPercent });
         },
       });
       return { outputs: result.outputs, trace: result.trace };

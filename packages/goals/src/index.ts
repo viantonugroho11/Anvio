@@ -130,8 +130,16 @@ export class FilesystemGoalStore implements GoalStore {
   }
 }
 
+export interface GoalEngineOptions {
+  /** Called after goal transitions to completed — fires linked onComplete.workflow if set */
+  onWorkflowTrigger?: (workflowSlug: string) => Promise<void>;
+}
+
 export class GoalEngineImpl implements GoalEngine {
-  constructor(private readonly store: GoalStore) {}
+  constructor(
+    private readonly store: GoalStore,
+    private readonly options: GoalEngineOptions = {},
+  ) {}
 
   list(status?: GoalStatus): Promise<GoalDefinition[]> {
     return this.store.list(status);
@@ -170,10 +178,20 @@ export class GoalEngineImpl implements GoalEngine {
   async complete(slug: string): Promise<GoalDefinition> {
     const existing = await this.store.get(slug);
     if (!existing) throw new AnvioError('NOT_FOUND', `Goal not found: ${slug}`);
-    return this.store.update(slug, {
+    const updated = await this.store.update(slug, {
       status: 'completed',
       progress: { ...existing.spec.progress, percent: 100 },
     });
+    // Fire linked workflow if configured and callback is wired
+    const workflowSlug = existing.spec.onComplete?.workflow;
+    if (workflowSlug && this.options.onWorkflowTrigger) {
+      try {
+        await this.options.onWorkflowTrigger(workflowSlug);
+      } catch {
+        // onComplete workflow is best-effort — don't fail the goal completion
+      }
+    }
+    return updated;
   }
 
   pause(slug: string): Promise<GoalDefinition> {
@@ -189,6 +207,9 @@ export class GoalEngineImpl implements GoalEngine {
   }
 }
 
-export function createGoalEngine(storage: FilesystemStorageProvider): GoalEngine {
-  return new GoalEngineImpl(new FilesystemGoalStore(storage));
+export function createGoalEngine(
+  storage: FilesystemStorageProvider,
+  options?: GoalEngineOptions,
+): GoalEngine {
+  return new GoalEngineImpl(new FilesystemGoalStore(storage), options);
 }
