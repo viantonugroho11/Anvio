@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Structured skill authoring (parameters, steps, outputs, triggers)**
+
+### Added
+- **Skill parameters** — typed input definitions per skill (`name`, `type`, `required`, `default`, `enum`); rendered into the agent's system prompt so the agent knows what to collect
+- **Skill steps** — structured execution steps with `id`, `action`, optional `tool` binding, `args`, `condition` (string expression), `onError` (`fail`/`skip`/`retry`), `maxRetries`, and `output` variable name
+- **Skill outputs** — defined result schema (`name`, `type`, `description`) for what a skill produces
+- **Skill triggers** — event patterns that activate a skill: plain string (`"code review"`) or structured object (`event`, `condition`, `channel`)
+- **`composable` flag** — marks a skill as callable from other skills
+- **`timeout` field** — max execution time in ms
+- **`renderSkillInstructions` upgrade** — now renders parameters, steps, and outputs sections into the agent prompt, not just `name + description + instructions`
+- **`renderSkillMd` upgrade** — learning-loop draft writer serialises all new fields into generated `.md` files
+- **Bundled `code-review` skill v2** — upgraded to use parameters, steps, outputs, and triggers; serves as the reference example for the new format
+- **Workspace skill examples** — `workspace/skills/code-review.md` and `architecture.md` upgraded to v2 format
+
 ---
 
 ## [1.22.0] - 2026-07-04

@@ -56,30 +56,65 @@ catalogs/                       # Future: remote catalogs
   private/
 ```
 
-## Skill Schema (Existing + Extensions)
+## Skill Schema
+
+See [05-skills.md](./05-skills.md) for the full field reference and examples. Quick YAML reference:
 
 ```yaml
 apiVersion: anvio.io/v1
 kind: Skill
 metadata:
-  slug: architecture
-  version: "1.0.0"
+  slug: code-review
+  version: "2.0.0"
   catalog: bundled           # bundled | community | team | private
 spec:
-  description: System design and architectural analysis
+  name: Code Review
+  description: Structured code review with findings output
   category: engineering
+  routing: review
+  composable: true
+  parameters:
+    - name: target
+      type: string
+      description: File path or PR URL to review
+      required: true
+    - name: focus
+      type: string
+      required: false
+      enum: [correctness, security, performance, style, all]
+      default: "all"
+  steps:
+    - id: gather
+      action: Read code changes
+      tool: file_read
+      output: code_content
+    - id: security_scan
+      action: Check for OWASP top 10 vulnerabilities
+      condition: "focus == 'security' || focus == 'all'"
+      output: security_findings
+      onError: skip
+    - id: report
+      action: Merge and rank findings
+      output: final_report
+  outputs:
+    - name: findings
+      type: array
+      description: Review findings with file, line, severity
+    - name: summary
+      type: markdown
+  triggers:
+    - code review
+    - event: pull_request
+      channel: github
   instructions: |
-    When performing architecture work...
+    When reviewing code:
+    1. Check correctness and edge cases
+    2. Identify security vulnerabilities
+    3. Prioritise findings by severity
   permissions:
-    - filesystem.read
-    - mcp.github
-  tools:
-    - filesystem
-    - diagram
-  routing: coding              # Hint for provider routing
-  tags:
-    - design
-    - tradeoffs
+    - read:codebase
+  toolRequirements:
+    - file_read
 ```
 
 ## Installation
