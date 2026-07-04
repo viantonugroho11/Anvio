@@ -6,11 +6,11 @@
 
 Configure agents in **Markdown** (Hermes-style) · YAML for infra only · Run from the **CLI**
 
-[![Release](https://img.shields.io/badge/release-v1.21.1-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.1)
+[![Release](https://img.shields.io/badge/release-v1.22.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.22.0)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D9-orange)](https://pnpm.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-190%2B-brightgreen)](#development)
+[![Tests](https://img.shields.io/badge/tests-241-brightgreen)](#development)
 
 File-first by default · SQLite when you need it · Vendor OAuth optional · No Docker required
 
@@ -25,6 +25,17 @@ File-first by default · SQLite when you need it · Vendor OAuth optional · No 
 > Everything lives in a portable `workspace/` folder — back it up, commit it to git, or copy it to another machine.
 >
 > **Start simple:** filesystem sessions, model API key (or mock mode), no Docker. Add SQLite, vendor OAuth, gateway, or PostgreSQL only when you need them.
+
+### What's new in v1.22.0
+
+| Track | Highlights |
+|-------|------------|
+| **Web dashboard** | `apps/web` — Next.js 15 + Tailwind 4 dashboard (Overview, Sessions, Agents, Tools, Metrics) |
+| **API endpoints** | `GET /api/overview`, `/api/tools`, `/api/sessions` for dashboard data |
+| **Tool & runtime polish** | Yuanbao, Honcho, video tools, IMAP IDLE, Nous OAuth, Singularity runtime |
+| **CI automation** | hermes-tech skills catalog weekly sync + auto-PR |
+
+Prior: [CHANGELOG](CHANGELOG.md) · [Post-v1.17 gaps](docs/69-post-v1.17-gap-register.md)
 
 ### What's new in v1.21.1
 
@@ -87,7 +98,7 @@ Phase docs: [P13](docs/73-phase-p13-priorities.md) · [P14](docs/75-phase-p14-pr
 | **Storage** | Filesystem default; SQLite one YAML flip | Server DB mandatory |
 | **Auth** | Optional — vendor OAuth + API keys; no platform login at Level 1–2 | JWT / OAuth required upfront |
 | **Start** | `pnpm build && anvio chat` — mock mode without any key | Docker Compose mandatory |
-| **Interface** | CLI-first | Web UI is the product |
+| **Interface** | CLI-first + Web dashboard | Web UI is the product |
 | **Skills** | Self-improving via learning loop | Static skill files only |
 
 ### Storage & authentication
@@ -170,6 +181,7 @@ flowchart TB
     subgraph Surfaces["📡 Optional surfaces"]
         API["REST API"]
         GW["WebSocket Gateway"]
+        WEB["Web Dashboard"]
         BOT["14 channel adapters"]
         ACP["Cursor via ACP"]
     end
@@ -1109,11 +1121,11 @@ See [`.env.example`](.env.example) for the complete list.
 
 Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/docs) for local-first agent OS capabilities:
 
-| Reference | Parity (v1.21.0) | Strengths in Anvio |
+| Reference | Parity (v1.22.0) | Strengths in Anvio |
 |-----------|------------------|---------------------|
-| Hermes | ~93% | Local-first, unified gateway, SQLite sessions, runtime OAuth, SOUL gate, multi-channel harness, 18 providers, 73 gateway tools |
+| Hermes | ~97% | Local-first, web dashboard, unified gateway, SQLite sessions, runtime OAuth, SOUL gate, multi-channel harness, 18 providers, 73 gateway tools |
 
-**Shipped (P4–P14 + v1.21–v1.22):** Native tool_use, MCP stdio + agent runtime, 73 built-in tools, OTel spans, planner CLI, MCP presets, harness channel tools, remote exec (SSH/Daytona/Modal/Singularity), Feishu/SMS, trajectory export, Claude Code OAuth runtime, `anvio setup-token` (incl. Nous Portal 1-click OAuth).
+**Shipped (P4–P14 + v1.21–v1.22):** Native tool_use, MCP stdio + agent runtime, 73 built-in tools, OTel spans, planner CLI, MCP presets, harness channel tools, remote exec (SSH/Daytona/Modal/Singularity), Feishu/SMS, trajectory export, Claude Code OAuth runtime, `anvio setup-token` (incl. Nous Portal 1-click OAuth), web dashboard.
 
 **Remaining gaps:** live MCP E2E with real credentials, a genuinely live Atropos RL training run (needs a real Tinker-Atropos service) — see [Post-v1.17 gap register](docs/69-post-v1.17-gap-register.md).
 
@@ -1146,7 +1158,7 @@ Start at Level 1 — no Docker, no database server. Flip `storage.provider: sqli
 ```bash
 pnpm install
 pnpm build
-pnpm test              # 190+ tests
+pnpm test              # 241 tests
 pnpm test:integration  # phase integration suites
 pnpm typecheck
 pnpm anvio chat
@@ -1204,7 +1216,8 @@ Architecture: [docs/02-architecture.md](docs/02-architecture.md) · Development:
 
 | Version | Highlights |
 |---------|------------|
-| **[v1.21.1](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.1)** | Codex/Cursor/Antigravity OAuth runtimes, chain fallback, Antigravity auto-install |
+| **[v1.22.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.22.0)** | Web dashboard, Yuanbao/Honcho/video tools, IMAP IDLE, Nous OAuth, Singularity runtime, CI automation |
+| [v1.21.1](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.1) | Codex/Cursor/Antigravity OAuth runtimes, chain fallback, Antigravity auto-install |
 | [v1.21.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.0) | Runtime OAuth (`setup-token`), Claude Code Agent SDK, multi-runtime routing |
 | [v1.20.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.20.0) | Unified gateway daemon, SQLite sessions + FTS5, OpenAI Realtime STT |
 | [v1.19.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.19.0) | Remote exec, Feishu/SMS channels, streaming STT, trajectory export |

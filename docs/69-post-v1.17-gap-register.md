@@ -2,7 +2,7 @@
 
 **Baseline:** v1.17.0 (Phase P11a–P11d shipped — **71 built-in gateway tools**)
 **Tanggal review awal:** 2026-06-19
-**Update terakhir:** 2026-07-02 (v1.21.1 + Nous/Singularity/Atropos/Yuanbao/video/IMAP-IDLE)
+**Update terakhir:** 2026-07-04 (v1.22.0 + web dashboard + Nous/Singularity/Atropos/Yuanbao/video/IMAP-IDLE)
 **Referensi:** [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md) · [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) · [50-hermes-slaude-parity.md](./50-hermes-slaude-parity.md)
 
 > ⚠️ **Koreksi penting:** Dokumen ini sempat tidak ter-update setelah P12/P13/P14 shipped (lihat
@@ -143,6 +143,7 @@
 | 🔵 | 72 gateway tools + MCP bridge + harness channel tools |
 | 🔵 | Unified gateway daemon, SQLite sessions + FTS5 |
 | 🔵 | Vendor OAuth runtimes (Claude Code, Cursor, Codex, Antigravity, Nous Portal) with fallback chain |
+| 🔵 | Web dashboard (`apps/web`) — Next.js 15 + Tailwind 4 (Overview, Sessions, Agents, Tools, Metrics) |
 
 ---
 
@@ -157,6 +158,8 @@ Semua item P12/P13/P14 di atas sudah shipped. Sisa gap nyata, diurutkan berdasar
 | `computer_use` (macOS CUA) | Butuh macOS + Accessibility API | ❌ — permanent headless-Linux limitation |
 | Signal / Google Chat production soak test | Butuh signal-cli server / GCP SA kredensial asli untuk diverifikasi end-to-end | ❌ — kode sudah ada, tinggal verifikasi live |
 | Desktop app (tray, installer) | Proyek terpisah (Electron/Tauri + per-OS build pipeline) | 🟡 — bisa discaffold lebih lanjut, tapi bukan "gap kecil" |
+
+~~Web dashboard~~ shipped v1.22.0 — `apps/web` (Next.js 15 + Tailwind 4, 5 pages: Overview, Sessions, Agents, Tools, Metrics).
 
 ~~Honcho gateway tools expose~~ dan ~~hermes-tech skill import automation~~ sudah shipped 2026-07-02 (lihat T1j dan W2 di atas).
 
@@ -175,4 +178,4 @@ Semua item P12/P13/P14 di atas sudah shipped. Sisa gap nyata, diurutkan berdasar
 | [76-unified-gateway.md](./76-unified-gateway.md) | v1.20.0 — unified gateway, SQLite sessions |
 | [CHANGELOG.md](../CHANGELOG.md) | v1.20.0–v1.21.1 + Unreleased (Nous/Singularity/Atropos/Yuanbao/video/IMAP-IDLE) |
 
-Terakhir diperbarui: 2026-07-02.
+Terakhir diperbarui: 2026-07-04.

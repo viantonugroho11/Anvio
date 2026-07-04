@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.22.0] - 2026-07-04
+
+**Web dashboard + tool/runtime polish**
+
 ### Added
+- **Web dashboard** (`apps/web`) — Next.js 15 + Tailwind 4 dashboard UI with 5 pages: Overview (stats cards), Sessions (table with status badges), Agents (card grid), Gateway Tools (enabled/disabled), Metrics (Prometheus parser + auto-refresh). Dark theme, sidebar navigation, proxies to `apps/api`. Run with `pnpm --filter @anvio/web dev` (port 3100)
+- **API: overview endpoint** — `GET /api/overview` returns sessions/agents/tools counts and uptime
+- **API: tools endpoint** — `GET /api/tools` lists all 73 gateway tool keys with enabled status
+- **API: sessions list** — `GET /api/sessions` lists all sessions (with auth filtering)
 - **Nous Portal OAuth** — `anvio setup-token --nous` (1-click model + tools login via local OAuth callback host, no vendor CLI required; `--token` for headless, `ANVIO_NOUS_MOCK=1` for dev/test)
 - **Singularity/Apptainer runtime** — `SingularityRuntimeProvider`, `anvio runtime exec singularity -- <cmd>` (local HPC container exec, `SINGULARITY_IMAGE` + `SINGULARITY_BINARY`, `ANVIO_SINGULARITY_MOCK=1` for dev/test)
 - **Atropos RL training — live fallback** — `rl_tool` now calls a direct Tinker-Atropos HTTP API (`ATROPOS_API_URL`/`ATROPOS_API_KEY`) when MCP isn't configured, with `ANVIO_ATROPOS_MOCK=1` for dev/test, instead of only returning a static MCP-setup note
