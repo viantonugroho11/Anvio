@@ -12,6 +12,7 @@ export const workflowNodeTypeSchema = z.enum([
   'hook',
   'batch',
   'mcp',
+  'skill',
 ]);
 
 export type WorkflowNodeType = z.infer<typeof workflowNodeTypeSchema>;
@@ -31,6 +32,8 @@ export type WorkflowNode = {
   server?: string;
   tool?: string;
   args?: Record<string, unknown>;
+  skill?: string;
+  params?: Record<string, unknown>;
   nodes?: WorkflowNode[];
   steps?: WorkflowNode[];
   condition?: string;
@@ -55,6 +58,8 @@ export const workflowNodeSchema: z.ZodType<WorkflowNode> = z.lazy(() =>
     server: z.string().optional(),
     tool: z.string().optional(),
     args: z.record(z.unknown()).optional(),
+    skill: z.string().optional(),
+    params: z.record(z.unknown()).optional(),
     nodes: z.array(workflowNodeSchema).optional(),
     steps: z.array(workflowNodeSchema).optional(),
     condition: z.string().optional(),

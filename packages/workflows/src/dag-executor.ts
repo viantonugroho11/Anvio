@@ -30,6 +30,7 @@ export interface WorkflowExecutionDeps {
   runAgent?: (agentId: string, input: string) => Promise<string>;
   runBlueprint?: (slug: string, inputs: Record<string, unknown>) => Promise<{ outputs: Record<string, string> }>;
   runHook?: (hookPath: string, payload: Record<string, unknown>) => Promise<void>;
+  runSkill?: (slug: string, params?: Record<string, unknown>) => Promise<{ outputs: Record<string, unknown>; trace: string }>;
   mcpBridge?: {
     callTool(call: {
       serverId: string;
@@ -249,6 +250,14 @@ export class DagExecutor {
         }
         case 'batch': {
           return { id: node.id, type: node.type, output: '[batch not configured]', status: 'skipped' };
+        }
+        case 'skill': {
+          if (!node.skill) throw new Error(`Skill node ${node.id} missing skill slug`);
+          if (!this.deps.runSkill) {
+            return { id: node.id, type: node.type, output: `[no-skill-runner] ${node.skill}`, status: 'skipped' };
+          }
+          const skillResult = await this.deps.runSkill(node.skill, node.params);
+          return { id: node.id, type: node.type, output: skillResult.trace, status: 'completed' };
         }
         default: {
           const _exhaustive: never = node.type;
