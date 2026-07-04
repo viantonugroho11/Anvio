@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.24.1] - 2026-07-04
+
+**CI/CD stability and docs auto-sync fixes**
+
+### Fixed
+- **pnpm lockfile out of sync** — committed updated `pnpm-lock.yaml` after `@anvio/goals` was added to `packages/platform` deps; resolves `ERR_PNPM_OUTDATED_LOCKFILE` on every CI `pnpm install --frozen-lockfile` run
+- **Lint errors in `@anvio/skills`** — suppressed `@typescript-eslint/no-this-alias` in `composable-registry.ts` (required by method object literal pattern); removed stale `// eslint-disable-next-line no-new-func` in `executor.ts` where `no-new-func` rule is not active
+- **Docs changelog never auto-updated** — `notify-docs.yml` only watched `docs/**`; `CHANGELOG.md` lives at repo root so releases never triggered a sync. Added `CHANGELOG.md` to paths filter and added a `Notify docs repo` step to `release.yml` so every published GitHub Release dispatches to anvio-docs immediately
+
+---
+
 ## [1.24.0] - 2026-07-04
 
 **Hermes-parity: skill runtime gaps closed — versioning, test runner, goals integration, step output piping, workflow skill node**
