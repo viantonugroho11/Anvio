@@ -23,6 +23,7 @@ import {
   mergeSkillSlugs,
   createComposableSkillRegistry,
 } from '@anvio/skills';
+import { classifyTask } from '@anvio/models';
 import type { SkillCatalogResolver } from '@anvio/skills';
 import {
   DEFAULT_MAX_TOOL_ITERATIONS,
@@ -40,6 +41,8 @@ export interface AgentRuntimeDeps {
   soulService?: SoulService;
   toolPort?: RuntimeToolPort;
   skillCatalog?: SkillCatalogResolver;
+  /** Returns skill slugs from active goals assigned to this agent — merged into system prompt */
+  activeGoalSkillsResolver?: () => Promise<string[]>;
   maxToolIterations?: number;
   onProgress?: (sessionId: string, phase: string) => void;
 }
@@ -82,7 +85,8 @@ export class DefaultAgentRuntime implements AgentRuntime {
       yield { type: 'progress' as const, phase: 'Assembling context', status: 'running' as const };
       this.deps.onProgress?.(session.id, 'Assembling context');
 
-      let systemPrompt = await this.assembleSystemPrompt(agent, session.userId, input.content);
+      const { systemPrompt: baseSystemPrompt, effectiveSpecs } = await this.assembleSystemPrompt(agent, session.userId, input.content);
+      let systemPrompt = baseSystemPrompt;
       const baseToolPort = this.deps.toolPort;
 
       const toolCtx = {
@@ -114,7 +118,12 @@ export class DefaultAgentRuntime implements AgentRuntime {
 
       // Wrap tool port: composable skills override + downstream gateway
       const toolPort = composableReg.buildToolPort();
-      const modelProvider = this.deps.modelProviders.resolveForAgent(agent);
+
+      // Skill routing: if active skills declare a routing hint, pick the best provider for that route
+      const skillRoutingHints = effectiveSpecs.flatMap((s) => (s.routing ? [s.routing] : []));
+      const route = classifyTask({ agent, skillRoutingHints, message: input.content });
+      const routeProvider = this.deps.modelProviders.resolveForRoute?.(route);
+      const modelProvider = routeProvider ?? this.deps.modelProviders.resolveForAgent(agent);
       const useNativeTools =
         Boolean(modelProvider.supportsNativeTools) &&
         Boolean(toolPort?.getModelToolDefinitions?.()) &&
@@ -306,14 +315,28 @@ export class DefaultAgentRuntime implements AgentRuntime {
     });
   }
 
-  private async assembleSystemPrompt(agent: AgentDefinition, userId: string, message = ''): Promise<string> {
+  private async assembleSystemPrompt(
+    agent: AgentDefinition,
+    userId: string,
+    message = '',
+  ): Promise<{ systemPrompt: string; effectiveSpecs: import('@anvio/core').SkillDefinition['spec'][] }> {
     const [persona, skillSpecs] = await Promise.all([
       this.deps.personaService.getBySlug(agent.spec.persona),
       this.deps.skillRegistry.getBySlugs(agent.spec.skills),
     ]);
 
-    // Auto-activate skills whose triggers[] match the inbound message
+    // Auto-activate skills from active goals assigned to this agent
     let effectiveSlugs = agent.spec.skills;
+    if (this.deps.activeGoalSkillsResolver) {
+      try {
+        const goalSkills = await this.deps.activeGoalSkillsResolver();
+        effectiveSlugs = mergeSkillSlugs(effectiveSlugs, goalSkills);
+      } catch {
+        // goal resolution is best-effort
+      }
+    }
+
+    // Auto-activate skills whose triggers[] match the inbound message
     if (message && this.deps.skillCatalog) {
       try {
         const allSkills = await Promise.all(
@@ -323,7 +346,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
         );
         const validSkills = allSkills.filter(Boolean) as Awaited<ReturnType<typeof this.deps.skillCatalog.load>>[];
         const autoSlugs = matchTriggers(message, validSkills);
-        effectiveSlugs = mergeSkillSlugs(agent.spec.skills, autoSlugs);
+        effectiveSlugs = mergeSkillSlugs(effectiveSlugs, autoSlugs);
       } catch {
         // trigger matching is best-effort
       }
@@ -348,7 +371,10 @@ export class DefaultAgentRuntime implements AgentRuntime {
       }
     }
 
-    return parts.filter(Boolean).join('\n\n---\n\n');
+    return {
+      systemPrompt: parts.filter(Boolean).join('\n\n---\n\n'),
+      effectiveSpecs,
+    };
   }
 }
 
