@@ -28,6 +28,7 @@ import {
   parseClaudeCodeConnectionPayload,
 } from '@anvio/runtimes';
 import { createKanbanEngine } from '@anvio/kanban';
+import { createGoalEngine } from '@anvio/goals';
 import { LearningEngine } from '@anvio/learning';
 import { ToolGateway } from '@anvio/tools';
 import { createCodeExecutor } from '@anvio/execution';
@@ -372,6 +373,19 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       const result = await executor.executeDefinition(bp, inputs);
       return { outputs: result.outputs };
     },
+    runSkill: async (slug, params) => {
+      const { executeSkill: execSkill, createComposableSkillRegistry: createReg } = await import('@anvio/skills');
+      const skill = await skillCatalog.load(slug);
+      const reg = createReg([], skillCatalog, toolGateway);
+      const result = await execSkill({
+        skill,
+        params,
+        toolPort: toolGateway,
+        ctx: { sessionId: 'workflow_skill', agentId: 'workflow_skill' },
+        resolveSkill: (s) => reg.resolve(s),
+      });
+      return { outputs: result.outputs, trace: result.trace };
+    },
     mcpBridge,
   });
   const blueprintExecutor = new BlueprintExecutor({
@@ -564,14 +578,21 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       const { executeSkill, createComposableSkillRegistry } = await import('@anvio/skills');
       const skill = await skillCatalog.load(slug);
       const reg = createComposableSkillRegistry([], skillCatalog, toolGateway);
+      const goalEngine = createGoalEngine(workspace.storage);
       const result = await executeSkill({
         skill,
         params,
         toolPort: toolGateway,
         ctx: { sessionId: 'skill_call', agentId: 'skill_call' },
         resolveSkill: (s) => reg.resolve(s),
+        updateGoalProgress: async (goalSlug, increment) => {
+          const goal = await goalEngine.get(goalSlug);
+          if (!goal) return;
+          const newPercent = Math.min(100, goal.spec.progress.percent + increment);
+          await goalEngine.updateProgress(goalSlug, { percent: newPercent });
+        },
       });
-      return result.outputs;
+      return { outputs: result.outputs, trace: result.trace };
     },
   });
 

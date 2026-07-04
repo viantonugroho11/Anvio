@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@anvio/agents": "workspace:*",
+    "@anvio/goals": "workspace:*",
     "@anvio/auth": "workspace:*",
     "@anvio/automation": "workspace:*",
     "@anvio/blueprints": "workspace:*",
