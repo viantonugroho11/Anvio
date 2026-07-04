@@ -77,3 +77,13 @@ export {
   createSkillCatalogResolver,
 } from './catalog-resolver.js';
 export { SkillInstaller, createSkillInstaller } from './skill-installer.js';
+export { validateParams, interpolateArgs, SkillParamError } from './param-validator.js';
+export type { ParamContext } from './param-validator.js';
+export { executeSkill, SkillStepError } from './executor.js';
+export type { SkillExecuteInput, SkillExecuteResult, SkillStepResult } from './executor.js';
+export { matchTriggers, mergeSkillSlugs } from './trigger-matcher.js';
+export type { TriggerMatchContext } from './trigger-matcher.js';
+export {
+  ComposableSkillRegistry,
+  createComposableSkillRegistry,
+} from './composable-registry.js';
