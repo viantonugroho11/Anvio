@@ -104,3 +104,10 @@ jobs:
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify docs repo
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.ANVIO_PAT }}
+          repository: viantonugroho11/anvio-docs
+          event-type: anvio-docs-updated
