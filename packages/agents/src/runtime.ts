@@ -17,7 +17,13 @@ import type { SoulService } from '@anvio/souls';
 import type { ModelProviderRegistry } from '@anvio/models';
 import { stripToolCalls } from '@anvio/tools';
 import { PersonaService } from '@anvio/personas';
-import { SkillRegistry } from '@anvio/skills';
+import {
+  SkillRegistry,
+  matchTriggers,
+  mergeSkillSlugs,
+  createComposableSkillRegistry,
+} from '@anvio/skills';
+import type { SkillCatalogResolver } from '@anvio/skills';
 import {
   DEFAULT_MAX_TOOL_ITERATIONS,
   executeParsedToolCalls,
@@ -33,6 +39,7 @@ export interface AgentRuntimeDeps {
   modelProviders: ModelProviderRegistry;
   soulService?: SoulService;
   toolPort?: RuntimeToolPort;
+  skillCatalog?: SkillCatalogResolver;
   maxToolIterations?: number;
   onProgress?: (sessionId: string, phase: string) => void;
 }
@@ -75,8 +82,38 @@ export class DefaultAgentRuntime implements AgentRuntime {
       yield { type: 'progress' as const, phase: 'Assembling context', status: 'running' as const };
       this.deps.onProgress?.(session.id, 'Assembling context');
 
-      let systemPrompt = await this.assembleSystemPrompt(agent, session.userId);
-      const toolPort = this.deps.toolPort;
+      let systemPrompt = await this.assembleSystemPrompt(agent, session.userId, input.content);
+      const baseToolPort = this.deps.toolPort;
+
+      const toolCtx = {
+        sessionId: session.id,
+        agentId: session.agentId,
+        userId: session.userId,
+        channel: session.channel,
+      };
+
+      // Wire composable skills into the tool port so the LLM can call skill__<slug>
+      // and so skill steps can call other skills via "skill:<slug>"
+      // Skills are resolved lazily by the catalog — no need to pre-load all specs here.
+      const composableReg = createComposableSkillRegistry(
+        [],
+        this.deps.skillCatalog,
+        baseToolPort,
+      );
+      // Pre-register agent's own skills so they appear in tool definitions immediately
+      if (this.deps.skillCatalog) {
+        for (const slug of agent.spec.skills) {
+          try {
+            const def = await this.deps.skillCatalog.load(slug);
+            composableReg.register(def);
+          } catch {
+            // skill may be prose-only or not found — skip
+          }
+        }
+      }
+
+      // Wrap tool port: composable skills override + downstream gateway
+      const toolPort = composableReg.buildToolPort();
       const modelProvider = this.deps.modelProviders.resolveForAgent(agent);
       const useNativeTools =
         Boolean(modelProvider.supportsNativeTools) &&
@@ -86,13 +123,6 @@ export class DefaultAgentRuntime implements AgentRuntime {
       if (toolPort && toolPort.listTools().length > 0 && !useNativeTools) {
         systemPrompt = `${systemPrompt}\n\n---\n\n${toolPort.getToolInstructions()}`;
       }
-
-      const toolCtx = {
-        sessionId: session.id,
-        agentId: session.agentId,
-        userId: session.userId,
-        channel: session.channel,
-      };
 
       let messages: ChatMessage[];
       let startIteration = 0;
@@ -276,14 +306,35 @@ export class DefaultAgentRuntime implements AgentRuntime {
     });
   }
 
-  private async assembleSystemPrompt(agent: AgentDefinition, userId: string): Promise<string> {
+  private async assembleSystemPrompt(agent: AgentDefinition, userId: string, message = ''): Promise<string> {
     const [persona, skillSpecs] = await Promise.all([
       this.deps.personaService.getBySlug(agent.spec.persona),
       this.deps.skillRegistry.getBySlugs(agent.spec.skills),
     ]);
 
+    // Auto-activate skills whose triggers[] match the inbound message
+    let effectiveSlugs = agent.spec.skills;
+    if (message && this.deps.skillCatalog) {
+      try {
+        const allSkills = await Promise.all(
+          (await this.deps.skillCatalog.listAll()).map((e) =>
+            this.deps.skillCatalog!.load(e.slug).catch(() => null),
+          ),
+        );
+        const validSkills = allSkills.filter(Boolean) as Awaited<ReturnType<typeof this.deps.skillCatalog.load>>[];
+        const autoSlugs = matchTriggers(message, validSkills);
+        effectiveSlugs = mergeSkillSlugs(agent.spec.skills, autoSlugs);
+      } catch {
+        // trigger matching is best-effort
+      }
+    }
+
+    const effectiveSpecs = effectiveSlugs === agent.spec.skills
+      ? skillSpecs
+      : await this.deps.skillRegistry.getBySlugs(effectiveSlugs);
+
     const personaPrompt = this.deps.personaService.renderSystemPrompt(persona);
-    const skillPrompt = this.deps.skillRegistry.renderSkillInstructions(skillSpecs);
+    const skillPrompt = this.deps.skillRegistry.renderSkillInstructions(effectiveSpecs);
 
     const parts = [personaPrompt, skillPrompt];
 

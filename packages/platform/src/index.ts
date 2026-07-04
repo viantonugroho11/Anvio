@@ -279,6 +279,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   const localRuntime = new DefaultAgentRuntime({
     personaService,
     skillRegistry,
+    skillCatalog,
     memoryStore: memoryProvider,
     soulService,
     modelProviders,
@@ -558,6 +559,19 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         status: result.status === 'completed' ? 'completed' : 'failed',
         error: result.error,
       };
+    },
+    callSkill: async ({ slug, params }) => {
+      const { executeSkill, createComposableSkillRegistry } = await import('@anvio/skills');
+      const skill = await skillCatalog.load(slug);
+      const reg = createComposableSkillRegistry([], skillCatalog, toolGateway);
+      const result = await executeSkill({
+        skill,
+        params,
+        toolPort: toolGateway,
+        ctx: { sessionId: 'skill_call', agentId: 'skill_call' },
+        resolveSkill: (s) => reg.resolve(s),
+      });
+      return result.outputs;
     },
   });
 
