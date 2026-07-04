@@ -14,7 +14,7 @@ import { createBatchEngine } from '@anvio/batch';
 import { createCredentialPoolManager } from '@anvio/credentials';
 import { createIntegrationRegistry, createMcpBridge, listMcpPresets, applyMcpPreset } from '@anvio/integrations';
 import { createModelRouter, MODEL_PROVIDER_IDS, OPENAI_COMPATIBLE_PROVIDER_SPECS } from '@anvio/models';
-import { createSkillCatalogResolver, createSkillInstaller } from '@anvio/skills';
+import { createSkillCatalogResolver, createSkillInstaller, createSkillTestRunner } from '@anvio/skills';
 import { createAcpServer } from '@anvio/acp';
 import { createCodeExecutor, ExecutionAuditLog } from '@anvio/execution';
 import {
@@ -219,7 +219,7 @@ Execution & Providers
   anvio credentials list|add|test      Encrypted credential pools
   anvio routing show|providers|catalog|test  Provider routing and fallback
   anvio usage stats [--json] [--last 24h] Token usage from audit ledger
-  anvio skill catalog|install|validate Skills catalog management
+  anvio skill catalog|install|validate|upgrade|test  Skills catalog management & testing
   anvio mcp list|test|health|preset    MCP integration servers
   anvio tools list|test                Built-in tool gateway (Phase H)
   anvio kb list|ingest|sync|import-manifest   Knowledge base pipeline
@@ -1817,8 +1817,56 @@ async function cmdSkill(sub: string[]) {
       console.log(JSON.stringify({ slug: skill.metadata.slug, valid: true }, null, 2));
       break;
     }
+    case 'upgrade': {
+      const slug = sub[1];
+      if (!slug) {
+        console.error('Usage: anvio skill upgrade <slug>');
+        process.exit(1);
+      }
+      const result = await installer.upgrade(slug);
+      if (result.upgraded) {
+        console.log(`Upgraded skill: ${slug}  ${result.previousVersion ?? '?'} → ${result.skill.metadata.version}`);
+      } else {
+        console.log(`Skill ${slug}@${result.skill.metadata.version} is already up to date.`);
+      }
+      break;
+    }
+    case 'test': {
+      const slug = sub[1];
+      if (!slug) {
+        console.error('Usage: anvio skill test <slug> [--params \'{"key":"val"}\'] [--stub \'{"tool_name":"output"}\']');
+        process.exit(1);
+      }
+      const paramsIdx = sub.indexOf('--params');
+      const stubIdx = sub.indexOf('--stub');
+      const params = paramsIdx >= 0 ? (JSON.parse(sub[paramsIdx + 1] ?? '{}') as Record<string, unknown>) : {};
+      const stubOutputs = stubIdx >= 0 ? (JSON.parse(sub[stubIdx + 1] ?? '{}') as Record<string, unknown>) : {};
+
+      const skill = await catalog.load(slug);
+      const runner = createSkillTestRunner(skill, stubOutputs);
+      const result = await runner.run(params);
+
+      if (result.passed) {
+        console.log(`\n✓ Skill test passed: ${slug}\n`);
+        console.log(result.trace);
+        if (result.toolCalls.length > 0) {
+          console.log(`\nTool calls (${result.toolCalls.length}):`);
+          for (const call of result.toolCalls) {
+            console.log(`  ${call.name}  args: ${JSON.stringify(call.arguments)}`);
+          }
+        }
+      } else {
+        console.error(`\n✗ Skill test failed: ${slug}`);
+        console.error(`  Error: ${result.error}`);
+        if (result.toolCalls.length > 0) {
+          console.error(`  Tool calls before failure: ${result.toolCalls.map((c) => c.name).join(', ')}`);
+        }
+        process.exitCode = 1;
+      }
+      break;
+    }
     default:
-      console.error('Usage: anvio skill catalog|install|validate');
+      console.error('Usage: anvio skill catalog|install|validate|upgrade|test');
       process.exit(1);
   }
 }
