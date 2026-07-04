@@ -1,6 +1,16 @@
 import { AnvioError } from '@anvio/core';
 import type { AgentDefinition, ModelProvider } from '@anvio/core';
 import { createModelProvider } from './provider-factory.js';
+import type { TaskRoute } from './task-classifier.js';
+
+// Provider preference order per route — first match that is configured wins
+const ROUTE_PROVIDER_PREFERENCE: Record<TaskRoute, string[]> = {
+  coding: ['codex', 'openai', 'anthropic', 'gemini'],
+  review: ['anthropic', 'openai', 'gemini'],
+  research: ['perplexity', 'openrouter', 'anthropic', 'gemini'],
+  chat: ['groq', 'cerebras', 'anthropic', 'openai'],
+  default: [],
+};
 
 export class ModelProviderRegistry {
   constructor(private readonly providers: Map<string, ModelProvider>) {}
@@ -31,6 +41,17 @@ export class ModelProviderRegistry {
       });
     }
     return this.get(model.provider);
+  }
+
+  /** Returns the best available provider for a task route, or undefined if none configured */
+  resolveForRoute(route: TaskRoute): ModelProvider | undefined {
+    if (route === 'default') return undefined;
+    const preferred = ROUTE_PROVIDER_PREFERENCE[route] ?? [];
+    for (const providerId of preferred) {
+      const provider = this.providers.get(providerId);
+      if (provider) return provider;
+    }
+    return undefined;
   }
 
   first(): ModelProvider | undefined {
