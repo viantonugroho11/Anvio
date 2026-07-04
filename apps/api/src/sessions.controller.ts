@@ -55,6 +55,16 @@ export class SessionsController {
     return { id: session.id, agentName: session.agentName, channel: session.channel };
   }
 
+  @Get()
+  async list(@Headers('authorization') authHeader: string | undefined) {
+    const ctx = await this.resolveAuth(authHeader);
+    const sessions = await this.appService.platform.workspace.sessions.list();
+    if (this.appService.platform.auth.enabled) {
+      return sessions.filter((s) => s.userId === ctx.userId);
+    }
+    return sessions;
+  }
+
   @Get(':id')
   async get(@Headers('authorization') authHeader: string | undefined, @Param('id') id: string) {
     const ctx = await this.resolveAuth(authHeader);

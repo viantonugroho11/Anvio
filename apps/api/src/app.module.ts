@@ -8,6 +8,8 @@ import { WhatsAppController } from './whatsapp.controller.js';
 import { TeamsController } from './teams.controller.js';
 import { MatrixController } from './matrix.controller.js';
 import { MetricsController } from './metrics.controller.js';
+import { ToolsController } from './tools.controller.js';
+import { OverviewController } from './overview.controller.js';
 
 @Module({
   controllers: [
@@ -15,6 +17,8 @@ import { MetricsController } from './metrics.controller.js';
     MetricsController,
     AgentsController,
     SessionsController,
+    ToolsController,
+    OverviewController,
     WhatsAppController,
     TeamsController,
     MatrixController,
