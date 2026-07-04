@@ -6,7 +6,7 @@
 
 Configure agents in **Markdown** (Hermes-style) · YAML for infra only · Run from the **CLI**
 
-[![Release](https://img.shields.io/badge/release-v1.22.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.22.0)
+[![Release](https://img.shields.io/badge/release-v1.23.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.23.0)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D9-orange)](https://pnpm.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -26,14 +26,15 @@ File-first by default · SQLite when you need it · Vendor OAuth optional · No 
 >
 > **Start simple:** filesystem sessions, model API key (or mock mode), no Docker. Add SQLite, vendor OAuth, gateway, or PostgreSQL only when you need them.
 
-### What's new in v1.22.0
+### What's new in v1.23.0
 
 | Track | Highlights |
 |-------|------------|
-| **Web dashboard** | `apps/web` — Next.js 15 + Tailwind 4 dashboard (Overview, Sessions, Agents, Tools, Metrics) |
-| **API endpoints** | `GET /api/overview`, `/api/tools`, `/api/sessions` for dashboard data |
-| **Tool & runtime polish** | Yuanbao, Honcho, video tools, IMAP IDLE, Nous OAuth, Singularity runtime |
-| **CI automation** | hermes-tech skills catalog weekly sync + auto-PR |
+| **Skill execution engine** | Hermes-parity mechanical step runner — parameters, conditions, tool bindings, retries, output vars |
+| **Trigger matcher** | Skills auto-activate when inbound message matches `triggers[]` — no config change needed |
+| **Composable skills** | `composable: true` skills exposed as `skill__<slug>` tools; skill steps can call other skills |
+| **`skill_call` tool** | LLM can explicitly invoke any skill mid-session with typed params |
+| **Design doc** | `docs/77-skill-execution-engine.md` — all 5 layers documented |
 
 Prior: [CHANGELOG](CHANGELOG.md) · [Post-v1.17 gaps](docs/69-post-v1.17-gap-register.md)
 
@@ -1121,11 +1122,11 @@ See [`.env.example`](.env.example) for the complete list.
 
 Anvio targets parity with [Hermes Agent](https://hermes-agent.nousresearch.com/docs) for local-first agent OS capabilities:
 
-| Reference | Parity (v1.22.0) | Strengths in Anvio |
+| Reference | Parity (v1.23.0) | Strengths in Anvio |
 |-----------|------------------|---------------------|
-| Hermes | ~97% | Local-first, web dashboard, unified gateway, SQLite sessions, runtime OAuth, SOUL gate, multi-channel harness, 18 providers, 73 gateway tools |
+| Hermes | ~98% | Local-first, web dashboard, unified gateway, SQLite sessions, runtime OAuth, SOUL gate, multi-channel harness, 18 providers, 74 gateway tools, skill execution engine |
 
-**Shipped (P4–P14 + v1.21–v1.22):** Native tool_use, MCP stdio + agent runtime, 73 built-in tools, OTel spans, planner CLI, MCP presets, harness channel tools, remote exec (SSH/Daytona/Modal/Singularity), Feishu/SMS, trajectory export, Claude Code OAuth runtime, `anvio setup-token` (incl. Nous Portal 1-click OAuth), web dashboard.
+**Shipped (P4–P14 + v1.21–v1.23):** Native tool_use, MCP stdio + agent runtime, 74 built-in tools, OTel spans, planner CLI, MCP presets, harness channel tools, remote exec (SSH/Daytona/Modal/Singularity), Feishu/SMS, trajectory export, Claude Code OAuth runtime, `anvio setup-token` (incl. Nous Portal 1-click OAuth), web dashboard, skill execution engine (mechanical step runner, trigger matcher, composable skills, `skill_call` tool).
 
 **Remaining gaps:** live MCP E2E with real credentials, a genuinely live Atropos RL training run (needs a real Tinker-Atropos service) — see [Post-v1.17 gap register](docs/69-post-v1.17-gap-register.md).
 
@@ -1216,6 +1217,7 @@ Architecture: [docs/02-architecture.md](docs/02-architecture.md) · Development:
 
 | Version | Highlights |
 |---------|------------|
+| **[v1.23.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.23.0)** | Skill execution engine — mechanical step runner, trigger matcher, composable skills, `skill_call` tool |
 | **[v1.22.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.22.0)** | Web dashboard, Yuanbao/Honcho/video tools, IMAP IDLE, Nous OAuth, Singularity runtime, CI automation |
 | [v1.21.1](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.1) | Codex/Cursor/Antigravity OAuth runtimes, chain fallback, Antigravity auto-install |
 | [v1.21.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.21.0) | Runtime OAuth (`setup-token`), Claude Code Agent SDK, multi-runtime routing |

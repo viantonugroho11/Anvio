@@ -7,19 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Structured skill authoring (parameters, steps, outputs, triggers)**
+---
+
+## [1.23.0] - 2026-07-04
+
+**Skill execution engine — Hermes-parity structured authoring + mechanical runtime**
 
 ### Added
-- **Skill parameters** — typed input definitions per skill (`name`, `type`, `required`, `default`, `enum`); rendered into the agent's system prompt so the agent knows what to collect
-- **Skill steps** — structured execution steps with `id`, `action`, optional `tool` binding, `args`, `condition` (string expression), `onError` (`fail`/`skip`/`retry`), `maxRetries`, and `output` variable name
-- **Skill outputs** — defined result schema (`name`, `type`, `description`) for what a skill produces
-- **Skill triggers** — event patterns that activate a skill: plain string (`"code review"`) or structured object (`event`, `condition`, `channel`)
-- **`composable` flag** — marks a skill as callable from other skills
-- **`timeout` field** — max execution time in ms
-- **`renderSkillInstructions` upgrade** — now renders parameters, steps, and outputs sections into the agent prompt, not just `name + description + instructions`
-- **`renderSkillMd` upgrade** — learning-loop draft writer serialises all new fields into generated `.md` files
-- **Bundled `code-review` skill v2** — upgraded to use parameters, steps, outputs, and triggers; serves as the reference example for the new format
-- **Workspace skill examples** — `workspace/skills/code-review.md` and `architecture.md` upgraded to v2 format
+- **Skill parameter validator (L1)** — `validateParams()` enforces required fields, type coercion (`string`/`number`/`boolean`/`array`/`object`), enum membership, and defaults; `interpolateArgs()` replaces `{{varName}}` in step args from the param + output context (`packages/skills/src/param-validator.ts`)
+- **Skill executor (L2)** — `executeSkill()` runs `steps[]` mechanically against a `RuntimeToolPort`: evaluates `condition` expressions (restricted `Function` over param+output vars), calls tools directly, stores results as named output variables, handles `onError` (`fail`/`skip`/`retry` with `maxRetries`), supports `skill:<slug>` sub-skill chains, and enforces `timeout` via `AbortSignal` (`packages/skills/src/executor.ts`)
+- **Trigger matcher (L3)** — `matchTriggers()` scans all catalog skills and returns slugs whose `triggers[]` match an inbound message (string: case-insensitive substring; object: `event`+`channel`). Auto-activated skills are merged into the agent's skill list before system prompt assembly — no agent config change needed (`packages/skills/src/trigger-matcher.ts`)
+- **Composable skill registry (L4)** — `ComposableSkillRegistry` wraps skills with `composable: true` as `skill__<slug>` tools with typed parameter schemas for native `tool_use`; dispatches calls through `SkillExecutor`; resolves `skill:<slug>` step references for skill-chain execution (`packages/skills/src/composable-registry.ts`)
+- **`skill_call` gateway tool (L5)** — `anvio_tools__skill_call(slug, params)` (enabled by default) lets the LLM explicitly invoke any skill mid-session with validated typed params; prose-only skills return rendered instructions; structured skills return `outputs` map as JSON (`packages/tools/src/builtins/skill-call.ts`)
+- **Runtime wiring** — `AgentRuntime` now: (a) runs `matchTriggers` on the inbound message and merges auto-activated skills before prompt assembly; (b) pre-registers agent skills into `ComposableSkillRegistry`; (c) wraps the base `toolPort` with composable skill tools so `skill__*` calls are served without going through the LLM; `platform/src/index.ts` injects `skillCatalog` into runtime deps and wires `callSkill` via `toolGateway.mergeContext`
+- **Skill schema v2 fields** — `parameters[]`, `steps[]` (with `tool`, `args`, `condition`, `onError`, `maxRetries`, `output`), `outputs[]`, `triggers[]`, `composable`, `timeout` — all backward-compatible (existing prose-only skills still parse with empty defaults)
+- **Bundled `code-review` skill v2** — upgraded reference example using all v2 fields; workspace `code-review.md` and `architecture.md` also upgraded
+- **Design doc** — `docs/77-skill-execution-engine.md` documents all 5 layers, field-to-layer mapping, and error types
+
+### Changed
+- `renderSkillInstructions` now renders `parameters`, `steps`, and `outputs` sections into the agent prompt in addition to `name + description + instructions`
+- `renderSkillMd` (learning loop draft writer) serialises all new schema fields into generated `.md` files
+- Gateway tool count: 73 → 74 (`skill_call` added)
 
 ---
 
