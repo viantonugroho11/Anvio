@@ -2,13 +2,73 @@ apiVersion: anvio.io/v1
 kind: Skill
 metadata:
   slug: code-review
-  version: "1.0.0"
+  version: "2.0.0"
   catalog: bundled
 spec:
   name: Code Review
   description: Thorough code review focusing on quality, security, and maintainability
   category: engineering
   routing: review
+  composable: true
+  parameters:
+    - name: target
+      type: string
+      description: File path, PR URL, or git diff range to review
+      required: true
+    - name: focus
+      type: string
+      description: Review focus area
+      required: false
+      enum:
+        - correctness
+        - security
+        - performance
+        - style
+        - all
+      default: "all"
+    - name: severity_threshold
+      type: string
+      description: Minimum severity to report
+      required: false
+      enum:
+        - info
+        - warning
+        - error
+        - critical
+      default: "warning"
+  steps:
+    - id: gather
+      action: Collect code changes to review
+      tool: file_read
+      args:
+        path: "{{target}}"
+      output: code_content
+    - id: analyze
+      action: Analyze for correctness and edge cases
+      output: correctness_findings
+    - id: security
+      action: Check for security vulnerabilities (OWASP top 10, injection, XSS)
+      condition: "focus == 'security' || focus == 'all'"
+      output: security_findings
+    - id: performance
+      action: Identify performance bottlenecks and optimization opportunities
+      condition: "focus == 'performance' || focus == 'all'"
+      output: perf_findings
+    - id: synthesize
+      action: Merge findings, deduplicate, rank by severity
+      output: final_report
+  outputs:
+    - name: findings
+      type: array
+      description: List of review findings with file, line, severity, and description
+    - name: summary
+      type: markdown
+      description: Human-readable review summary with prioritized recommendations
+  triggers:
+    - code review
+    - review this
+    - event: pull_request
+      channel: github
   instructions: |
     When reviewing code:
     1. Check correctness and edge cases
@@ -16,8 +76,16 @@ spec:
     3. Identify security vulnerabilities
     4. Suggest improvements with examples
     5. Prioritize findings by severity
+
+    For each finding, include:
+    - **File** and **line** reference
+    - **Severity**: critical / error / warning / info
+    - **Description**: what's wrong and why
+    - **Suggestion**: concrete fix or improvement
   permissions:
     - read:codebase
-  toolRequirements: []
+  toolRequirements:
+    - file_read
+    - web_search
   contextRequirements:
     - code_changes

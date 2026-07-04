@@ -1,4 +1,4 @@
-import type { SkillDefinition } from '../schemas/skill.schema.js';
+import type { SkillDefinition, SkillParameter, SkillStep, SkillOutput } from '../schemas/skill.schema.js';
 import { parseSkillDefinition } from '../schemas/skill.schema.js';
 import { parseFrontmatter } from './frontmatter.js';
 
@@ -11,6 +11,12 @@ export interface SkillMdFrontmatter {
   tags?: string[];
   catalog?: 'bundled' | 'community' | 'team' | 'private';
   version?: string;
+  parameters?: SkillParameter[];
+  steps?: SkillStep[];
+  outputs?: SkillOutput[];
+  triggers?: Array<string | { event: string; condition?: string; channel?: string }>;
+  composable?: boolean;
+  timeout?: number;
 }
 
 /** Parse agentskills.io / Hermes-style SKILL.md into Anvio SkillDefinition. */
@@ -35,6 +41,12 @@ export function parseSkillMd(source: string, slug: string): SkillDefinition {
       toolRequirements: frontmatter.toolRequirements ?? [],
       contextRequirements: frontmatter.contextRequirements ?? [],
       tags: frontmatter.tags ?? [],
+      parameters: frontmatter.parameters ?? [],
+      steps: frontmatter.steps ?? [],
+      outputs: frontmatter.outputs ?? [],
+      triggers: frontmatter.triggers ?? [],
+      composable: frontmatter.composable ?? false,
+      timeout: frontmatter.timeout,
     },
   });
 }

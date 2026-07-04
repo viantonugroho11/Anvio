@@ -82,14 +82,42 @@ export class SkillEvolutionWriter {
 
 function renderSkillMd(definition: SkillDefinition): string {
   const { spec, metadata } = definition;
-  return `---
-name: ${spec.name}
-description: ${spec.description}
-catalog: ${metadata.catalog ?? 'private'}
-version: ${metadata.version}
-tags: [${(spec.tags ?? []).map((t) => `"${t}"`).join(', ')}]
----
-
-${spec.instructions}
-`;
+  const lines: string[] = [
+    '---',
+    `name: ${spec.name}`,
+    `description: ${spec.description}`,
+    `catalog: ${metadata.catalog ?? 'private'}`,
+    `version: ${metadata.version}`,
+    `tags: [${(spec.tags ?? []).map((t) => `"${t}"`).join(', ')}]`,
+  ];
+  if (spec.parameters.length > 0) {
+    lines.push('parameters:');
+    for (const p of spec.parameters) {
+      lines.push(`  - name: ${p.name}`);
+      lines.push(`    type: ${p.type}`);
+      if (p.description) lines.push(`    description: ${p.description}`);
+      lines.push(`    required: ${p.required}`);
+      if (p.default !== undefined) lines.push(`    default: ${JSON.stringify(p.default)}`);
+    }
+  }
+  if (spec.steps.length > 0) {
+    lines.push('steps:');
+    for (const s of spec.steps) {
+      lines.push(`  - id: ${s.id}`);
+      lines.push(`    action: ${s.action}`);
+      if (s.tool) lines.push(`    tool: ${s.tool}`);
+      if (s.condition) lines.push(`    condition: ${s.condition}`);
+      if (s.output) lines.push(`    output: ${s.output}`);
+    }
+  }
+  if (spec.outputs.length > 0) {
+    lines.push('outputs:');
+    for (const o of spec.outputs) {
+      lines.push(`  - name: ${o.name}`);
+      lines.push(`    type: ${o.type}`);
+      if (o.description) lines.push(`    description: ${o.description}`);
+    }
+  }
+  lines.push('---', '', spec.instructions, '');
+  return lines.join('\n');
 }
