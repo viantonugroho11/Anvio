@@ -82,6 +82,7 @@ export const toolGatewaySpecSchema = z.object({
       rl_tool: toolGatewayToolSchema.default({ enabled: false }),
       yb_tool: toolGatewayToolSchema.default({ enabled: false }),
       honcho_tool: toolGatewayToolSchema.default({ enabled: false }),
+      skill_call: toolGatewayToolSchema.default({ enabled: true }),
     })
     .default({}),
   webSearch: z

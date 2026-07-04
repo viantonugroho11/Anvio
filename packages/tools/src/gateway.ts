@@ -163,6 +163,8 @@ spec:
       enabled: false
     honcho_tool:
       enabled: false
+    skill_call:
+      enabled: true
   webSearch:
     provider: brave
     apiKeyEnv: WEB_SEARCH_API_KEY

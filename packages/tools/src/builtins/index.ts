@@ -48,6 +48,7 @@ import {
   type MixtureOfAgentsFn,
   type SkillManageFn,
 } from './orchestration-tools.js';
+import { skillCallTool, type SkillCallFn } from './skill-call.js';
 import { haListEntities, haGetState, haListServices, haCallService } from './homeassistant-tools.js';
 import {
   xSearch,
@@ -83,6 +84,7 @@ export interface BuiltinToolContext {
   mixtureOfAgents?: MixtureOfAgentsFn;
   skillManage?: SkillManageFn;
   callMcpTool?: McpDelegateFn;
+  callSkill?: SkillCallFn;
 }
 
 export { webFetch } from './web-fetch.js';
@@ -824,6 +826,17 @@ export async function runBuiltinTool(
         (call.arguments.params as Record<string, unknown> | undefined) ?? {},
         ctx.callMcpTool,
       );
+    case 'skill_call': {
+      try {
+        const out = await skillCallTool(ctx.callSkill, {
+          slug: String(call.arguments.slug ?? ''),
+          params: (call.arguments.params as Record<string, unknown> | undefined) ?? {},
+        });
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
     default:
       return { name: call.name, output: null, status: 'skipped', error: 'Not implemented' };
   }

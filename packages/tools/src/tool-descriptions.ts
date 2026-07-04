@@ -72,6 +72,7 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   rl_tool: 'RL training ops via MCP, direct Tinker-Atropos HTTP, or mock. Args: { "action", "params"? }',
   yb_tool: 'Yuanbao group/DM/sticker ops via MCP or mock. Args: { "action", "params"? }',
   honcho_tool: 'Honcho user-memory ops (context/profile/search/conclude) via MCP or mock. Args: { "action", "params"? }',
+  skill_call: 'Invoke a named skill by slug with typed parameters. Args: { "slug": string, "params"?: object }',
 };
 
 export function describeBuiltinTool(toolName: string): string {
