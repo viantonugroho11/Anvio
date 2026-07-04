@@ -35,6 +35,27 @@ export class SkillInstaller {
     return skill;
   }
 
+  async upgrade(slug: string): Promise<{ skill: SkillDefinition; upgraded: boolean; previousVersion: string | null }> {
+    const manifest = await this.readManifest();
+    const existing = manifest.spec.installed.find((s) => s.slug === slug);
+
+    const raw = await this.catalog.readBundledRaw(slug);
+    if (!raw) {
+      throw new Error(`Skill ${slug} is not available in bundled catalog`);
+    }
+    const latestSkill = await this.catalog.load(slug);
+
+    if (existing && existing.version === latestSkill.metadata.version) {
+      return { skill: latestSkill, upgraded: false, previousVersion: existing.version };
+    }
+
+    await fs.mkdir(this.workspaceSkillsDir, { recursive: true });
+    await fs.writeFile(path.join(this.workspaceSkillsDir, `${slug}.yaml`), raw, 'utf-8');
+    await this.recordInstall(latestSkill, 'bundled');
+
+    return { skill: latestSkill, upgraded: true, previousVersion: existing?.version ?? null };
+  }
+
   async listInstalled(): Promise<InstalledSkillManifest['spec']['installed']> {
     const manifest = await this.readManifest();
     return manifest.spec.installed;
