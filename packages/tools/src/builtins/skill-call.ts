@@ -5,7 +5,12 @@ export interface SkillCallInput {
   params?: Record<string, unknown>;
 }
 
-export type SkillCallFn = (input: SkillCallInput) => Promise<Record<string, unknown> | string>;
+export interface SkillCallResult {
+  outputs: Record<string, unknown>;
+  trace: string;
+}
+
+export type SkillCallFn = (input: SkillCallInput) => Promise<SkillCallResult | Record<string, unknown> | string>;
 
 export async function skillCallTool(
   fn: SkillCallFn | undefined,
@@ -18,5 +23,12 @@ export async function skillCallTool(
     };
   }
   const result = await fn(input);
+
+  // Rich result with trace → pipe step outputs back as formatted text
+  if (result && typeof result === 'object' && 'trace' in result && 'outputs' in result) {
+    const rich = result as SkillCallResult;
+    return `${rich.trace}\n\n---\n_Raw outputs: ${JSON.stringify(rich.outputs)}_`;
+  }
+
   return result;
 }

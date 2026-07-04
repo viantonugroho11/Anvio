@@ -22,6 +22,8 @@ export interface SkillStepResult {
 export interface SkillExecuteResult {
   outputs: Record<string, unknown>;
   steps: SkillStepResult[];
+  /** Formatted markdown trace of step execution — inject into LLM context for step output piping */
+  trace: string;
 }
 
 export interface SkillExecuteInput {
@@ -31,6 +33,8 @@ export interface SkillExecuteInput {
   ctx: RuntimeToolContext;
   /** Resolver for composable skill:slug calls — injected by ComposableSkillRegistry */
   resolveSkill?: (slug: string) => Promise<SkillDefinition | null>;
+  /** Hook to update goal progress after a step with goalSlug succeeds */
+  updateGoalProgress?: (slug: string, increment: number) => Promise<void>;
 }
 
 /**
@@ -39,7 +43,7 @@ export interface SkillExecuteInput {
  * Handles conditions, {{var}} interpolation, onError, and maxRetries.
  */
 export async function executeSkill(input: SkillExecuteInput): Promise<SkillExecuteResult> {
-  const { skill, params = {}, toolPort, ctx, resolveSkill } = input;
+  const { skill, params = {}, toolPort, ctx, resolveSkill, updateGoalProgress } = input;
 
   // Validate and collect params into context
   const paramCtx = validateParams(skill.spec.parameters, params);
@@ -83,6 +87,16 @@ export async function executeSkill(input: SkillExecuteInput): Promise<SkillExecu
           }
           stepResults.push({ id: step.id, status: 'ok', output });
           succeeded = true;
+
+          // Goal progress hook: auto-update linked goal progress after step succeeds
+          if (step.goalSlug && step.progressIncrement != null && updateGoalProgress) {
+            try {
+              await updateGoalProgress(step.goalSlug, step.progressIncrement);
+            } catch {
+              // goal update is best-effort — don't fail the skill step
+            }
+          }
+
           break;
         } catch (err) {
           lastError = err instanceof Error ? err.message : String(err);
@@ -106,7 +120,8 @@ export async function executeSkill(input: SkillExecuteInput): Promise<SkillExecu
     if (timeoutHandle) clearTimeout(timeoutHandle);
   }
 
-  return { outputs, steps: stepResults };
+  const trace = buildTrace(skill.spec.name, stepResults, outputs);
+  return { outputs, steps: stepResults, trace };
 }
 
 async function runStep(
@@ -160,9 +175,12 @@ async function runStep(
 }
 
 /**
- * Evaluate a simple condition string against a variable context.
- * Supports ==, !=, &&, ||, ! operators and string/boolean literals.
+ * Evaluate a condition string against a variable context.
+ * Supports JS expressions: ==, !=, ===, !==, <, >, <=, >=, &&, ||, !,
+ * method calls like includes()/startsWith(), and optional chaining (?.),
+ * null coalescing (??), and template literals.
  * Uses restricted Function constructor — only context vars are in scope.
+ * Returns false on any evaluation error (safe default).
  */
 function evaluateCondition(condition: string, ...contexts: Record<string, unknown>[]): boolean {
   const merged = Object.assign({}, ...contexts);
@@ -173,6 +191,36 @@ function evaluateCondition(condition: string, ...contexts: Record<string, unknow
     const fn = new Function(...keys, `"use strict"; return !!(${condition});`);
     return Boolean(fn(...values));
   } catch {
+    // Silently return false — conditions may reference vars not yet defined in earlier steps
     return false;
   }
+}
+
+/** Build a markdown execution trace for step output piping into LLM context */
+function buildTrace(skillName: string, steps: SkillStepResult[], outputs: Record<string, unknown>): string {
+  const lines: string[] = [`**Skill executed: ${skillName}**\n`];
+
+  for (const step of steps) {
+    const icon = step.status === 'ok' ? '✓' : step.status === 'skipped' ? '⊘' : '✗';
+    if (step.status === 'skipped') {
+      lines.push(`${icon} \`${step.id}\` — skipped${step.error ? ` (${step.error})` : ''}`);
+    } else if (step.status === 'failed') {
+      lines.push(`${icon} \`${step.id}\` — failed: ${step.error ?? 'unknown error'}`);
+    } else {
+      const outputSnippet =
+        step.output == null
+          ? ''
+          : `: ${JSON.stringify(step.output).slice(0, 200)}`;
+      lines.push(`${icon} \`${step.id}\`${outputSnippet}`);
+    }
+  }
+
+  if (Object.keys(outputs).length > 0) {
+    lines.push('\n**Outputs:**');
+    for (const [key, val] of Object.entries(outputs)) {
+      lines.push(`- \`${key}\`: ${JSON.stringify(val).slice(0, 300)}`);
+    }
+  }
+
+  return lines.join('\n');
 }

@@ -87,3 +87,5 @@ export {
   ComposableSkillRegistry,
   createComposableSkillRegistry,
 } from './composable-registry.js';
+export { SkillTestRunner, createSkillTestRunner } from './test-runner.js';
+export type { SkillTestResult, SkillTestCall } from './test-runner.js';
