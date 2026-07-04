@@ -29,8 +29,10 @@ export const goalSpecSchema = z.object({
   assignees: z.array(goalAssigneeSchema).default([]),
   linkedTasks: z.array(z.string()).default([]),
   automations: z.array(z.string()).default([]),
+  skills: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
   dueDate: z.string().optional(),
+  onComplete: z.object({ workflow: z.string().optional() }).optional(),
   extensions: z.record(z.unknown()).optional(),
 });
 

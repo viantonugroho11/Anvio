@@ -26,6 +26,8 @@ export const skillStepSchema = z.object({
   onError: z.enum(['fail', 'skip', 'retry']).default('fail'),
   maxRetries: z.number().int().min(0).default(0),
   output: z.string().optional(),
+  goalSlug: z.string().optional(),
+  progressIncrement: z.number().min(0).max(100).optional(),
 });
 
 export type SkillStep = z.infer<typeof skillStepSchema>;
