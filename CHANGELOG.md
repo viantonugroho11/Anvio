@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.24.0] - 2026-07-04
+
+**Hermes-parity: skill runtime gaps closed — versioning, test runner, goals integration, step output piping, workflow skill node**
+
+### Added
+- **`skill` node in workflow DAG** — `workflowNodeTypeSchema` now includes `'skill'`; `WorkflowNode` gains `skill?: string` and `params?: Record<string,unknown>`; `DagExecutor.runNode()` handles `case 'skill'` by delegating to injected `runSkill()` dep (wired in platform via `executeSkill`). Closes the workflow→skill integration gap
+- **Step output piping to prompt** — `SkillExecuteResult` now includes `trace: string` — a formatted markdown execution trace (step name, status icon, output snippet, final outputs map). `skillCallTool` detects the `{ outputs, trace }` shape and returns the trace as rich LLM-readable text so the model can reason about what each step produced
+- **Skill versioning & upgrade** — `SkillInstaller.upgrade(slug)` compares installed vs bundled catalog version and overwrites + records the upgrade atomically; new CLI command: `anvio skill upgrade <slug>` prints `1.0.0 → 1.1.0` diff or "already up to date"
+- **Skill test runner** — `SkillTestRunner` / `createSkillTestRunner()` wraps `executeSkill` with a `MockToolPort` that records all calls and returns configurable stub outputs; `anvio skill test <slug> [--params '{}'] [--stub '{}']` prints step-by-step trace and tool calls, exits non-zero on failure
+- **Goals integration (4 gaps closed)**:
+  - `GoalSpec.skills[]` — list of skill slugs assigned to goal-responsible agents (schema addition, backward-compatible)
+  - `GoalSpec.onComplete.workflow` — trigger a workflow slug when goal transitions to completed
+  - `SkillStep.goalSlug` + `SkillStep.progressIncrement` — a step can auto-increment linked goal progress on success; platform `callSkill` wires this via `FilesystemGoalEngine.updateProgress()`
+  - `@anvio/goals` added to platform dependencies so goal engine is available in runtime context
+
+### Changed
+- `SkillCallFn` return type extended to accept `SkillCallResult = { outputs, trace }` in addition to raw `Record<string,unknown>|string` — backward-compatible
+- Platform `callSkill` now returns `{ outputs, trace }` instead of raw `result.outputs`
+
+---
+
 ## [1.23.0] - 2026-07-04
 
 **Skill execution engine — Hermes-parity structured authoring + mechanical runtime**
