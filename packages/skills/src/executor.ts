@@ -187,7 +187,6 @@ function evaluateCondition(condition: string, ...contexts: Record<string, unknow
   const keys = Object.keys(merged);
   const values = keys.map((k) => merged[k]);
   try {
-    // eslint-disable-next-line no-new-func
     const fn = new Function(...keys, `"use strict"; return !!(${condition});`);
     return Boolean(fn(...values));
   } catch {

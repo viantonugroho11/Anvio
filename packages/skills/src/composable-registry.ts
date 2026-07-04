@@ -56,6 +56,7 @@ export class ComposableSkillRegistry {
    * named "skill__<slug>", delegating non-skill calls to downstreamPort.
    */
   buildToolPort(): RuntimeToolPort {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
 
     return {
