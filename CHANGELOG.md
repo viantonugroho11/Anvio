@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.25.0] - 2026-07-13
+
+**Token optimization (ADR-0010) + runtime testability — evolution ledger EVO-001..012**
+
+Doctrine release: the greenfield vNext plans are deprecated; all changes follow the evolutionary KEEP/EXTEND/REFACTOR ledger in `docs/architecture-evolution-ledger.md`.
+
+### Added
+- **Anthropic prompt caching (ADR-0010 layer 2)** — system prompt and last tool definition tagged with `cache_control: ephemeral` so the stable prefix bills at 10% on cache hits; new `promptCache` provider option (default on, `false` restores previous wire format); `TokenUsage` gains optional `cacheReadTokens`/`cacheCreationTokens`, summed by `addTokenUsage` and populated on both `chat` and `stream` paths
+- **Memory sliding window (ADR-0010 layer 1)** — `memory.maxShortTermMessages` in `anvio.yaml` (default 0 = unlimited): when history exceeds the window, the newest half is kept and the older head compresses into one summary message; optional `summarizeHead` callback for LLM summarization, static role-prefixed digest fallback
+- **Tool output clipping (ADR-0010 layer 3)** — tool results larger than `ANVIO_TOOL_OUTPUT_MAX_CHARS` (default 30000, 0 disables) are head/tail-clipped (70/30) with an explicit omission marker before entering model context; applies to success output and error strings; `clipToolOutput` exported
+- **Cache-aware cost accounting** — `estimateTokenCostUsd` prices cache reads at 10% and cache writes at 125% of the input rate; metrics registry exports `anvio_tokens_cache_read_total` / `anvio_tokens_cache_write_total`
+- **Structured logging** — `createLogger(name)` pino child-logger factory in `@anvio/observability` (level via `ANVIO_LOG_LEVEL`); ESLint `no-empty` with `allowEmptyCatch: false` bans silent error swallowing; previously silent catches in the agent runtime now log at debug
+- **Prompt hash trail** — the assembled system prompt is sha256-hashed per run; 16-hex `promptHash` attached to the `done` stream chunk and debug-logged, giving every session a prompt-version reproducibility trail
+- **Knowledge incremental sync** — manifest entries gain `fileHashes` (sha256 per raw file); `KnowledgeIngestEngine.ingest` skips unchanged files, `IngestResult.skipped` reports the count; old manifests parse unchanged and become incremental after one sync
+- **Skill catalog cache** — `SkillCatalogResolver.loadAll()` serves all parseable skills from a 10s TTL cache (`invalidateCache()` to drop); per-message trigger matching no longer rescans and re-parses the whole catalog from disk
+
+### Changed
+- **Agent runtime decomposed (no public API change)** — `DefaultAgentRuntime.stream()`'s 230-line iteration body extracted into `runtime-loop.ts` (`runAgentLoop` generator), `tool-executor.ts` (`runToolRound`, unifying native `tool_use` and fenced `anvio_tool` paths), and `approval-node.ts`; duplicated `approvalSummaryFromResult` deduplicated; native-mode zero-tool-call fallthrough to fenced parsing preserved deliberately
+- **Platform composition root slimmed** — `createDetachedRunner` centralizes the load-agent → detached-session → run flow previously copy-pasted five times (workflow, blueprint, automation, delegation, mixture-of-agents); mock provider extracted to its own module; `createPlatform` drops from 727 to 647 lines with identical exports
+
+### Tests
+- `@anvio/agents` gains its first test suites: 8 loop tests (completion, tool rounds, approval suspension with checkpoint shape, stop, stream errors, fenced fallthrough) + 5 `DefaultAgentRuntime` tests (stream/run/stop/persistence/promptHash stability); plus new suites for memory window, output clipping, cache cost math, skill catalog cache, and knowledge incremental sync — repo total 256 → 272
+
+### Docs
+- `docs/architecture-evolution-ledger.md` — module-by-module KEEP/EXTEND/REFACTOR decisions, EVO-001..012 ledger with rollback strategy per entry
+- Greenfield vNext design/blueprint/backlog documents marked **DEPRECATED — DO NOT EXECUTE** (kept for design-rationale reference)
+
+---
+
 ## [1.24.1] - 2026-07-04
 
 **CI/CD stability and docs auto-sync fixes**
