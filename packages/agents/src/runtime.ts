@@ -22,6 +22,7 @@ import {
 } from '@anvio/skills';
 import { classifyTask } from '@anvio/models';
 import type { SkillCatalogResolver } from '@anvio/skills';
+import { createHash } from 'node:crypto';
 import { createLogger } from '@anvio/observability';
 import { DEFAULT_MAX_TOOL_ITERATIONS } from './tool-loop.js';
 import { runAgentLoop } from './runtime-loop.js';
@@ -130,6 +131,10 @@ export class DefaultAgentRuntime implements AgentRuntime {
         systemPrompt = `${systemPrompt}\n\n---\n\n${toolPort.getToolInstructions()}`;
       }
 
+      // Content-address the exact system prompt sent to the model — reproducibility trail.
+      const promptHash = createHash('sha256').update(systemPrompt).digest('hex').slice(0, 16);
+      log.debug({ sessionId: session.id, promptHash }, 'system prompt assembled');
+
       let messages: ChatMessage[];
       let startIteration = 0;
       let usage: TokenUsage = { ...ZERO_TOKEN_USAGE };
@@ -184,7 +189,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
         { role: 'assistant', content: loop.fullContent },
       ]);
       yield { type: 'progress' as const, phase: 'Completed', status: 'completed' as const };
-      yield { type: 'done' as const, usage };
+      yield { type: 'done' as const, usage, promptHash };
     } catch (error) {
       yield {
         type: 'error' as const,
