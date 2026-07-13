@@ -9,8 +9,33 @@ export interface SkillCatalogPaths {
   workspaceDir: string;
 }
 
+const LOAD_ALL_CACHE_TTL_MS = 10_000;
+
 export class SkillCatalogResolver {
+  private loadAllCache: { at: number; skills: SkillDefinition[] } | null = null;
+
   constructor(private readonly paths: SkillCatalogPaths) {}
+
+  /**
+   * All loadable skill definitions, cached briefly — trigger matching runs per
+   * inbound message and must not rescan the whole catalog every time.
+   */
+  async loadAll(): Promise<SkillDefinition[]> {
+    const now = Date.now();
+    if (this.loadAllCache && now - this.loadAllCache.at < LOAD_ALL_CACHE_TTL_MS) {
+      return this.loadAllCache.skills;
+    }
+    const entries = await this.listAll();
+    const loaded = await Promise.all(entries.map((e) => this.load(e.slug).catch(() => null)));
+    const skills = loaded.filter((s): s is SkillDefinition => s !== null);
+    this.loadAllCache = { at: now, skills };
+    return skills;
+  }
+
+  /** Drop the loadAll cache (e.g. after installing a skill). */
+  invalidateCache(): void {
+    this.loadAllCache = null;
+  }
 
   async listBundled(): Promise<string[]> {
     return this.listDir(this.paths.bundledDir);

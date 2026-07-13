@@ -229,12 +229,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
     // Auto-activate skills whose triggers[] match the inbound message
     if (message && this.deps.skillCatalog) {
       try {
-        const allSkills = await Promise.all(
-          (await this.deps.skillCatalog.listAll()).map((e) =>
-            this.deps.skillCatalog!.load(e.slug).catch(() => null),
-          ),
-        );
-        const validSkills = allSkills.filter(Boolean) as Awaited<ReturnType<typeof this.deps.skillCatalog.load>>[];
+        const validSkills = await this.deps.skillCatalog.loadAll();
         const autoSlugs = matchTriggers(message, validSkills);
         effectiveSlugs = mergeSkillSlugs(effectiveSlugs, autoSlugs);
       } catch (error) {
