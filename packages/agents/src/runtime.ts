@@ -3,19 +3,16 @@ import type {
   AgentResult,
   AgentRuntime,
   ApprovalDecision,
-  ApprovalRequest,
   ChatMessage,
-  ModelToolCall,
   RuntimeToolPort,
   Session,
   TokenUsage,
   UserInput,
 } from '@anvio/core';
-import { addTokenUsage, ZERO_TOKEN_USAGE } from '@anvio/core';
+import { ZERO_TOKEN_USAGE } from '@anvio/core';
 import type { MemoryStore } from '@anvio/core';
 import type { SoulService } from '@anvio/souls';
 import type { ModelProviderRegistry } from '@anvio/models';
-import { stripToolCalls } from '@anvio/tools';
 import { PersonaService } from '@anvio/personas';
 import {
   SkillRegistry,
@@ -25,13 +22,9 @@ import {
 } from '@anvio/skills';
 import { classifyTask } from '@anvio/models';
 import type { SkillCatalogResolver } from '@anvio/skills';
-import {
-  DEFAULT_MAX_TOOL_ITERATIONS,
-  executeParsedToolCalls,
-  type PendingToolApproval,
-} from './tool-loop.js';
-import { executeNativeToolCalls } from './native-tool-loop.js';
-import { readRunCheckpoint, type AgentRunCheckpoint } from './run-checkpoint.js';
+import { DEFAULT_MAX_TOOL_ITERATIONS } from './tool-loop.js';
+import { runAgentLoop } from './runtime-loop.js';
+import { readRunCheckpoint } from './run-checkpoint.js';
 
 export interface AgentRuntimeDeps {
   personaService: PersonaService;
@@ -155,144 +148,36 @@ export class DefaultAgentRuntime implements AgentRuntime {
 
       const maxIterations = this.deps.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
       const nativeTools = useNativeTools ? toolPort!.getModelToolDefinitions!() : undefined;
-      let fullContent = '';
-      let lastIterationContent = '';
 
-      for (let iteration = startIteration; iteration < maxIterations; iteration++) {
-        if (this.stopRequests.has(session.id)) {
-          this.stopRequests.delete(session.id);
-          yield { type: 'error' as const, error: 'Session stopped by user' };
-          return;
-        }
-
-        yield {
-          type: 'progress' as const,
-          phase: iteration === startIteration ? 'Calling model' : 'Calling model after tools',
-          status: 'running' as const,
-        };
-        this.deps.onProgress?.(
-          session.id,
-          iteration === startIteration ? 'Calling model' : 'Calling model after tools',
-        );
-
-        let iterationContent = '';
-        const iterationToolCalls: ModelToolCall[] = [];
-        for await (const chunk of modelProvider.stream({
-          systemPrompt,
-          messages,
-          maxTokens: agent.spec.model.maxTokens,
-          temperature: agent.spec.model.temperature,
-          model: agent.spec.model.model,
-          tools: nativeTools,
-        })) {
+      const loop = yield* runAgentLoop({
+        modelProvider,
+        systemPrompt,
+        messages,
+        model: agent.spec.model,
+        toolPort,
+        toolCtx,
+        useNativeTools,
+        nativeTools,
+        startIteration,
+        maxIterations,
+        initialUsage: usage,
+        shouldStop: () => {
           if (this.stopRequests.has(session.id)) {
             this.stopRequests.delete(session.id);
-            yield { type: 'error' as const, error: 'Session stopped by user' };
-            return;
+            return true;
           }
-          if (chunk.type === 'text_delta' && chunk.delta) {
-            iterationContent += chunk.delta;
-            yield { type: 'chunk' as const, delta: chunk.delta };
-          }
-          if (chunk.type === 'tool_use') {
-            iterationToolCalls.push(chunk.toolCall);
-          }
-          if (chunk.type === 'done') {
-            if (chunk.usage) usage = addTokenUsage(usage, chunk.usage);
-            if (chunk.toolCalls?.length) {
-              for (const call of chunk.toolCalls) {
-                if (!iterationToolCalls.some((c) => c.id === call.id)) {
-                  iterationToolCalls.push(call);
-                }
-              }
-            }
-          }
-          if (chunk.type === 'error') {
-            yield { type: 'error' as const, error: chunk.error };
-            return;
-          }
-        }
+          return false;
+        },
+        onProgress: (phase) => this.deps.onProgress?.(session.id, phase),
+      });
 
-        if (!toolPort || toolPort.listTools().length === 0) {
-          fullContent = iterationContent;
-          break;
-        }
-
-        lastIterationContent = iterationContent;
-
-        if (useNativeTools && iterationToolCalls.length > 0) {
-          const toolRound = await executeNativeToolCalls({
-            toolPort,
-            ctx: toolCtx,
-            toolCalls: iterationToolCalls,
-            callbacks: {
-              onProgress: (phase) => this.deps.onProgress?.(session.id, phase),
-            },
-          });
-          if (toolRound.pendingApproval) {
-            yield {
-              type: 'approval_required' as const,
-              request: toApprovalRequest(toolRound.pendingApproval),
-              checkpoint: buildCheckpoint(
-                messages,
-                iteration + 1,
-                lastIterationContent,
-                usage,
-                toolRound.pendingApproval,
-              ),
-            };
-            return;
-          }
-          messages.push({
-            role: 'assistant',
-            content: iterationContent,
-            toolCalls: iterationToolCalls,
-          });
-          messages.push(...toolRound.toolMessages);
-          continue;
-        }
-
-        const toolRound = await executeParsedToolCalls({
-          toolPort,
-          ctx: toolCtx,
-          assistantContent: iterationContent,
-          callbacks: {
-            onProgress: (phase) => this.deps.onProgress?.(session.id, phase),
-          },
-        });
-
-        if (toolRound.pendingApproval) {
-          yield {
-            type: 'approval_required' as const,
-            request: toApprovalRequest(toolRound.pendingApproval),
-            checkpoint: buildCheckpoint(
-              messages,
-              iteration + 1,
-              lastIterationContent,
-              usage,
-              toolRound.pendingApproval,
-            ),
-          };
-          return;
-        }
-
-        if (!toolRound.hadTools) {
-          fullContent = iterationContent;
-          break;
-        }
-
-        messages.push({ role: 'assistant', content: iterationContent });
-        messages.push(...toolRound.toolMessages);
-      }
-
-      if (!fullContent) {
-        fullContent = stripToolCalls(lastIterationContent);
-      }
+      if (loop.outcome !== 'completed') return;
+      usage = loop.usage;
 
       yield { type: 'progress' as const, phase: 'Storing memory', status: 'running' as const };
       await this.deps.memoryStore.storeConversation(session.id, session.userId, [
-        ...messages,
-        { role: 'assistant', content: fullContent },
+        ...loop.messages,
+        { role: 'assistant', content: loop.fullContent },
       ]);
       yield { type: 'progress' as const, phase: 'Completed', status: 'completed' as const };
       yield { type: 'done' as const, usage };
@@ -376,34 +261,6 @@ export class DefaultAgentRuntime implements AgentRuntime {
       effectiveSpecs,
     };
   }
-}
-
-function toApprovalRequest(pending: PendingToolApproval): ApprovalRequest {
-  return {
-    id: pending.requestId,
-    toolName: pending.toolName,
-    input: { summary: pending.summary },
-    reason: pending.summary,
-    expiresAt: new Date(Date.now() + 86_400_000),
-  };
-}
-
-function buildCheckpoint(
-  messages: ChatMessage[],
-  iteration: number,
-  lastIterationContent: string,
-  usage: TokenUsage,
-  pending: PendingToolApproval,
-): Record<string, unknown> {
-  const checkpoint: AgentRunCheckpoint = {
-    messages,
-    iteration,
-    lastIterationContent,
-    usage,
-    approvalRequestId: pending.requestId,
-    approvalSummary: pending.summary,
-  };
-  return checkpoint as unknown as Record<string, unknown>;
 }
 
 export * from './orchestrator.js';

@@ -1,5 +1,6 @@
-import type { BuiltinToolResult, ChatMessage, RuntimeToolPort } from '@anvio/core';
+import type { ChatMessage, RuntimeToolPort } from '@anvio/core';
 import { formatToolResultMessage, parseToolCalls } from '@anvio/tools';
+import { approvalSummaryFromResult } from './tool-executor.js';
 
 export interface ToolLoopContext {
   sessionId: string;
@@ -55,16 +56,3 @@ export interface PendingToolApproval {
 }
 
 export const DEFAULT_MAX_TOOL_ITERATIONS = 5;
-
-function approvalSummaryFromResult(
-  call: { name: string; arguments: Record<string, unknown> },
-  result: BuiltinToolResult,
-): string {
-  if (call.arguments.summary != null) {
-    return String(call.arguments.summary);
-  }
-  if (result.output && typeof result.output === 'object' && 'summary' in result.output) {
-    return String((result.output as { summary: unknown }).summary);
-  }
-  return call.name;
-}
