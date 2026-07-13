@@ -60,6 +60,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
 
   const memoryProvider = createMemoryProvider(spec.memory.provider, workspace.storage, undefined, {
     fts: spec.memory.fts,
+    maxShortTermMessages: spec.memory.maxShortTermMessages,
   });
   const repoRoot = findRepoRoot(workspacePath);
   const personaService = new PersonaService(workspace.loader);

@@ -32,6 +32,8 @@ export const memoryConfigSchema = z.object({
     .default('filesystem'),
   basePath: z.string().default('memory'),
   fts: z.boolean().default(false),
+  /** Sliding window for short-term history; 0 = unlimited (ADR-0010 layer 1). */
+  maxShortTermMessages: z.number().int().min(0).default(0),
 });
 
 export const runtimeConfigSchema = z.object({

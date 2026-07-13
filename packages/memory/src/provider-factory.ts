@@ -15,6 +15,10 @@ import path from 'node:path';
 
 export interface FilesystemMemoryOptions {
   enableFts?: boolean;
+  /** Sliding window for short-term history; 0/undefined = unlimited (ADR-0010 layer 1). */
+  maxShortTermMessages?: number;
+  /** Optional LLM summarizer for the compressed head; falls back to a static digest. */
+  summarizeHead?: (messages: ChatMessage[]) => Promise<string>;
 }
 
 /** Filesystem-based memory provider — default for local-first mode. */
@@ -82,12 +86,37 @@ export class FilesystemMemoryProvider implements MemoryProvider {
     return { shortTerm, longTerm: [...recallEntries, ...longTerm], semantic: [] };
   }
 
+  /** Apply the sliding window: keep newest half, compress the rest into one summary message. */
+  private async applyWindow(messages: ChatMessage[]): Promise<ChatMessage[]> {
+    const max = this.options.maxShortTermMessages ?? 0;
+    if (max <= 0 || messages.length <= max) return messages;
+
+    const tail = messages.slice(-Math.max(1, Math.floor(max / 2)));
+    const head = messages.slice(0, messages.length - tail.length);
+    let summary: string;
+    try {
+      summary = this.options.summarizeHead
+        ? await this.options.summarizeHead(head)
+        : head
+            .map((m) => `${m.role}: ${m.content.slice(0, 120)}`)
+            .slice(-10)
+            .join('\n');
+    } catch (error) {
+      summary = `(summary unavailable: ${String(error)})`;
+    }
+    const summaryMessage: ChatMessage = {
+      role: 'assistant',
+      content: `[Context summary — ${head.length} earlier messages compressed]\n${summary}`,
+    };
+    return [summaryMessage, ...tail];
+  }
+
   async storeConversation(
     sessionId: string,
     userId: string,
     messages: ChatMessage[],
   ): Promise<void> {
-    await this.setMessages(sessionId, messages);
+    await this.setMessages(sessionId, await this.applyWindow(messages));
     for (const msg of messages.slice(-2)) {
       await this.store({
         sessionId,
@@ -205,14 +234,21 @@ export function createMemoryProvider(
   provider: string,
   storage: FilesystemStorageProvider,
   honchoConfig?: HonchoConfig,
-  memoryConfig?: { fts?: boolean },
+  memoryConfig?: { fts?: boolean; maxShortTermMessages?: number },
 ): MemoryProvider {
   const enableFts = memoryConfig?.fts === true || provider === 'sqlite';
+  const maxShortTermMessages = memoryConfig?.maxShortTermMessages;
   switch (provider) {
     case 'filesystem':
-      return new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', { enableFts });
+      return new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', {
+        enableFts,
+        maxShortTermMessages,
+      });
     case 'sqlite':
-      return new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', { enableFts: true });
+      return new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', {
+        enableFts: true,
+        maxShortTermMessages,
+      });
     case 'honcho': {
       const config =
         honchoConfig ??
