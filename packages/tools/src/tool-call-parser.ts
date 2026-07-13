@@ -50,11 +50,30 @@ export function stripToolCalls(content: string): string {
   return content.replace(TOOL_FENCE_RE, '').trim();
 }
 
+/** Max characters of a tool result entering model context (ADR-0010 layer 3). Override via ANVIO_TOOL_OUTPUT_MAX_CHARS; 0 disables clipping. */
+export const DEFAULT_TOOL_OUTPUT_MAX_CHARS = 30_000;
+
+function toolOutputBudget(): number {
+  const raw = process.env.ANVIO_TOOL_OUTPUT_MAX_CHARS;
+  if (raw == null || raw === '') return DEFAULT_TOOL_OUTPUT_MAX_CHARS;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_TOOL_OUTPUT_MAX_CHARS;
+}
+
+/** Head/tail clip oversized tool output so a single result cannot flood the context window. */
+export function clipToolOutput(body: string, maxChars = toolOutputBudget()): string {
+  if (maxChars <= 0 || body.length <= maxChars) return body;
+  const headLen = Math.floor(maxChars * 0.7);
+  const tailLen = maxChars - headLen;
+  const omitted = body.length - maxChars;
+  return `${body.slice(0, headLen)}\n\n[... tool output clipped: ${omitted} characters omitted ...]\n\n${body.slice(-tailLen)}`;
+}
+
 export function formatToolResultMessage(name: string, output: unknown, error?: string): string {
   if (error) {
-    return `Tool ${name} failed:\n${error}`;
+    return `Tool ${name} failed:\n${clipToolOutput(error)}`;
   }
   const body =
     typeof output === 'string' ? output : JSON.stringify(output, null, 2);
-  return `Tool ${name} result:\n${body}`;
+  return `Tool ${name} result:\n${clipToolOutput(body)}`;
 }
