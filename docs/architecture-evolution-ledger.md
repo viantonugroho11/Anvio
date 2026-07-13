@@ -1,7 +1,7 @@
 # Architecture Evolution Review & Ledger
 
 **Status:** Living document — update on every architectural change.
-**Date:** 2026-07-13
+**Date:** 2026-07-13 (statuses updated same day)
 **Doctrine:** Evolutionary architecture. The current repository IS the product. Strangler fig only where replacement is proven necessary. Related: [engineering-backlog-vnext.md](engineering-backlog-vnext.md) (story IDs referenced below), [architecture-review-vnext.md](architecture-review-vnext.md) (findings), ADR series in `docs/adr/`.
 
 **Success metric:** value preserved, diffs minimized, maintainability/testability/token-efficiency improved — not code replaced.
@@ -149,18 +149,18 @@ No REPLACE. No REMOVE (candidates `tools/legacy.ts` + `hermes-tools.spec.ts` nam
 
 | EVO | Module | Decision | Change | Status | Risk | Rollback |
 |---|---|---|---|---|---|---|
-| EVO-001 | agents runtime | REFACTOR | extract runtime-loop / tool-executor / approval-node; dedupe approval summary; +8 tests | **Completed** (uncommitted) | M — parity | revert commit |
-| EVO-002 | models | KEEP+EXTEND | Anthropic prompt caching + cache usage fields (ADR-0010 L2) | **Completed** (uncommitted) | L | `promptCache: false` / revert |
-| EVO-003 | observability | KEEP+EXTEND | pino + empty-catch ban + sweep (P1.S2) | Planned | L | revert |
-| EVO-004 | models | KEEP+EXTEND | per-call token/cost/latency metrics at registry seam (P1.S3) | Planned | L | revert |
-| EVO-005 | memory | KEEP+EXTEND | sliding window + summarize (P1.S4, ADR-0010 L1) | Planned | M | flag `maxShortTermMessages: 0` |
-| EVO-006 | tools | KEEP+EXTEND | output clipping + artifact offload (P1.S5, ADR-0010 L3) | Planned | M | flag |
-| EVO-007 | eval seed | — | golden trajectory capture (P1.S6) | Planned | L | n/a (data) |
-| EVO-008 | skills | KEEP+EXTEND | trigger index cache (P1.S8) | Planned | L | revert |
-| EVO-009 | agents | KEEP+EXTEND | remaining runtime tests: prompt assembly, resume path (P1.S7 rest) | Planned | L | n/a (tests) |
-| EVO-010 | prompt assembly | KEEP+EXTEND | prompt hash in session metadata (M6 step 1) | Planned | L | stop recording |
-| EVO-011 | platform | REFACTOR | composition-root extraction (M7) | Planned | M | revert |
-| EVO-012 | knowledge | KEEP+EXTEND | hash-based incremental sync (M5 step 1) | Planned | L | ignore hash field |
+| EVO-001 | agents runtime | REFACTOR | extract runtime-loop / tool-executor / approval-node; dedupe approval summary; +8 tests | **Completed** | M — parity | revert commit |
+| EVO-002 | models | KEEP+EXTEND | Anthropic prompt caching + cache usage fields (ADR-0010 L2) | **Completed** | L | `promptCache: false` / revert |
+| EVO-003 | observability | KEEP+EXTEND | pino createLogger + no-empty lint + runtime silent catches logged | **Completed** | L | revert |
+| EVO-004 | platform | KEEP+EXTEND | cache-aware cost estimation + cache token counters | **Completed** | L | revert |
+| EVO-005 | memory | KEEP+EXTEND | sliding window + summarize-on-overflow (ADR-0010 L1) | **Completed** (flag default off) | M | flag `maxShortTermMessages: 0` |
+| EVO-006 | tools | KEEP+EXTEND | head/tail output clipping (ADR-0010 L3); artifact offload deferred | **Completed** | M | `ANVIO_TOOL_OUTPUT_MAX_CHARS=0` |
+| EVO-007 | eval seed | — | golden trajectory capture (P1.S6) | **Blocked** — needs live sessions with real model keys; capture via trajectory-export once available | L | n/a (data) |
+| EVO-008 | skills | KEEP+EXTEND | loadAll() TTL cache for trigger matching | **Completed** | L | revert |
+| EVO-009 | agents | KEEP+EXTEND | DefaultAgentRuntime tests: stream/run/stop/persistence | **Completed** | L | n/a (tests) |
+| EVO-010 | prompt assembly | KEEP+EXTEND | sha256 promptHash in done chunk + debug log | **Completed** | L | stop recording |
+| EVO-011 | platform | REFACTOR | detached-runner + mock-provider extraction (727 to 647 lines); further extraction pending | **Completed** (partial scope) | M | revert |
+| EVO-012 | knowledge | KEEP+EXTEND | manifest fileHashes + skip-unchanged ingest | **Completed** | L | ignore hash field |
 
 ADR queue: ADR-0010 → Accepted when EVO-005/006 land; ADR-0011 (runtime extraction — records EVO-001 rationale + parity quirk); ADR-0012 (logging standard + catch sweep exception to diff-minimization).
 
