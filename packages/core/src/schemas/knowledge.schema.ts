@@ -25,6 +25,8 @@ export const knowledgeManifestSchema = z.object({
         rawFiles: z.number().int().nonnegative().default(0),
         wikiFiles: z.number().int().nonnegative().default(0),
         syncedAt: z.string().optional(),
+        /** sha256 per raw file — enables incremental sync (unchanged files skip re-ingest). */
+        fileHashes: z.record(z.string(), z.string()).optional(),
       }),
     ),
   }),
