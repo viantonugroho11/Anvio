@@ -11,6 +11,8 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
+      // Silent error swallowing is banned — log at debug level minimum.
+      'no-empty': ['error', { allowEmptyCatch: false }],
     },
   },
 );

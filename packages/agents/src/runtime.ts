@@ -22,6 +22,7 @@ import {
 } from '@anvio/skills';
 import { classifyTask } from '@anvio/models';
 import type { SkillCatalogResolver } from '@anvio/skills';
+import { createLogger } from '@anvio/observability';
 import { DEFAULT_MAX_TOOL_ITERATIONS } from './tool-loop.js';
 import { runAgentLoop } from './runtime-loop.js';
 import { readRunCheckpoint } from './run-checkpoint.js';
@@ -39,6 +40,8 @@ export interface AgentRuntimeDeps {
   maxToolIterations?: number;
   onProgress?: (sessionId: string, phase: string) => void;
 }
+
+const log = createLogger('agents:runtime');
 
 export class DefaultAgentRuntime implements AgentRuntime {
   private readonly stopRequests = new Set<string>();
@@ -103,8 +106,9 @@ export class DefaultAgentRuntime implements AgentRuntime {
           try {
             const def = await this.deps.skillCatalog.load(slug);
             composableReg.register(def);
-          } catch {
+          } catch (error) {
             // skill may be prose-only or not found — skip
+            log.debug({ slug, err: String(error) }, 'skill pre-registration skipped');
           }
         }
       }
@@ -216,8 +220,9 @@ export class DefaultAgentRuntime implements AgentRuntime {
       try {
         const goalSkills = await this.deps.activeGoalSkillsResolver();
         effectiveSlugs = mergeSkillSlugs(effectiveSlugs, goalSkills);
-      } catch {
+      } catch (error) {
         // goal resolution is best-effort
+        log.debug({ err: String(error) }, 'active-goal skill resolution failed');
       }
     }
 
@@ -232,8 +237,9 @@ export class DefaultAgentRuntime implements AgentRuntime {
         const validSkills = allSkills.filter(Boolean) as Awaited<ReturnType<typeof this.deps.skillCatalog.load>>[];
         const autoSlugs = matchTriggers(message, validSkills);
         effectiveSlugs = mergeSkillSlugs(effectiveSlugs, autoSlugs);
-      } catch {
+      } catch (error) {
         // trigger matching is best-effort
+        log.debug({ err: String(error) }, 'skill trigger matching failed');
       }
     }
 
@@ -251,8 +257,9 @@ export class DefaultAgentRuntime implements AgentRuntime {
       try {
         const soulContext = await this.deps.soulService.loadContext(soulSlug, userId);
         parts.push(this.deps.soulService.renderSoulContext(soulContext));
-      } catch {
+      } catch (error) {
         // Soul optional — fall back to persona-only context
+        log.debug({ soul: soulSlug, err: String(error) }, 'soul context load failed');
       }
     }
 
