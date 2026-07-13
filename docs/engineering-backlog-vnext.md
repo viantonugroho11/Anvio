@@ -1,6 +1,12 @@
 # Hermes vNext — Master Engineering Backlog
 
-**Status:** Plan of record. Execute stories in dependency order; one story ≈ one PR.
+> **⚠️ DEPRECATED — DO NOT EXECUTE.**
+> This greenfield/vNext plan is superseded by [architecture-evolution-ledger.md](architecture-evolution-ledger.md).
+> The current repository is the product; all changes follow the evolutionary (KEEP/EXTEND/REFACTOR) doctrine.
+> Kept for reference only: design rationale and rejected alternatives remain useful reading.
+
+
+**Status:** DEPRECATED (superseded by architecture-evolution-ledger.md). Story IDs remain referenced by the ledger as historical estimates only.
 **Date:** 2026-07-10
 **Baseline:** [implementation-blueprint-vnext.md](implementation-blueprint-vnext.md) (frozen). Any story that cannot be built as specified triggers a blueprint ADR, not an ad-hoc deviation.
 

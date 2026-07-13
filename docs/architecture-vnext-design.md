@@ -1,6 +1,12 @@
 # Hermes vNext — Architecture Design Document
 
-**Status:** Draft blueprint
+> **⚠️ DEPRECATED — DO NOT EXECUTE.**
+> This greenfield/vNext plan is superseded by [architecture-evolution-ledger.md](architecture-evolution-ledger.md).
+> The current repository is the product; all changes follow the evolutionary (KEEP/EXTEND/REFACTOR) doctrine.
+> Kept for reference only: design rationale and rejected alternatives remain useful reading.
+
+
+**Status:** DEPRECATED (superseded by architecture-evolution-ledger.md)
 **Date:** 2026-07-10
 **Author:** Lead Architect
 **Predecessor:** [architecture-review-vnext.md](architecture-review-vnext.md) (findings referenced throughout as *Review §n*)

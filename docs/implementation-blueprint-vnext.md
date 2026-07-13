@@ -1,6 +1,12 @@
 # Hermes vNext — Master Implementation Blueprint
 
-**Status:** Approved-pending draft — implementation must follow this document; deviations require an ADR.
+> **⚠️ DEPRECATED — DO NOT EXECUTE.**
+> This greenfield/vNext plan is superseded by [architecture-evolution-ledger.md](architecture-evolution-ledger.md).
+> The current repository is the product; all changes follow the evolutionary (KEEP/EXTEND/REFACTOR) doctrine.
+> Kept for reference only: design rationale and rejected alternatives remain useful reading.
+
+
+**Status:** DEPRECATED (superseded by architecture-evolution-ledger.md)
 **Date:** 2026-07-10
 **Predecessors:**
 - [architecture-review-vnext.md](architecture-review-vnext.md) — *Review* (current-state findings)
