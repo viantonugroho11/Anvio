@@ -29,7 +29,12 @@ export function estimateTokenCostUsd(
   if (!model) return undefined;
   const rates = MODEL_COST_PER_1M[model];
   if (!rates) return undefined;
-  const inputCost = (usage.inputTokens / 1_000_000) * rates.input;
+  // Cache reads bill at 10% of input rate, cache writes at 125% (Anthropic pricing).
+  const cacheRead = usage.cacheReadTokens ?? 0;
+  const cacheWrite = usage.cacheCreationTokens ?? 0;
+  const uncachedInput = Math.max(0, usage.inputTokens - cacheRead - cacheWrite);
+  const inputCost =
+    ((uncachedInput + cacheRead * 0.1 + cacheWrite * 1.25) / 1_000_000) * rates.input;
   const outputCost = (usage.outputTokens / 1_000_000) * rates.output;
   return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000;
 }
@@ -55,6 +60,8 @@ export class TokenUsageAudit {
       inputTokens: input.usage.inputTokens,
       outputTokens: input.usage.outputTokens,
       totalTokens: input.usage.totalTokens,
+      cacheReadTokens: input.usage.cacheReadTokens,
+      cacheCreationTokens: input.usage.cacheCreationTokens,
       estimatedCostUsd,
     });
   }

@@ -28,6 +28,8 @@ export class MetricsRegistry {
     inputTokens: number;
     outputTokens: number;
     totalTokens: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
     estimatedCostUsd?: number;
   }): void {
     const base = {
@@ -38,6 +40,12 @@ export class MetricsRegistry {
     this.incrementCounter('anvio_tokens_input_total', base, input.inputTokens);
     this.incrementCounter('anvio_tokens_output_total', base, input.outputTokens);
     this.incrementCounter('anvio_tokens_total', base, input.totalTokens);
+    if (input.cacheReadTokens) {
+      this.incrementCounter('anvio_tokens_cache_read_total', base, input.cacheReadTokens);
+    }
+    if (input.cacheCreationTokens) {
+      this.incrementCounter('anvio_tokens_cache_write_total', base, input.cacheCreationTokens);
+    }
     if (input.estimatedCostUsd != null) {
       this.incrementCounter('anvio_token_cost_usd_total', base, input.estimatedCostUsd);
     }

@@ -42,4 +42,24 @@ describe('TokenUsageAudit', () => {
     });
     expect(cost).toBeCloseTo(0.1, 5);
   });
+
+  it('discounts cache-read tokens at 10% and bills cache writes at 125%', () => {
+    // 1M input, all served from cache read: 10% of $3 = $0.30
+    const allCached = estimateTokenCostUsd('claude-sonnet-4-20250514', {
+      inputTokens: 1_000_000,
+      outputTokens: 0,
+      totalTokens: 1_000_000,
+      cacheReadTokens: 1_000_000,
+    });
+    expect(allCached).toBeCloseTo(0.3, 5);
+
+    // 1M input, all cache write: 125% of $3 = $3.75
+    const allWrite = estimateTokenCostUsd('claude-sonnet-4-20250514', {
+      inputTokens: 1_000_000,
+      outputTokens: 0,
+      totalTokens: 1_000_000,
+      cacheCreationTokens: 1_000_000,
+    });
+    expect(allWrite).toBeCloseTo(3.75, 5);
+  });
 });
