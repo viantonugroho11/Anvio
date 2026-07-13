@@ -8,7 +8,6 @@ import { createAuthProvider } from '@anvio/auth';
 import type {
   ChannelHubPort,
   AgentInbox,
-  ModelProvider,
   ChannelType,
 } from '@anvio/core';
 import { createEventBus, EventSubjects } from '@anvio/events';
@@ -35,9 +34,11 @@ import { createCodeExecutor } from '@anvio/execution';
 import { DagExecutor, createWorkflowRegistry } from '@anvio/workflows';
 import { Workspace } from '@anvio/workspace';
 import { findRepoRoot, findWorkspacePath } from './find-workspace.js';
+import { createDetachedRunner } from './detached-runner.js';
+import { createMockModelProvider } from './mock-provider.js';
 import { createTokenUsageAudit } from './token-usage-audit.js';
 import type { PlatformContext } from './platform-context.js';
-import { storedSessionToRuntime } from './session-runtime.js';
+
 import { RuntimeRoutingAgentRuntime } from './runtime-routing-agent-runtime.js';
 
 export type { PlatformContext } from './platform-context.js';
@@ -352,6 +353,12 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     spec.runtime.default,
   );
 
+  const detached = createDetachedRunner({
+    runtime,
+    workspace,
+    defaultUserId: spec.defaultUserId,
+  });
+
   await channelHub.startAll();
 
   const catalog = createCatalogRegistry(workspacePath, repoRoot);
@@ -366,20 +373,8 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
 
   const workflowExecutor = new DagExecutor({
     registry: workflowRegistry,
-    runAgent: async (agentId, input) => {
-      const agent = await workspace.loader.loadAgent(agentId);
-      const stored = await workspace.sessions.create({
-        userId: spec.defaultUserId,
-        agentName: agentId,
-        channel: 'automation',
-        messages: [],
-        status: 'idle',
-        detached: true,
-      });
-      const session = storedSessionToRuntime(stored);
-      const result = await runtime.run(session, agent, { content: input });
-      return result.content;
-    },
+    runAgent: async (agentId, input) =>
+      (await detached.run(agentId, input, 'automation')).content,
     runBlueprint: async (slug, inputs) => {
       const bp = await catalog.load(slug);
       const executor = new BlueprintExecutor({ catalog, mcpBridge });
@@ -412,38 +407,14 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       });
       return { outputs: result.outputs, status: result.status };
     },
-    runAgent: async (agentId, input) => {
-      const agent = await workspace.loader.loadAgent(agentId);
-      const stored = await workspace.sessions.create({
-        userId: spec.defaultUserId,
-        agentName: agentId,
-        channel: 'automation',
-        messages: [],
-        status: 'idle',
-        detached: true,
-      });
-      const session = storedSessionToRuntime(stored);
-      const result = await runtime.run(session, agent, { content: input });
-      return result.content;
-    },
+    runAgent: async (agentId, input) =>
+      (await detached.run(agentId, input, 'automation')).content,
   });
 
   const actionExecutor = new ActionExecutor({
     blueprintExecutor,
-    runAgent: async (agentId, input) => {
-      const agent = await workspace.loader.loadAgent(agentId);
-      const stored = await workspace.sessions.create({
-        userId: spec.defaultUserId,
-        agentName: agentId,
-        channel: 'automation',
-        messages: [],
-        status: 'idle',
-        detached: true,
-      });
-      const session = storedSessionToRuntime(stored);
-      const result = await runtime.run(session, agent, { content: input });
-      return result.content;
-    },
+    runAgent: async (agentId, input) =>
+      (await detached.run(agentId, input, 'automation')).content,
     summarizeSessions: async () => {
       const sessions = await workspace.sessions.list(spec.defaultUserId);
       return learningEngine.summarizeStaleSessions(
@@ -473,19 +444,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
 
   toolGateway.mergeContext({
     delegateTask: async ({ agent, task, context }) => {
-      const agentDef = await workspace.loader.loadAgent(agent);
-      const stored = await workspace.sessions.create({
-        userId: spec.defaultUserId,
-        agentName: agent,
-        channel: 'delegation',
-        messages: [],
-        status: 'idle',
-        detached: true,
-      });
-      const session = storedSessionToRuntime(stored);
       const prompt = context ? `${task}\n\nContext:\n${context}` : task;
-      const result = await runtime.run(session, agentDef, { content: prompt });
-      return { sessionId: session.id, content: result.content, status: result.status };
+      const result = await detached.run(agent, prompt, 'delegation');
+      return { sessionId: result.session.id, content: result.content, status: result.status };
     },
     manageCronjob: async (input) => {
       switch (input.action) {
@@ -538,35 +499,17 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     mixtureOfAgents: async ({ task, agents, synthesizer }) => {
       const agentResults = await Promise.all(
         agents.map(async (agentId) => {
-          const agentDef = await workspace.loader.loadAgent(agentId);
-          const stored = await workspace.sessions.create({
-            userId: spec.defaultUserId,
-            agentName: agentId,
-            channel: 'moa',
-            messages: [],
-            status: 'idle',
-            detached: true,
-          });
-          const session = storedSessionToRuntime(stored);
-          const result = await runtime.run(session, agentDef, { content: task });
-          return { agent: agentId, sessionId: session.id, content: result.content };
+          const result = await detached.run(agentId, task, 'moa');
+          return { agent: agentId, sessionId: result.session.id, content: result.content };
         }),
       );
       const synthId = synthesizer ?? agents[0] ?? defaultAgent;
-      const synthAgent = await workspace.loader.loadAgent(synthId);
-      const synthStored = await workspace.sessions.create({
-        userId: spec.defaultUserId,
-        agentName: synthId,
-        channel: 'moa',
-        messages: [],
-        status: 'idle',
-        detached: true,
-      });
-      const synthSession = storedSessionToRuntime(synthStored);
       const body = agentResults.map((r) => `## ${r.agent}\n${r.content}`).join('\n\n');
-      const synthesisResult = await runtime.run(synthSession, synthAgent, {
-        content: `Task: ${task}\n\nAgent outputs:\n${body}\n\nSynthesize the best combined answer.`,
-      });
+      const synthesisResult = await detached.run(
+        synthId,
+        `Task: ${task}\n\nAgent outputs:\n${body}\n\nSynthesize the best combined answer.`,
+        'moa',
+      );
       return { agentResults, synthesis: synthesisResult.content };
     },
     skillManage: async ({ action, slug }) => {
@@ -675,30 +618,6 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     learningEngine,
     toolGateway,
     mcpFirstCallGate,
-  };
-}
-
-function createMockModelProvider(): ModelProvider {
-  return {
-    providerId: 'mock',
-    async chat(request) {
-      const last = request.messages.at(-1)?.content ?? '';
-      return {
-        content: `[Mock — set a model API key] You said: ${last}`,
-        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-        model: 'mock',
-        finishReason: 'end_turn',
-      };
-    },
-    async *stream(request) {
-      const last = request.messages.at(-1)?.content ?? '';
-      const text = `[Mock — set a model API key] You said: ${last}`;
-      yield { type: 'text_delta', delta: text };
-      yield {
-        type: 'done',
-        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-      };
-    },
   };
 }
 
