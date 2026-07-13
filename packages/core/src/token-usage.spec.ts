@@ -9,4 +9,22 @@ describe('addTokenUsage', () => {
     );
     expect(total).toEqual({ inputTokens: 300, outputTokens: 130, totalTokens: 430 });
   });
+
+  it('sums optional cache token counts and omits them when zero', () => {
+    const withCache = addTokenUsage(
+      { inputTokens: 10, outputTokens: 5, totalTokens: 15, cacheReadTokens: 100 },
+      { inputTokens: 10, outputTokens: 5, totalTokens: 15, cacheReadTokens: 50, cacheCreationTokens: 20 },
+    );
+    expect(withCache).toEqual({
+      inputTokens: 20,
+      outputTokens: 10,
+      totalTokens: 30,
+      cacheReadTokens: 150,
+      cacheCreationTokens: 20,
+    });
+
+    const noCache = addTokenUsage(ZERO_TOKEN_USAGE, { inputTokens: 1, outputTokens: 1, totalTokens: 2 });
+    expect(noCache).not.toHaveProperty('cacheReadTokens');
+    expect(noCache).not.toHaveProperty('cacheCreationTokens');
+  });
 });

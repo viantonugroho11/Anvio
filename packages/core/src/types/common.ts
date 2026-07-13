@@ -35,6 +35,10 @@ export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  /** Input tokens served from provider prompt cache (billed at reduced rate). */
+  cacheReadTokens?: number;
+  /** Input tokens written to provider prompt cache. */
+  cacheCreationTokens?: number;
 }
 
 export interface MessageContent {
