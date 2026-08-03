@@ -1,7 +1,15 @@
-import type { MemoryEntry, MemoryProvider, SoulContext, SoulDefinition, SoulStore } from '@anvio/core';
+import type {
+  MemoryEntry,
+  MemoryProvider,
+  ModelProvider,
+  SoulContext,
+  SoulDefinition,
+  SoulStore,
+} from '@anvio/core';
 import { AnvioError, parseSoulDefinition, parseSoulDefinitionMd } from '@anvio/core';
 import type { FilesystemStorageProvider } from '@anvio/storage';
 import { parse as parseYaml } from 'yaml';
+import { extractSoulData } from './soul-data-llm.js';
 
 export class FilesystemSoulStore implements SoulStore {
   constructor(private readonly storage: FilesystemStorageProvider) {}
@@ -156,6 +164,20 @@ export class SoulService {
     return this.store.save(definition);
   }
 
+  /**
+   * Import a SoulDefinition from raw SOUL.md text. When `modelProvider` is provided,
+   * LLM-projects identity/values/tendencies into the schema with regex fallback on error.
+   */
+  async importFromMarkdown(
+    source: string,
+    slug: string,
+    opts: { modelProvider?: ModelProvider; save?: boolean } = {},
+  ): Promise<SoulDefinition> {
+    const definition = await extractSoulData(source, slug, opts.modelProvider);
+    if (opts.save === false) return definition;
+    return this.store.save(definition);
+  }
+
   async loadContext(slug: string, userId: string): Promise<SoulContext> {
     return this.engine.load(slug, userId);
   }
@@ -194,3 +216,5 @@ export function createSoulService(
   const engine = new SoulEngineImpl(store, memory);
   return new SoulService(store, engine);
 }
+
+export { extractSoulData } from './soul-data-llm.js';

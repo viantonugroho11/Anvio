@@ -13,7 +13,12 @@ import { BlueprintExecutor, createCatalogRegistry } from '@anvio/blueprints';
 import { createBatchEngine } from '@anvio/batch';
 import { createCredentialPoolManager } from '@anvio/credentials';
 import { createIntegrationRegistry, createMcpBridge, listMcpPresets, applyMcpPreset } from '@anvio/integrations';
-import { createModelRouter, MODEL_PROVIDER_IDS, OPENAI_COMPATIBLE_PROVIDER_SPECS } from '@anvio/models';
+import {
+  createModelProviderRegistryFromEnv,
+  createModelRouter,
+  MODEL_PROVIDER_IDS,
+  OPENAI_COMPATIBLE_PROVIDER_SPECS,
+} from '@anvio/models';
 import { createSkillCatalogResolver, createSkillInstaller, createSkillTestRunner } from '@anvio/skills';
 import { createAcpServer } from '@anvio/acp';
 import { createCodeExecutor, ExecutionAuditLog } from '@anvio/execution';
@@ -668,8 +673,9 @@ async function cmdSoul(sub: string[]) {
       const file = sub[1];
       const slugIdx = sub.indexOf('--slug');
       const slug = slugIdx >= 0 ? sub[slugIdx + 1] : 'architect-soul';
+      const useLlm = sub.includes('--llm');
       if (!file) {
-        console.error('Usage: anvio soul import <SOUL.md> [--slug <slug>]');
+        console.error('Usage: anvio soul import <SOUL.md> [--slug <slug>] [--llm]');
         process.exit(1);
       }
       const source = await fs.readFile(path.resolve(file), 'utf-8');
@@ -679,7 +685,21 @@ async function cmdSoul(sub: string[]) {
       await fs.writeFile(path.join(soulDir, 'SOUL.md'), source, 'utf-8');
       const cacheDir = path.join(wsPath, 'souls', '_cache');
       await fs.mkdir(cacheDir, { recursive: true });
-      console.log(JSON.stringify({ slug, policy }, null, 2));
+
+      let identity: unknown;
+      if (useLlm) {
+        const providerMap = createModelProviderRegistryFromEnv();
+        const modelProvider =
+          providerMap.get('anthropic') ?? providerMap.values().next().value;
+        const definition = await souls.importFromMarkdown(source, slug, {
+          modelProvider,
+          save: false,
+        });
+        identity = definition.spec;
+        console.log(`LLM soul-data extraction: ${modelProvider ? modelProvider.providerId : 'regex-only'}`);
+      }
+
+      console.log(JSON.stringify(identity ? { slug, policy, identity } : { slug, policy }, null, 2));
       console.log(`Imported SOUL.md → workspace/souls/${slug}/SOUL.md`);
       break;
     }
