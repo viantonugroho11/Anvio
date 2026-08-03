@@ -1,5 +1,9 @@
 import { OpenAiSpeechAdapter } from './adapters/openai-speech.js';
-import { createRealtimeSttSession } from './adapters/openai-realtime-stt.js';
+import {
+  createRealtimeSttSession,
+  OpenAiRealtimeSttSession,
+  streamRealtimeTranscribe,
+} from './adapters/openai-realtime-stt.js';
 
 export interface StreamingSttChunk {
   text: string;
@@ -40,6 +44,10 @@ export async function* streamTranscribe(
   session: StreamingSttSession,
   chunkSource: AsyncIterable<Buffer>,
 ): AsyncGenerator<StreamingSttChunk> {
+  if (session instanceof OpenAiRealtimeSttSession) {
+    yield* streamRealtimeTranscribe(session, chunkSource);
+    return;
+  }
   for await (const chunk of chunkSource) {
     session.feed(chunk);
     yield { text: `[partial:${chunk.length}b]`, final: false };
