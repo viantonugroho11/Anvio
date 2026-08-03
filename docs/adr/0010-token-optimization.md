@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted — all three layers shipped in v1.25.0.
 
 ## Context
 

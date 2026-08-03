@@ -54,7 +54,7 @@ Worker behavior when `suppressRawOutput` is active (Slack, Telegram, WhatsApp, �
 
 ## Remaining (P7+)
 
-- Gemini native tools
-- MCP first-call approval gate
+- ~~Gemini native tools~~ ✅ shipped — `GeminiProvider.supportsNativeTools = true`, `functionDeclarations` + `functionCall`/`functionResponse` round-trip covered by `gemini-native-tools.spec.ts`
+- ~~MCP first-call approval gate~~ ✅ shipped — `McpFirstCallGate` (session-scoped + persisted via `session.metadata.mcpApprovedTools`), enforced by `McpToolPort.call` returning `pending_approval` on first use of `anvio_mcp__{server}__{tool}` per session; approval resolved via both the local runtime `onApproval` callback and the gateway-worker `APPROVAL_DECIDED` handler. Covered by `mcp-first-call-gate.spec.ts` + `mcp-tool-port.spec.ts` (13 tests).
 - Channel E2E for Teams/Matrix/Email
-- LLM SoulData extraction
+- ~~LLM SoulData extraction~~ ✅ shipped — `extractSoulData` in `@anvio/souls` + `SoulService.importFromMarkdown` + CLI `anvio soul import --llm`

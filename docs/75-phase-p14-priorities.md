@@ -25,7 +25,7 @@
 
 ## Still deferred (P15+)
 
-- OpenAI Realtime WebSocket STT
+- ~~OpenAI Realtime WebSocket STT~~ ✅ shipped — full live-streaming refactor: `OpenAiRealtimeSttSession` auto-connects on first `feed()`, drains buffered chunks post-open, emits real `conversation.item.input_audio_transcription.delta` events via new `events()` async iterator, `streamRealtimeTranscribe` yields real partial+final transcripts, `streamTranscribe` in `streaming-stt.ts` delegates to realtime path when session is `OpenAiRealtimeSttSession`. Coverage in `openai-realtime-stt.spec.ts` (mock WebSocket server round-trip)
 - Live MCP server E2E (Spotify/Feishu credentials)
 - Nous Portal OAuth
 - Full native IMAP IDLE protocol (vs poll loop)
