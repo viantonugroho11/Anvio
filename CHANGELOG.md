@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.25.0] - 2026-08-03
+
 ### Added
 - **Token optimization Layer 1 — sliding window + auto-summarize on overflow** (ADR-0010). `memoryConfigSchema` gains `maxShortTermMessages` (default `0` = unlimited, backward-compatible) and `summarizeOnOverflow` (default `true`). When history exceeds the cap, `FilesystemMemoryProvider.storeConversation` compresses the older head into a single `[Context summary — N earlier messages compressed]` assistant message and keeps the newest half. Platform wires `SessionSummarizer` (`@anvio/learning`) as the summarizer callback with rule-based fallback on LLM error. A 200-turn session no longer sends 200 messages of history on turn 201.
 - **Token optimization Layer 2 — Anthropic prompt caching** (ADR-0010). `AnthropicProvider` accepts `promptCaching` option (default `true`; opt-out via `ANVIO_PROMPT_CACHING=false`) and tags the system prompt block plus the last tool definition with `cache_control: { type: 'ephemeral' }`. `TokenUsage` gains optional `cacheCreationInputTokens` and `cacheReadInputTokens`; `inputTokens`/`totalTokens` now include cached tokens so audits see the true prompt cost, with cache hits billed at ~10% of normal input. A 20-turn session with a 2 000-token system prompt saves ~38 000 input tokens.
