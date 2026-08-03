@@ -35,6 +35,10 @@ export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  /** Prompt-cache write tokens (Anthropic ephemeral cache); undefined for providers without caching. */
+  cacheCreationInputTokens?: number;
+  /** Prompt-cache hit tokens (billed at ~10% of normal input). */
+  cacheReadInputTokens?: number;
 }
 
 export interface MessageContent {

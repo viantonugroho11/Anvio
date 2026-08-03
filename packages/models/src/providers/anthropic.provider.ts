@@ -12,6 +12,8 @@ import { toAnthropicMessages } from './anthropic-messages.js';
 export interface AnthropicProviderOptions {
   apiKey: string;
   defaultModel?: string;
+  /** Ephemeral prompt caching on system prompt + last tool def. Default true. */
+  promptCaching?: boolean;
 }
 
 function extractToolCalls(content: Anthropic.Messages.ContentBlock[]): ModelToolCall[] {
@@ -31,15 +33,68 @@ function extractText(content: Anthropic.Messages.ContentBlock[]): string {
     .join('');
 }
 
+type AnthropicUsage = Anthropic.Messages.Usage & {
+  cache_creation_input_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+};
+
+function usageFromAnthropic(usage: AnthropicUsage) {
+  const cacheCreate = usage.cache_creation_input_tokens ?? 0;
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+  const inputTokens = usage.input_tokens + cacheCreate + cacheRead;
+  return {
+    inputTokens,
+    outputTokens: usage.output_tokens,
+    totalTokens: inputTokens + usage.output_tokens,
+    cacheCreationInputTokens: cacheCreate || undefined,
+    cacheReadInputTokens: cacheRead || undefined,
+  };
+}
+
+function buildSystem(
+  systemPrompt: string | undefined,
+  cache: boolean,
+): string | Array<Anthropic.Messages.TextBlockParam> | undefined {
+  if (!systemPrompt) return undefined;
+  if (!cache) return systemPrompt;
+  return [
+    {
+      type: 'text',
+      text: systemPrompt,
+      cache_control: { type: 'ephemeral' },
+    },
+  ];
+}
+
+function buildTools(
+  tools: ChatRequest['tools'] | undefined,
+  cache: boolean,
+): Anthropic.Messages.Tool[] | undefined {
+  if (!tools?.length) return undefined;
+  return tools.map((tool, index) => {
+    const base: Anthropic.Messages.Tool = {
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.inputSchema as Anthropic.Messages.Tool.InputSchema,
+    };
+    if (cache && index === tools.length - 1) {
+      return { ...base, cache_control: { type: 'ephemeral' } };
+    }
+    return base;
+  });
+}
+
 export class AnthropicProvider implements ModelProvider {
   readonly providerId = 'anthropic';
   readonly supportsNativeTools = true;
   private readonly client: Anthropic;
   private readonly defaultModel: string;
+  private readonly promptCaching: boolean;
 
   constructor(options: AnthropicProviderOptions) {
     this.client = new Anthropic({ apiKey: options.apiKey });
     this.defaultModel = options.defaultModel ?? 'claude-sonnet-4-20250514';
+    this.promptCaching = options.promptCaching ?? true;
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
@@ -48,13 +103,9 @@ export class AnthropicProvider implements ModelProvider {
         model: request.model ?? this.defaultModel,
         max_tokens: request.maxTokens ?? 8192,
         temperature: request.temperature,
-        system: request.systemPrompt,
+        system: buildSystem(request.systemPrompt, this.promptCaching),
         messages: toAnthropicMessages(request.messages),
-        tools: request.tools?.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          input_schema: tool.inputSchema as Anthropic.Messages.Tool.InputSchema,
-        })),
+        tools: buildTools(request.tools, this.promptCaching),
       });
 
       const toolCalls = extractToolCalls(response.content);
@@ -62,11 +113,7 @@ export class AnthropicProvider implements ModelProvider {
 
       return {
         content,
-        usage: {
-          inputTokens: response.usage.input_tokens,
-          outputTokens: response.usage.output_tokens,
-          totalTokens: response.usage.input_tokens + response.usage.output_tokens,
-        },
+        usage: usageFromAnthropic(response.usage as AnthropicUsage),
         model: response.model,
         finishReason: response.stop_reason ?? 'end_turn',
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
@@ -84,13 +131,9 @@ export class AnthropicProvider implements ModelProvider {
         model: request.model ?? this.defaultModel,
         max_tokens: request.maxTokens ?? 8192,
         temperature: request.temperature,
-        system: request.systemPrompt,
+        system: buildSystem(request.systemPrompt, this.promptCaching),
         messages: toAnthropicMessages(request.messages),
-        tools: request.tools?.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          input_schema: tool.inputSchema as Anthropic.Messages.Tool.InputSchema,
-        })),
+        tools: buildTools(request.tools, this.promptCaching),
       });
 
       let currentToolId: string | null = null;
@@ -137,12 +180,7 @@ export class AnthropicProvider implements ModelProvider {
       const toolCalls = extractToolCalls(finalMessage.content);
       yield {
         type: 'done',
-        usage: {
-          inputTokens: finalMessage.usage.input_tokens,
-          outputTokens: finalMessage.usage.output_tokens,
-          totalTokens:
-            finalMessage.usage.input_tokens + finalMessage.usage.output_tokens,
-        },
+        usage: usageFromAnthropic(finalMessage.usage as AnthropicUsage),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       };
     } catch (error) {

@@ -65,6 +65,7 @@ export function createModelProvider(
       return new AnthropicProvider({
         apiKey: key,
         defaultModel: options.model ?? 'claude-sonnet-4-20250514',
+        promptCaching: process.env.ANVIO_PROMPT_CACHING !== 'false',
       });
     }
     case 'gemini': {
