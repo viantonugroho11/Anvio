@@ -32,6 +32,8 @@ export const memoryConfigSchema = z.object({
     .default('filesystem'),
   basePath: z.string().default('memory'),
   fts: z.boolean().default(false),
+  maxShortTermMessages: z.number().int().min(0).default(0),
+  summarizeOnOverflow: z.boolean().default(true),
 });
 
 export const runtimeConfigSchema = z.object({

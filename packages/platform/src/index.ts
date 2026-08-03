@@ -29,7 +29,7 @@ import {
 } from '@anvio/runtimes';
 import { createKanbanEngine } from '@anvio/kanban';
 import { createGoalEngine } from '@anvio/goals';
-import { LearningEngine } from '@anvio/learning';
+import { LearningEngine, SessionSummarizer } from '@anvio/learning';
 import { ToolGateway } from '@anvio/tools';
 import { createCodeExecutor } from '@anvio/execution';
 import { DagExecutor, createWorkflowRegistry } from '@anvio/workflows';
@@ -58,8 +58,16 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     defaultUserId: spec.defaultUserId,
   });
 
+  let slidingWindowSummarizer: SessionSummarizer | null = null;
   const memoryProvider = createMemoryProvider(spec.memory.provider, workspace.storage, undefined, {
     fts: spec.memory.fts,
+    maxShortTermMessages: spec.memory.maxShortTermMessages,
+    summarizeOnOverflow: spec.memory.summarizeOnOverflow,
+    summarize: async (msgs) => {
+      if (!slidingWindowSummarizer) return '';
+      const { summary } = await slidingWindowSummarizer.summarize(msgs);
+      return summary;
+    },
   });
   const repoRoot = findRepoRoot(workspacePath);
   const personaService = new PersonaService(workspace.loader);
@@ -149,6 +157,12 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     modelProviders.getOptional('anthropic') ??
     modelProviders.first();
   const learningEngine = new LearningEngine(memoryProvider, workspacePath, {
+    modelProvider:
+      learningModelProvider && learningModelProvider.providerId !== 'mock'
+        ? learningModelProvider
+        : undefined,
+  });
+  slidingWindowSummarizer = new SessionSummarizer(memoryProvider, {
     modelProvider:
       learningModelProvider && learningModelProvider.providerId !== 'mock'
         ? learningModelProvider

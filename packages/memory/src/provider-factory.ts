@@ -13,8 +13,16 @@ import { MemoryRecallIndex } from './recall-index.js';
 import { openSqliteFtsRecall, type SqliteFtsRecall } from './providers/sqlite/sqlite-fts-recall.js';
 import path from 'node:path';
 
+export type SummarizerFn = (messages: ChatMessage[]) => Promise<string> | string;
+
 export interface FilesystemMemoryOptions {
   enableFts?: boolean;
+  /** Max messages retained in short-term store; 0 = unlimited (default). */
+  maxShortTermMessages?: number;
+  /** When true, overflow head is summarized and prepended; when false, head is dropped. */
+  summarizeOnOverflow?: boolean;
+  /** Optional LLM-backed summarizer; when absent, rule-based head/tail is used. */
+  summarize?: SummarizerFn;
 }
 
 /** Filesystem-based memory provider — default for local-first mode. */
@@ -87,7 +95,8 @@ export class FilesystemMemoryProvider implements MemoryProvider {
     userId: string,
     messages: ChatMessage[],
   ): Promise<void> {
-    await this.setMessages(sessionId, messages);
+    const compressed = await this.applySlidingWindow(messages);
+    await this.setMessages(sessionId, compressed);
     for (const msg of messages.slice(-2)) {
       await this.store({
         sessionId,
@@ -96,6 +105,38 @@ export class FilesystemMemoryProvider implements MemoryProvider {
         content: JSON.stringify(msg),
       });
     }
+  }
+
+  private async applySlidingWindow(messages: ChatMessage[]): Promise<ChatMessage[]> {
+    const max = this.options.maxShortTermMessages ?? 0;
+    if (max <= 0 || messages.length <= max) return messages;
+
+    const tailSize = Math.max(1, Math.floor(max / 2));
+    const tail = messages.slice(-tailSize);
+    const head = messages.slice(0, messages.length - tail.length);
+    if (head.length === 0) return messages;
+
+    const summarize = this.options.summarize;
+    const shouldSummarize = this.options.summarizeOnOverflow !== false;
+
+    if (!shouldSummarize) return tail;
+
+    let summaryText: string;
+    if (summarize) {
+      try {
+        summaryText = (await summarize(head)) || fallbackSummary(head);
+      } catch {
+        summaryText = fallbackSummary(head);
+      }
+    } else {
+      summaryText = fallbackSummary(head);
+    }
+
+    const summaryMessage: ChatMessage = {
+      role: 'assistant',
+      content: `[Context summary — ${head.length} earlier messages compressed]\n${summaryText}`,
+    };
+    return [summaryMessage, ...tail];
   }
 
   async storeEntry(entry: MemoryEntry): Promise<void> {
@@ -178,6 +219,23 @@ export class FilesystemMemoryProvider implements MemoryProvider {
   }
 }
 
+function fallbackSummary(messages: ChatMessage[]): string {
+  const userTopics = messages
+    .filter((m) => m.role === 'user')
+    .slice(-3)
+    .map((m) => m.content.slice(0, 120).replace(/\s+/g, ' ').trim());
+  const lastAssistant = [...messages]
+    .reverse()
+    .find((m) => m.role === 'assistant')
+    ?.content.slice(0, 280)
+    .replace(/\s+/g, ' ')
+    .trim();
+  const parts: string[] = [];
+  if (userTopics.length) parts.push(`Topics: ${userTopics.join(' | ')}`);
+  if (lastAssistant) parts.push(`Last outcome: ${lastAssistant}`);
+  return parts.join('\n') || `${messages.length} earlier messages`;
+}
+
 function createStubProvider(id: string): MemoryProvider {
   const unavailable = (): never => {
     throw new Error(
@@ -205,14 +263,28 @@ export function createMemoryProvider(
   provider: string,
   storage: FilesystemStorageProvider,
   honchoConfig?: HonchoConfig,
-  memoryConfig?: { fts?: boolean },
+  memoryConfig?: {
+    fts?: boolean;
+    maxShortTermMessages?: number;
+    summarizeOnOverflow?: boolean;
+    summarize?: SummarizerFn;
+  },
 ): MemoryProvider {
   const enableFts = memoryConfig?.fts === true || provider === 'sqlite';
+  const opts: FilesystemMemoryOptions = {
+    enableFts,
+    maxShortTermMessages: memoryConfig?.maxShortTermMessages,
+    summarizeOnOverflow: memoryConfig?.summarizeOnOverflow,
+    summarize: memoryConfig?.summarize,
+  };
   switch (provider) {
     case 'filesystem':
-      return new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', { enableFts });
+      return new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', opts);
     case 'sqlite':
-      return new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', { enableFts: true });
+      return new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', {
+        ...opts,
+        enableFts: true,
+      });
     case 'honcho': {
       const config =
         honchoConfig ??
@@ -224,7 +296,7 @@ export function createMemoryProvider(
             }
           : undefined);
       return createHonchoProvider(
-        new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', { enableFts }),
+        new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', opts),
         config,
       );
     }
