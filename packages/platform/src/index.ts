@@ -139,6 +139,11 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     channels: spec.channels,
     harness,
     onApproval: async (sessionId, requestId, approved, userId) => {
+      const stored = await workspace.sessions.get(sessionId);
+      const pendingToolName = stored?.pendingApproval?.toolName;
+      if (approved && pendingToolName?.startsWith('anvio_mcp__')) {
+        await mcpFirstCallGate.approveToolName(sessionId, pendingToolName);
+      }
       if (harness.enabled && userId) {
         const ok = await harness.resolveApproval(sessionId, requestId, userId, approved);
         if (!ok) return;
