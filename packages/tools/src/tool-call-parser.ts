@@ -50,11 +50,29 @@ export function stripToolCalls(content: string): string {
   return content.replace(TOOL_FENCE_RE, '').trim();
 }
 
-export function formatToolResultMessage(name: string, output: unknown, error?: string): string {
+export interface FormatToolResultOptions {
+  /** Max characters kept from body; 0 = unlimited. Head+tail preserved when clipped. */
+  maxOutputChars?: number;
+}
+
+export function clipToolOutput(body: string, maxChars: number): string {
+  if (maxChars <= 0 || body.length <= maxChars) return body;
+  const half = Math.floor(maxChars / 2);
+  const removed = body.length - maxChars;
+  return `${body.slice(0, half)}\n\n[… ${removed} chars truncated …]\n\n${body.slice(-half)}`;
+}
+
+export function formatToolResultMessage(
+  name: string,
+  output: unknown,
+  error?: string,
+  opts: FormatToolResultOptions = {},
+): string {
   if (error) {
     return `Tool ${name} failed:\n${error}`;
   }
   const body =
     typeof output === 'string' ? output : JSON.stringify(output, null, 2);
-  return `Tool ${name} result:\n${body}`;
+  const clipped = clipToolOutput(body, opts.maxOutputChars ?? 0);
+  return `Tool ${name} result:\n${clipped}`;
 }

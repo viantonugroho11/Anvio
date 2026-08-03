@@ -1,6 +1,6 @@
 import type { BuiltinToolResult, ChatMessage, ModelToolCall, RuntimeToolPort } from '@anvio/core';
 import { formatToolResultMessage } from '@anvio/tools';
-import type { ToolLoopCallbacks, ToolLoopContext } from './tool-loop.js';
+import { resolveMaxToolOutputChars, type ToolLoopCallbacks, type ToolLoopContext } from './tool-loop.js';
 import type { PendingToolApproval } from './tool-loop.js';
 
 export async function executeNativeToolCalls(input: {
@@ -32,7 +32,9 @@ export async function executeNativeToolCalls(input: {
       role: 'tool',
       name: call.name,
       toolCallId: call.id,
-      content: formatToolResultMessage(call.name, result.output, result.error),
+      content: formatToolResultMessage(call.name, result.output, result.error, {
+        maxOutputChars: resolveMaxToolOutputChars(),
+      }),
     });
   }
 

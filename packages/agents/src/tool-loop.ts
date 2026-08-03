@@ -1,6 +1,15 @@
 import type { BuiltinToolResult, ChatMessage, RuntimeToolPort } from '@anvio/core';
 import { formatToolResultMessage, parseToolCalls } from '@anvio/tools';
 
+const DEFAULT_MAX_TOOL_OUTPUT_CHARS = 8_000;
+
+export function resolveMaxToolOutputChars(): number {
+  const raw = process.env.ANVIO_MAX_TOOL_OUTPUT_CHARS;
+  if (raw === undefined) return DEFAULT_MAX_TOOL_OUTPUT_CHARS;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_MAX_TOOL_OUTPUT_CHARS;
+}
+
 export interface ToolLoopContext {
   sessionId: string;
   agentId: string;
@@ -41,7 +50,9 @@ export async function executeParsedToolCalls(input: {
     }
     toolMessages.push({
       role: 'user',
-      content: formatToolResultMessage(call.name, result.output, result.error),
+      content: formatToolResultMessage(call.name, result.output, result.error, {
+        maxOutputChars: resolveMaxToolOutputChars(),
+      }),
     });
   }
 
