@@ -13,11 +13,15 @@ import { parse as parseYaml } from 'yaml';
 import { createModelProvider } from './provider-factory.js';
 import { walkFallbackChain } from './fallback-chain.js';
 import { classifyTask, type TaskRoute } from './task-classifier.js';
+import { SpendBudgetLedger } from './spend-budget.js';
+import { estimateModelCostUsd } from './model-descriptor.js';
 
 export interface ModelRouterDeps {
   storage: FilesystemStorageProvider;
   providers: Map<string, ModelProvider>;
   credentialPools?: CredentialPoolManager;
+  /** Optional per-key USD budget ledger; when set, router charges every successful call. */
+  spendBudget?: SpendBudgetLedger;
 }
 
 export interface RoutedChatRequest extends ChatRequest {
@@ -25,6 +29,8 @@ export interface RoutedChatRequest extends ChatRequest {
   message?: string;
   skillRoutingHints?: string[];
   routeOverride?: TaskRoute;
+  /** Ledger key to charge for this call; ignored when `deps.spendBudget` unset. */
+  budgetKey?: string;
 }
 
 export interface RoutedChatResponse extends ChatResponse {
@@ -64,6 +70,7 @@ export class ModelRouter {
         ...request,
         model: agentOverride.override.model ?? request.model,
       });
+      this.chargeBudget(request, agentOverride.override.provider, result.model, result.usage);
       return {
         ...result,
         selectedProvider: agentOverride.override.provider,
@@ -84,6 +91,7 @@ export class ModelRouter {
       const fallback = this.deps.providers.values().next().value;
       if (!fallback) throw new Error('No model providers registered');
       const result = await fallback.chat(request);
+      this.chargeBudget(request, fallback.providerId, result.model, result.usage);
       return {
         ...result,
         selectedProvider: fallback.providerId,
@@ -101,6 +109,13 @@ export class ModelRouter {
       });
     });
 
+    this.chargeBudget(
+      request,
+      chainResult.target.provider,
+      chainResult.target.model ?? chainResult.result.model,
+      chainResult.result.usage,
+    );
+
     return {
       ...chainResult.result,
       selectedProvider: chainResult.target.provider,
@@ -108,6 +123,24 @@ export class ModelRouter {
       failover: chainResult.failover,
       route: routeName,
     };
+  }
+
+  private chargeBudget(
+    request: RoutedChatRequest,
+    provider: string,
+    model: string,
+    usage: ChatResponse['usage'],
+  ): void {
+    if (!this.deps.spendBudget || !request.budgetKey) return;
+    const usd = estimateModelCostUsd(provider, model, {
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cacheReadTokens: usage.cacheReadInputTokens,
+      cacheCreationTokens: usage.cacheCreationInputTokens,
+    });
+    if (usd == null || usd === 0) return;
+    // Throws MODEL_SPEND_BUDGET_EXCEEDED (typed AnvioError, HTTP 402) when cap would be exceeded.
+    this.deps.spendBudget.charge(request.budgetKey, usd);
   }
 
   private async resolveProvider(target: RouteTarget): Promise<ModelProvider> {

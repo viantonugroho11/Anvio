@@ -19,12 +19,12 @@ import { stripToolCalls } from '@anvio/tools';
 import { PersonaService } from '@anvio/personas';
 import {
   SkillRegistry,
-  matchTriggers,
   mergeSkillSlugs,
   createComposableSkillRegistry,
 } from '@anvio/skills';
 import { classifyTask } from '@anvio/models';
 import type { SkillCatalogResolver } from '@anvio/skills';
+import { SkillTriggerCache } from '@anvio/skills';
 import {
   DEFAULT_MAX_TOOL_ITERATIONS,
   executeParsedToolCalls,
@@ -49,8 +49,13 @@ export interface AgentRuntimeDeps {
 
 export class DefaultAgentRuntime implements AgentRuntime {
   private readonly stopRequests = new Set<string>();
+  private triggerCache: SkillTriggerCache | undefined;
 
-  constructor(private readonly deps: AgentRuntimeDeps) {}
+  constructor(private readonly deps: AgentRuntimeDeps) {
+    if (deps.skillCatalog) {
+      this.triggerCache = SkillTriggerCache.fromResolver(deps.skillCatalog);
+    }
+  }
 
   async stop(sessionId: string): Promise<void> {
     this.stopRequests.add(sessionId);
@@ -336,16 +341,11 @@ export class DefaultAgentRuntime implements AgentRuntime {
       }
     }
 
-    // Auto-activate skills whose triggers[] match the inbound message
-    if (message && this.deps.skillCatalog) {
+    // Auto-activate skills whose triggers[] match the inbound message.
+    // Uses SkillTriggerCache — re-parses only YAML files whose mtime changed.
+    if (message && this.triggerCache) {
       try {
-        const allSkills = await Promise.all(
-          (await this.deps.skillCatalog.listAll()).map((e) =>
-            this.deps.skillCatalog!.load(e.slug).catch(() => null),
-          ),
-        );
-        const validSkills = allSkills.filter(Boolean) as Awaited<ReturnType<typeof this.deps.skillCatalog.load>>[];
-        const autoSlugs = matchTriggers(message, validSkills);
+        const autoSlugs = await this.triggerCache.matchAll(message);
         effectiveSlugs = mergeSkillSlugs(effectiveSlugs, autoSlugs);
       } catch {
         // trigger matching is best-effort

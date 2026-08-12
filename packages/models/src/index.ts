@@ -24,5 +24,18 @@ export {
 export { classifyTask, strategyForRoute, type TaskRoute } from './task-classifier.js';
 export { withCallMetrics, recordStreamMetrics } from './metrics-emitter.js';
 export { SpendBudgetLedger } from './spend-budget.js';
-export { walkFallbackChain, type FallbackResult } from './fallback-chain.js';
+export {
+  getModelDescriptor,
+  listModelDescriptors,
+  estimateModelCostUsd,
+  type ModelDescriptor,
+  type ModelCost,
+  type CostEstimateInput,
+} from './model-descriptor.js';
+export { walkFallbackChain, type FallbackResult, type WalkFallbackOptions } from './fallback-chain.js';
+export {
+  ProviderCircuitBreaker,
+  type CircuitBreakerOptions,
+  type CircuitState,
+} from './circuit-breaker.js';
 export { ModelRouter, createModelRouter, type ModelRouterDeps, type RoutedChatResponse } from './model-router.js';

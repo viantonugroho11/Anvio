@@ -83,6 +83,7 @@ export { executeSkill, SkillStepError } from './executor.js';
 export type { SkillExecuteInput, SkillExecuteResult, SkillStepResult } from './executor.js';
 export { matchTriggers, mergeSkillSlugs } from './trigger-matcher.js';
 export type { TriggerMatchContext } from './trigger-matcher.js';
+export { SkillTriggerCache } from './trigger-index.js';
 export {
   ComposableSkillRegistry,
   createComposableSkillRegistry,

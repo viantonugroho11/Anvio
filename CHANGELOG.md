@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.27.0] - 2026-08-12
+
+**Model Gateway hardening + skill-trigger cache.**
+
+### Added
+- **Epic 12 F1 slice — `ModelDescriptor` registry** (`@anvio/models`). New `getModelDescriptor(provider, model)`, `listModelDescriptors()`, and `estimateModelCostUsd(provider, model, usage)`. Ships descriptors for `anthropic:claude-sonnet-4-20250514`, `claude-opus-4-20250514`, `claude-haiku-4-5-20251001`, `openai:gpt-4o`, `gpt-4o-mini`, `gemini:gemini-2.0-flash`, `gemini-1.5-pro`, `deepseek:deepseek-chat`, `groq:llama-3.3-70b-versatile` with context window, max output, `supportsTools`, `supportsCaching`, and USD cost per 1M tokens. Cache-read defaults to 10% of input rate (Anthropic-style) and cache-creation defaults to 125%; descriptors may override both.
+- **Epic 12 F2 slice — `ModelRouter` charges `SpendBudgetLedger`** after every successful call when `deps.spendBudget` and `request.budgetKey` are both set. Cost computed via `estimateModelCostUsd`; `charge()` throws `MODEL_SPEND_BUDGET_EXCEEDED` (HTTP 402) on breach, and the failed charge is NOT recorded so prior spend stays exact.
+- **Epic 12 F2 slice — `ProviderCircuitBreaker`** (`@anvio/models`). Per-provider state machine (`closed → open → half-open → closed`) with configurable `failureThreshold` (default 3) and `cooldownMs` (default 30_000). `walkFallbackChain` accepts an optional `{ breaker }` option; skipped targets appear in `attempts[].skipped = 'circuit-open'`. Prior positional `isRetryable` signature retained for backwards compatibility.
+- **P1.S8 skill-trigger index cache** (`@anvio/skills`). New `SkillTriggerCache` re-parses skill YAML only when its file mtime changes. `matchAll(message, ctx)` refreshes then runs `matchTriggers` — turns a per-message full catalog parse into an O(N) stat + zero re-reads on stable catalogs. Wired into `DefaultAgentRuntime`: the runtime instantiates one `SkillTriggerCache` at construction and reuses it for every incoming message. Workspace overrides bundled for the same slug; `manifest.yaml` and `_*.yaml` drafts are skipped.
+
+### Changed
+- `walkFallbackChain(route, execute, isRetryable)` → `walkFallbackChain(route, execute, options)`. `options.isRetryable` and `options.breaker` supported; legacy 3rd-arg-as-function signature still accepted so no consumer changes required.
+
+### Docs
+- (No new ADRs this release — increments track the tables in ADR-0011 and ADR-0013.)
+
+### Tests
+- 338 total (up from 311). New: `model-descriptor.spec.ts` (7), `model-router-budget.spec.ts` (5), `circuit-breaker.spec.ts` (9), `trigger-index.spec.ts` (6). `pnpm test` green, `pnpm build` green.
+
+---
+
 ## [1.26.0] - 2026-08-12
 
 **Observability foundation, Tool Bus policy layer, Model Gateway scaffolding, and Anthropic SDK 0.93.**
