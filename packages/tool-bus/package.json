@@ -1,5 +1,5 @@
 {
-  "name": "@anvio/observability",
+  "name": "@anvio/tool-bus",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,13 +19,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/sdk-node": "^0.217.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.75.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.217.0",
-    "@opentelemetry/resources": "^2.0.1",
-    "@opentelemetry/semantic-conventions": "^1.33.0",
-    "pino": "^9.5.0"
+    "@anvio/core": "workspace:*",
+    "zod": "^3.25.28"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

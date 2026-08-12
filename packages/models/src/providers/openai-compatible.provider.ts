@@ -7,6 +7,7 @@ import type {
   StreamChunk,
 } from '@anvio/core';
 import { toOpenAIMessages, type OpenAIChatMessage } from './openai-messages.js';
+import { withCallMetrics, recordStreamMetrics } from '../metrics-emitter.js';
 
 export interface OpenAICompatibleProviderOptions {
   providerId: string;
@@ -82,6 +83,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    return withCallMetrics(this.providerId, request.model ?? this.defaultModel, async () => {
     try {
       const body: Record<string, unknown> = {
         model: request.model ?? this.defaultModel,
@@ -101,7 +103,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
         }));
       }
 
-      const response = await this.post('/chat/completions', body);
+      const response = await this.post('/chat/completions', body, request.signal);
       const responseBody = (await response.json()) as OpenAIChatCompletionResponse;
       if (!response.ok) {
         throw new Error(JSON.stringify(responseBody));
@@ -128,9 +130,12 @@ export class OpenAICompatibleProvider implements ModelProvider {
         cause: error instanceof Error ? error : undefined,
       });
     }
+    });
   }
 
   async *stream(request: ChatRequest): AsyncIterable<StreamChunk> {
+    const startedAtMs = Date.now();
+    const modelId = request.model ?? this.defaultModel;
     try {
       const body: Record<string, unknown> = {
         model: request.model ?? this.defaultModel,
@@ -150,7 +155,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
         }));
       }
 
-      const response = await this.post('/chat/completions', body);
+      const response = await this.post('/chat/completions', body, request.signal);
 
       if (!response.ok) {
         const errorBody = await response.text();
@@ -227,6 +232,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
         yield { type: 'tool_use', toolCall };
       }
 
+      recordStreamMetrics(this.providerId, modelId, streamUsage, startedAtMs);
       yield {
         type: 'done',
         usage: streamUsage,
@@ -240,7 +246,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
     }
   }
 
-  private async post(path: string, body: unknown): Promise<Response> {
+  private async post(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...this.extraHeaders,
@@ -253,6 +259,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
+      signal,
     });
   }
 }

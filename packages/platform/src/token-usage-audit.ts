@@ -13,6 +13,7 @@ export interface TokenUsageRecord {
   model?: string;
   usage: TokenUsage;
   estimatedCostUsd?: number;
+  latencyMs?: number;
 }
 
 /** Per-million-token list prices (USD) for rough cost estimates. */
@@ -55,7 +56,10 @@ export class TokenUsageAudit {
       inputTokens: input.usage.inputTokens,
       outputTokens: input.usage.outputTokens,
       totalTokens: input.usage.totalTokens,
+      cacheReadTokens: input.usage.cacheReadInputTokens,
+      cacheCreationTokens: input.usage.cacheCreationInputTokens,
       estimatedCostUsd,
+      latencyMs: input.latencyMs,
     });
   }
 }

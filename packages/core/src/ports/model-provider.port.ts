@@ -8,6 +8,8 @@ export interface ChatRequest {
   temperature?: number;
   model?: string;
   tools?: ModelToolDefinition[];
+  /** Abort in-flight HTTP/SDK call. Adapters must wire this into fetch/SDK opts. */
+  signal?: AbortSignal;
 }
 
 export interface ChatResponse {

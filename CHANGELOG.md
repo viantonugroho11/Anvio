@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.26.0] - 2026-08-12
+
+**Observability foundation, Tool Bus policy layer, Model Gateway scaffolding, and Anthropic SDK 0.93.**
+
+### Added
+- **P1.S2 — pino structured logger** (`@anvio/observability`). New `createLogger(name)` returns a child logger namespaced by module; env-tunable via `ANVIO_LOG_LEVEL` (defaults to `info` in production, `debug` otherwise). `setRootLogger` provided as a test hook. ESLint `no-empty` (with `allowEmptyCatch: false`) added at repo root — enforced across all 46 catch blocks in the tree; audit confirms zero empty catches remain.
+- **P1.S3 — per-model-call metrics**. `withCallMetrics(providerId, model, fn)` and `recordStreamMetrics(providerId, model, usage, startedAtMs)` in `@anvio/models` wrap every Anthropic / OpenAI-compatible / Gemini chat + stream call and emit `anvio_tokens_input_total`, `anvio_tokens_output_total`, `anvio_tokens_total`, `anvio_tokens_cache_read_total`, `anvio_tokens_cache_creation_total`, `anvio_model_calls_total`, and `anvio_model_call_latency_ms` (as a histogram with count/sum/min/max) via `MetricsRegistry`. `TokenUsageAudit.record` now forwards `latencyMs` + cache-token fields into the registry as well.
+- **Epic 5 F1 — Tool Bus policy layer**. New `@anvio/tool-bus` package with `ToolPolicy` schema (allowed / denied / requireApproval / argumentOverrides), `mergeToolPolicies` implementing the fixed layer precedence `default → tenant → project → agent`, and `decideToolCall(policy, name)` returning a typed `{ allowed, reason | requiresApproval }` verdict. Semantics locked in `policy.spec.ts` (11 tests): allow-list intersects across layers (agent cannot broaden), denies + `requireApproval` union across layers, glob (`fs_*`) supported, order-independent merge.
+- **Epic 12 F1 slice — `AbortSignal` propagation** to every model adapter. `ChatRequest` gains an optional `signal?: AbortSignal` field; Anthropic (`messages.create` + `messages.stream`), OpenAI-compatible (`fetch`), and Gemini (`fetch`) adapters all forward it. Aborting a session now cancels the in-flight HTTP/SDK call instead of letting it complete off-thread.
+- **Epic 12 F2 slice — `SpendBudgetLedger`** in `@anvio/models`. Per-key USD cap with hard-error enforcement: `charge(key, usd)` throws the new `MODEL_SPEND_BUDGET_EXCEEDED` (HTTP 402) `AnvioError` code when the charge would exceed the cap. `remaining(key)` returns `Infinity` when no cap set. Prior charges are retained on failure. Companion `INVALID_ARGUMENT` (HTTP 400) code also added.
+
+### Changed
+- **Anthropic SDK bump** `@anthropic-ai/sdk ^0.52.0 → ^0.93.0` (`packages/models`). Closes the peer-dep warning from `@anthropic-ai/claude-agent-sdk 0.3.228`. No API-shape changes needed — the SDK's public message/content-block types remained compatible after the runtime type-predicate refactor in v1.25.1.
+- `MetricsRegistry.recordTokenUsage` accepts optional `cacheReadTokens`, `cacheCreationTokens`, `latencyMs`. Latency emissions land in a new histogram bucket per (provider, model, channel). `snapshotHistogram(name, labels)` is now public for tests.
+- `packages/models` now depends on `@anvio/observability` (metrics-emitter wiring). No consumer code change required.
+
+### Deferred
+- **zod 3 → 4 migration** — see new [ADR-0012](docs/adr/0012-zod-4-migration-deferred.md). Naive `zod: ^4.0.0` bump surfaced 26 `z.record()` signature-change sites plus 25 `.default({})` type-narrowing failures across `packages/core/src/schemas/*` — kept on 3.25 until a dedicated migration story covers them alongside a companion Claude Agent SDK bump. Peer warning `unmet peer zod@^4.0.0: found 3.25.76` is expected and non-blocking at runtime.
+
+### Docs
+- **ADR-0012** — zod 3 → 4 migration deferred (context, migration checklist, gate).
+- **ADR-0013** — Model Gateway evolves `packages/models`; no `packages/model-gateway/` greenfield rewrite. Named gaps table (E12 F1/F2) with current status per slice.
+
+### Tests
+- 311 total (up from 291). New: `metrics-emitter.spec.ts` (2), `packages/tool-bus/src/policy.spec.ts` (11), `spend-budget.spec.ts` (7). `pnpm test` green, `pnpm build` green.
+
+---
+
 ## [1.25.1] - 2026-08-12
 
 **Security patch release — resolves 42 open Dependabot alerts (22 high, 18 moderate, 2 low) → 0.**

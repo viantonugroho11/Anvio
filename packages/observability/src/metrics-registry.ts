@@ -11,6 +11,7 @@ function labelKey(name: string, labels: Labels): string {
 export class MetricsRegistry {
   private readonly counters = new Map<string, number>();
   private readonly gauges = new Map<string, number>();
+  private readonly histograms = new Map<string, { count: number; sum: number; min: number; max: number }>();
 
   incrementCounter(name: string, labels: Labels = {}, value = 1): void {
     const key = labelKey(name, labels);
@@ -28,7 +29,10 @@ export class MetricsRegistry {
     inputTokens: number;
     outputTokens: number;
     totalTokens: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
     estimatedCostUsd?: number;
+    latencyMs?: number;
   }): void {
     const base = {
       provider: input.provider ?? 'unknown',
@@ -38,9 +42,29 @@ export class MetricsRegistry {
     this.incrementCounter('anvio_tokens_input_total', base, input.inputTokens);
     this.incrementCounter('anvio_tokens_output_total', base, input.outputTokens);
     this.incrementCounter('anvio_tokens_total', base, input.totalTokens);
+    if (input.cacheReadTokens != null && input.cacheReadTokens > 0) {
+      this.incrementCounter('anvio_tokens_cache_read_total', base, input.cacheReadTokens);
+    }
+    if (input.cacheCreationTokens != null && input.cacheCreationTokens > 0) {
+      this.incrementCounter('anvio_tokens_cache_creation_total', base, input.cacheCreationTokens);
+    }
     if (input.estimatedCostUsd != null) {
       this.incrementCounter('anvio_token_cost_usd_total', base, input.estimatedCostUsd);
     }
+    if (input.latencyMs != null) {
+      this.observeLatency('anvio_model_call_latency_ms', base, input.latencyMs);
+      this.incrementCounter('anvio_model_calls_total', base);
+    }
+  }
+
+  observeLatency(name: string, labels: Labels, valueMs: number): void {
+    const key = labelKey(name, labels);
+    const bucket = this.histograms.get(key) ?? { count: 0, sum: 0, min: Infinity, max: 0 };
+    bucket.count += 1;
+    bucket.sum += valueMs;
+    bucket.min = Math.min(bucket.min, valueMs);
+    bucket.max = Math.max(bucket.max, valueMs);
+    this.histograms.set(key, bucket);
   }
 
   recordMcpRestart(serverId: string): void {
@@ -55,12 +79,23 @@ export class MetricsRegistry {
     for (const [key, value] of this.gauges) {
       lines.push(`${key} ${value}`);
     }
+    for (const [key, h] of this.histograms) {
+      lines.push(`${key}_count ${h.count}`);
+      lines.push(`${key}_sum ${h.sum}`);
+      lines.push(`${key}_min ${h.min}`);
+      lines.push(`${key}_max ${h.max}`);
+    }
     return `${lines.join('\n')}\n`;
+  }
+
+  snapshotHistogram(name: string, labels: Labels = {}): { count: number; sum: number; min: number; max: number } | undefined {
+    return this.histograms.get(labelKey(name, labels));
   }
 
   reset(): void {
     this.counters.clear();
     this.gauges.clear();
+    this.histograms.clear();
   }
 }
 

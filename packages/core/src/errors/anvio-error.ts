@@ -9,6 +9,8 @@ export type AnvioErrorCode =
   | 'MEMORY_ERROR'
   | 'TOOL_EXECUTION_ERROR'
   | 'APPROVAL_REQUIRED'
+  | 'INVALID_ARGUMENT'
+  | 'MODEL_SPEND_BUDGET_EXCEEDED'
   | 'INTERNAL_ERROR';
 
 export class AnvioError extends Error {
@@ -42,6 +44,10 @@ export class AnvioError extends Error {
         return 409;
       case 'APPROVAL_REQUIRED':
         return 422;
+      case 'INVALID_ARGUMENT':
+        return 400;
+      case 'MODEL_SPEND_BUDGET_EXCEEDED':
+        return 402;
       case 'AGENT_RUNTIME_ERROR':
       case 'MODEL_PROVIDER_ERROR':
       case 'MEMORY_ERROR':

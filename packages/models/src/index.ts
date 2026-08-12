@@ -22,5 +22,7 @@ export {
   createModelProviderRegistryInstance,
 } from './model-provider-registry.js';
 export { classifyTask, strategyForRoute, type TaskRoute } from './task-classifier.js';
+export { withCallMetrics, recordStreamMetrics } from './metrics-emitter.js';
+export { SpendBudgetLedger } from './spend-budget.js';
 export { walkFallbackChain, type FallbackResult } from './fallback-chain.js';
 export { ModelRouter, createModelRouter, type ModelRouterDeps, type RoutedChatResponse } from './model-router.js';

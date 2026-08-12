@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { AnvioError } from '@anvio/core';
+import { withCallMetrics, recordStreamMetrics } from '../metrics-emitter.js';
 import type {
   ChatRequest,
   ChatResponse,
@@ -98,43 +99,53 @@ export class AnthropicProvider implements ModelProvider {
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
-    try {
-      const response = await this.client.messages.create({
-        model: request.model ?? this.defaultModel,
-        max_tokens: request.maxTokens ?? 8192,
-        temperature: request.temperature,
-        system: buildSystem(request.systemPrompt, this.promptCaching),
-        messages: toAnthropicMessages(request.messages),
-        tools: buildTools(request.tools, this.promptCaching),
-      });
+    return withCallMetrics(this.providerId, request.model ?? this.defaultModel, async () => {
+      try {
+        const response = await this.client.messages.create(
+          {
+            model: request.model ?? this.defaultModel,
+            max_tokens: request.maxTokens ?? 8192,
+            temperature: request.temperature,
+            system: buildSystem(request.systemPrompt, this.promptCaching),
+            messages: toAnthropicMessages(request.messages),
+            tools: buildTools(request.tools, this.promptCaching),
+          },
+          request.signal ? { signal: request.signal } : undefined,
+        );
 
-      const toolCalls = extractToolCalls(response.content);
-      const content = extractText(response.content);
+        const toolCalls = extractToolCalls(response.content);
+        const content = extractText(response.content);
 
-      return {
-        content,
-        usage: usageFromAnthropic(response.usage as AnthropicUsage),
-        model: response.model,
-        finishReason: response.stop_reason ?? 'end_turn',
-        toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-      };
-    } catch (error) {
-      throw new AnvioError('MODEL_PROVIDER_ERROR', 'Anthropic API call failed', {
-        cause: error instanceof Error ? error : undefined,
-      });
-    }
+        return {
+          content,
+          usage: usageFromAnthropic(response.usage as AnthropicUsage),
+          model: response.model,
+          finishReason: response.stop_reason ?? 'end_turn',
+          toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+        };
+      } catch (error) {
+        throw new AnvioError('MODEL_PROVIDER_ERROR', 'Anthropic API call failed', {
+          cause: error instanceof Error ? error : undefined,
+        });
+      }
+    });
   }
 
   async *stream(request: ChatRequest): AsyncIterable<StreamChunk> {
+    const startedAtMs = Date.now();
+    const modelId = request.model ?? this.defaultModel;
     try {
-      const stream = this.client.messages.stream({
-        model: request.model ?? this.defaultModel,
-        max_tokens: request.maxTokens ?? 8192,
-        temperature: request.temperature,
-        system: buildSystem(request.systemPrompt, this.promptCaching),
-        messages: toAnthropicMessages(request.messages),
-        tools: buildTools(request.tools, this.promptCaching),
-      });
+      const stream = this.client.messages.stream(
+        {
+          model: request.model ?? this.defaultModel,
+          max_tokens: request.maxTokens ?? 8192,
+          temperature: request.temperature,
+          system: buildSystem(request.systemPrompt, this.promptCaching),
+          messages: toAnthropicMessages(request.messages),
+          tools: buildTools(request.tools, this.promptCaching),
+        },
+        request.signal ? { signal: request.signal } : undefined,
+      );
 
       let currentToolId: string | null = null;
       let currentToolName = '';
@@ -178,9 +189,11 @@ export class AnthropicProvider implements ModelProvider {
 
       const finalMessage = await stream.finalMessage();
       const toolCalls = extractToolCalls(finalMessage.content);
+      const finalUsage = usageFromAnthropic(finalMessage.usage as AnthropicUsage);
+      recordStreamMetrics(this.providerId, modelId, finalUsage, startedAtMs);
       yield {
         type: 'done',
-        usage: usageFromAnthropic(finalMessage.usage as AnthropicUsage),
+        usage: finalUsage,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       };
     } catch (error) {

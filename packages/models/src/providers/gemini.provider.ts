@@ -12,6 +12,7 @@ import {
   toGeminiContents,
   type GeminiPart,
 } from './gemini-messages.js';
+import { withCallMetrics, recordStreamMetrics } from '../metrics-emitter.js';
 
 export interface GeminiProviderOptions {
   apiKey: string;
@@ -48,6 +49,7 @@ export class GeminiProvider implements ModelProvider {
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    return withCallMetrics(this.providerId, request.model ?? this.defaultModel, async () => {
     try {
       const model = request.model ?? this.defaultModel;
       const response = await this.generate(model, request, false);
@@ -78,9 +80,11 @@ export class GeminiProvider implements ModelProvider {
         cause: error instanceof Error ? error : undefined,
       });
     }
+    });
   }
 
   async *stream(request: ChatRequest): AsyncIterable<StreamChunk> {
+    const startedAtMs = Date.now();
     try {
       const model = request.model ?? this.defaultModel;
       const response = await this.generate(model, request, true);
@@ -142,6 +146,7 @@ export class GeminiProvider implements ModelProvider {
         }
       }
 
+      recordStreamMetrics(this.providerId, request.model ?? this.defaultModel, streamUsage, startedAtMs);
       yield {
         type: 'done',
         usage: streamUsage,
@@ -190,6 +195,7 @@ export class GeminiProvider implements ModelProvider {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(this.buildBody(request)),
+      signal: request.signal,
     });
   }
 }

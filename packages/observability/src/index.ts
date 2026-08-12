@@ -78,3 +78,4 @@ export {
   getMetricsRegistry,
   resetMetricsRegistry,
 } from './metrics-registry.js';
+export { createLogger, setRootLogger, type Logger } from './logger.js';
