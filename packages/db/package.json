@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@anvio/core": "workspace:*",
-    "drizzle-orm": "^0.43.1",
+    "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5",
     "uuid": "^11.1.0",
     "yaml": "^2.8.0",

@@ -59,7 +59,7 @@ function extractAssistantText(message: SDKMessage): string | null {
   const blocks = message.message.content;
   if (!Array.isArray(blocks)) return null;
   return blocks
-    .filter((block): block is { type: 'text'; text: string } => block.type === 'text')
+    .filter((block): block is Extract<(typeof blocks)[number], { type: 'text' }> => block.type === 'text')
     .map((block) => block.text)
     .join('');
 }

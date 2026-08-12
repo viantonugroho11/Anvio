@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.25.1] - 2026-08-12
+
+**Security patch release — resolves 42 open Dependabot alerts (22 high, 18 moderate, 2 low) → 0.**
+
+### Security
+- **Direct dep bumps**: `next` `^15.3.3` → `^15.5.21` (`apps/web`, 8 CVEs), `drizzle-orm` `^0.43.1` → `^0.45.2` (`packages/db`, RCE fix), `@opentelemetry/sdk-node` `^0.201.1` → `^0.217.0`, `@opentelemetry/auto-instrumentations-node` `^0.59.0` → `^0.75.0`, `@opentelemetry/exporter-trace-otlp-http` `^0.201.1` → `^0.217.0` (`packages/observability`).
+- **Transitive `pnpm.overrides`** (root `package.json`): pin patched versions for `brace-expansion` (>=5.0.9), `esbuild` (>=0.28.1), `fast-uri` (>=3.1.5), `ip-address` (>=10.3.1), `js-yaml` (>=4.3.1), `postcss` (>=8.5.23), `protobufjs` (>=8.6.6), `multer` (>=2.2.0), `sharp` (>=0.35.0), `hono` (>=4.12.34), `@hono/node-server` (>=2.0.5), `@opentelemetry/core` (>=2.8.0), `@opentelemetry/propagator-jaeger` (>=2.9.0).
+- Clean-install audit: `pnpm audit` now reports **0 known vulnerabilities**.
+
+### Docs
+- **ADR-0007** — enhancement tier list now names SQLite Level 2 (FTS5 recall), not only Postgres/Redis/NATS/OAuth.
+- **ADR-0008** — line 33 replaced stub-adapter framing with the actual 16 shipped `packages/channels/src/*` adapters (cli, discord, email, feishu, google-chat, matrix, mattermost, rest-api, signal, slack, sms, teams, telegram, web-chat, whatsapp, plus generic `webhook` base).
+- **ADR-0009** — Context + Decision sections now mark `cursor`, `codex`, and `antigravity` runtimes as shipped (vs "future parity targets").
+- **ADR-0011** — D7 (Gemini native tools) marked Shipped v1.25.0 with CHANGELOG cross-ref; gap-list entry struck through.
+- **ADR-0010** — "Positive" bullet corrected: default flags in v1.25.0 are `promptCaching: true` (opt-out via `ANVIO_PROMPT_CACHING=false`) and `ANVIO_MAX_TOOL_OUTPUT_CHARS=8000`, not the pre-ship placeholder values.
+
+### Added
+- **P1.S6 golden trajectory capture scaffolding** — `apps/cli/scripts/capture-goldens.ts` reads sessions from a workspace `SessionStore`, filters `--min-messages`/`--limit`/`--tag`, and writes per-session `TrajectoryExport` JSON plus a merged `index.json` under `evals/goldens/v1-seed/`. Idempotent (skips existing files unless `--force`). Coverage matrix and review checklist in `evals/goldens/v1-seed/README.md`.
+
+### Tests
+- `tests/integration/phase-l6-runtime-learning.integration.spec.ts` — new case `skips session-end learning when soul evolution disabled` covers the `LearningEngine.onSessionCompleted` deny path (asserts empty `memoryNudge`, no `sessionSummary`, no `skillDraft`, no drafts on disk) so soul-gated evolution is enforced at session boundary in addition to the existing tool-use boundary.
+
+### Fixed
+- **Runtime build break after Claude Agent SDK bump** (0.3.198 → 0.3.228) — replaced the hand-written `{ type: 'text'; text: string }` predicate in `packages/runtimes/src/claude-code/claude-code-runtime.ts:62` with an `Extract`-based predicate so the filter narrows to the SDK's `BetaTextBlock` (which now requires a `citations` field) without duplicating the block shape.
+
+---
+
 ## [1.25.0] - 2026-08-03
 
 ### Added
