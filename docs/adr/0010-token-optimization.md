@@ -140,8 +140,10 @@ tools:
   applies automatically when using Anthropic models.
 - **Layer 3** prevents a single large tool result (e.g. a 50 KB file read) from inflating every
   subsequent turn's cost.
-- All three layers are independently toggleable and backward-compatible (default config matches
-  current behavior: `maxShortTermMessages: 0`, `promptCaching: false`, `maxOutputChars: 0`).
+- All three layers are independently toggleable. Shipped defaults in v1.25.0:
+  - `memory.maxShortTermMessages: 0` (unlimited — Layer 1 opt-in, backward-compatible).
+  - `promptCaching: true` (Layer 2 on by default; opt-out via `ANVIO_PROMPT_CACHING=false`).
+  - `ANVIO_MAX_TOOL_OUTPUT_CHARS=8000` (Layer 3 on by default; `0` disables).
 
 ### Negative / Trade-offs
 

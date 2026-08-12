@@ -20,7 +20,7 @@ Adopt **Local-First, File-First, CLI-First** architecture:
 - Default events: in-process (`LocalEventBus`)
 - Primary interface: `apps/cli` (`anvio chat`)
 
-PostgreSQL, Redis, NATS, OAuth remain available as Level 2–4 enhancements via `workspace/anvio.yaml`.
+SQLite (Level 2, `storage.provider: sqlite` — enables FTS5 recall), PostgreSQL, Redis, NATS, OAuth remain available as Level 2–4 enhancements via `workspace/anvio.yaml`.
 
 ## Consequences
 
