@@ -48,6 +48,32 @@ Focus: **Learning & memory**, **Automation & workflows**, **Authoring (J)**, **T
 
 Full plan (Phase G+): [plans/2026-06-19-002-feat-unified-agent-product-plan.md](./plans/2026-06-19-002-feat-unified-agent-product-plan.md).
 
+## Phase 1 vNext hardening (v1.25.0 – v1.27.0, shipped 2026-08)
+
+Progress against [engineering-backlog-vnext.md](./engineering-backlog-vnext.md) Phase 1 + Epic 12 slices:
+
+| Story | Shipped | Notes |
+|-------|---------|-------|
+| P1.S1 Anthropic prompt caching | v1.25.0 | [ADR-0010](adr/0010-token-optimization.md) Layer 2 |
+| P1.S2 pino logger + no-empty catch | v1.26.0 | 46 catches audited, 0 empty; ESLint rule enforced |
+| P1.S3 per-model-call metrics | v1.26.0 | tokens (input/output/cache) + latency histogram, 3 adapters wired |
+| P1.S4 sliding window + summarize | v1.25.0 | [ADR-0010](adr/0010-token-optimization.md) Layer 1 |
+| P1.S5 tool-output clipping | v1.25.0 | Layer 3 — artifact offload still pending |
+| P1.S6 golden trajectory capture | v1.25.1 | Infra shipped; 50-session capture pending |
+| P1.S7 agent tool-loop unit tests | ⏳ pending | Coverage not measured yet |
+| P1.S8 skill-trigger index cache | v1.27.0 | mtime-invalidated `SkillTriggerCache` in runtime |
+| Anthropic SDK 0.52 → 0.93 | v1.26.0 | Closes claude-agent-sdk peer warning |
+| Epic 5 F1 Tool Bus policy | v1.26.0 | `@anvio/tool-bus`, schema + 4-layer merge; enforcement pending |
+| Epic 12 F1 AbortSignal + ModelDescriptor | v1.26.0 / v1.27.0 | See [09-model-router.md](09-model-router.md) |
+| Epic 12 F2 spend budget + circuit breaker | v1.27.0 | `SpendBudgetLedger`, `ProviderCircuitBreaker`, wired in `ModelRouter` |
+| Security patch (42 CVEs → 0) | v1.25.1 | pnpm.overrides + direct dep bumps |
+
+Deferred:
+- zod 3 → 4 migration — [ADR-0012](adr/0012-zod-4-migration-deferred.md), 51 breaking sites
+- Epic 0 kernel scaffolding (`packages/{contracts,substrate,telemetry,testing}`) — prerequisite for Phase 2
+- Nous Portal OAuth, live MCP E2E, native IMAP IDLE — P15+ deferred
+
+
 ### Documentation Index
 
 | Doc | Topic |

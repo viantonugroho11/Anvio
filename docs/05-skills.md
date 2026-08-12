@@ -96,6 +96,19 @@ When reviewing code:
 | `composable` | bool | Skill can be called from other skills |
 | `timeout` | int | Max execution time in ms |
 
+## Trigger index cache (P1.S8, since v1.27.0)
+
+`DefaultAgentRuntime` no longer parses every skill YAML per message. It holds one `SkillTriggerCache` (from `@anvio/skills`) which:
+
+- stats every `*.yaml` in the bundled + workspace catalog directories on each `matchAll(message, ctx)` call
+- re-parses only files whose `mtimeMs` changed since the last refresh
+- drops cache entries for files that were deleted
+- prefers workspace over bundled when both define the same slug
+
+Rebuilding the index is O(N) `fs.stat` calls per message, not O(N) `readFile + parseYaml`. For a 30-skill catalog the per-message overhead drops from tens of ms to sub-ms. The cache is process-local; multi-process workers each hold their own.
+
+Programmatic use — outside the runtime — via `SkillTriggerCache.fromResolver(catalogResolver)` or the direct `new SkillTriggerCache({ bundledDir, workspaceDir })` constructor.
+
 ## Bundled skills
 
 Available in `configs/skills/` — no install needed:

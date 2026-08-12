@@ -55,14 +55,14 @@ Layer rule machine-enforced by dependency-cruiser config (P2 story E0.F1.S3). An
 
 | ID | Title | Description & AC | Deps | Size | d | Risk |
 |---|---|---|---|---|---|---|
-| P1.S1 | Anthropic prompt caching | `cache_control` breakpoints on system prompt + last tool def in `anthropic.provider.ts`. AC: cache-read tokens visible in usage; hit ratio >60% on ≥3-turn sessions; no output diff on goldens. `[FLAG:models.promptCache]` | — | S | 1 | M |
-| P1.S2 | Structured logging + ban silent catch | pino logger injected; lint rule `no-empty-catch`; all `catch {}` get `logger.debug` minimum. AC: zero empty catches repo-wide. | — | M | 2 | L |
-| P1.S3 | Token/cost/latency metrics per model call | emit `tokens_in/out/cached, cost_est, latency_ms, provider, model` per call via observability registry. AC: metrics queryable; cost table per provider. | P1.S2 | S | 1 | L |
-| P1.S4 | Sliding window + summarize-on-overflow | ADR-0010 L1 in `FilesystemMemoryStore`; config `memory.maxShortTermMessages` (default 40), summarizer via existing `@anvio/learning`. AC: history bounded; raw log retained on disk; goldens unaffected below window. `[FLAG]` | P1.S3 | M | 3 | M |
-| P1.S5 | Tool-output clipping + artifact offload | head/tail clip at `tools.outputBudgetBytes`; full payload to workspace artifact; reference line in context. AC: no tool result >budget enters messages. `[FLAG]` | — | M | 2 | M |
-| P1.S6 | Golden trajectory capture | record ~50 representative sessions (mix: chat, tool-heavy, approval, multi-turn) via existing `trajectory-export`; store under `evals/goldens/v1-seed/`. AC: replayable JSON, reviewed, committed. | P1.S3 | M | 2 | L |
-| P1.S7 | Agent tool-loop unit tests (v1) | tests for `runtime.ts`: iteration loop, native vs parsed paths, checkpoint build/read, stop, approval suspend. AC: ≥85% line coverage on `agents` package. | — | L | 4 | L |
-| P1.S8 | Skill-trigger index cache | cache catalog trigger index, invalidate on file mtime. AC: no per-message full catalog load (measured). | — | S | 1 | L |
+| P1.S1 ✅ v1.25.0 | Anthropic prompt caching | `cache_control` breakpoints on system prompt + last tool def in `anthropic.provider.ts`. AC: cache-read tokens visible in usage; hit ratio >60% on ≥3-turn sessions; no output diff on goldens. `[FLAG:models.promptCache]` | — | S | 1 | M |
+| P1.S2 ✅ v1.26.0 | Structured logging + ban silent catch | pino logger injected via `createLogger` in `@anvio/observability`; ESLint `no-empty` with `allowEmptyCatch: false`; audit confirms 0 empty catches across 46 catch blocks. | — | M | 2 | L |
+| P1.S3 ✅ v1.26.0 | Token/cost/latency metrics per model call | `withCallMetrics` + `recordStreamMetrics` in all 3 adapters emit `anvio_tokens_input/output/total`, `anvio_tokens_cache_{read,creation}_total`, `anvio_model_calls_total`, `anvio_model_call_latency_ms` histogram. | P1.S2 | S | 1 | L |
+| P1.S4 ✅ v1.25.0 | Sliding window + summarize-on-overflow | ADR-0010 L1 in `FilesystemMemoryProvider`; config `memory.maxShortTermMessages` (default `0` = unlimited) + `summarizeOnOverflow`. Platform wires `SessionSummarizer`. | P1.S3 | M | 3 | M |
+| P1.S5 ⚠️ partial v1.25.0 | Tool-output clipping + artifact offload | Clip shipped (`ANVIO_MAX_TOOL_OUTPUT_CHARS=8000` default). Artifact offload for full payload still pending. | — | M | 2 | M |
+| P1.S6 ⚠️ infra v1.25.1 | Golden trajectory capture | `apps/cli/scripts/capture-goldens.ts` + `evals/goldens/v1-seed/` scaffolded; actual 50-session capture pending live workspace usage. | P1.S3 | M | 2 | L |
+| P1.S7 ⏳ pending | Agent tool-loop unit tests (v1) | tests for `runtime.ts`: iteration loop, native vs parsed paths, checkpoint build/read, stop, approval suspend. AC: ≥85% line coverage on `agents` package. | — | L | 4 | L |
+| P1.S8 ✅ v1.27.0 | Skill-trigger index cache | `SkillTriggerCache` re-parses YAML only when file mtime changes; wired into `DefaultAgentRuntime`. Two successive matchAll calls perform 0 file reads on unchanged catalog. | — | S | 1 | L |
 
 ### Epic 0 — Foundations (new repo layout; Phase 2 start)
 
@@ -96,21 +96,21 @@ Layer rule machine-enforced by dependency-cruiser config (P2 story E0.F1.S3). An
 
 | ID | Title | Description & AC | Deps | Size | d | Risk |
 |---|---|---|---|---|---|---|
-| E12.F1.S1 | Canonical request/response + ModelDescriptor | schema for messages/tools/cache-hints/thinking; descriptor registry (window, caps, cost). AC: schemas frozen via RFC-3-adjacent review. | E0.F1.S2 | M | 3 | M |
-| E12.F1.S2 | Anthropic adapter | port v1 provider onto canonical model incl. cache breakpoints. AC: adapter contract suite (fixture exchanges); usage incl. cache tokens. | S1 | M | 3 | M |
-| E12.F1.S3 | OpenAI-compatible adapter | covers OpenAI/DeepSeek/Groq/Ollama/vLLM. AC: contract suite; tool-call mapping tests (port v1 spec cases). | S1 | M | 3 | M |
-| E12.F1.S4 | Gemini adapter | AC: contract suite; port v1 `gemini-messages` cases. | S1 | M | 2 | M |
-| E12.F1.S5 | AbortSignal propagation | signal → HTTP abort all adapters. AC: cancel test: abort <500ms after signal. | S2–S4 | S | 1 | L |
+| E12.F1.S1 ⚠️ partial v1.27.0 | Canonical request/response + ModelDescriptor | `ChatRequest`/`ChatResponse` live in `@anvio/core/ports`; `ModelDescriptor` registry shipped with 9 seed entries + `estimateModelCostUsd`. Canonical extraction into `packages/contracts` deferred to Epic 0. See [ADR-0013](adr/0013-model-gateway-evolution.md). | E0.F1.S2 | M | 3 | M |
+| E12.F1.S2 ✅ pre-vNext | Anthropic adapter | Shipped in `packages/models/src/providers/anthropic.provider.ts` with `cache_control` breakpoints (ADR-0010 L2) and native `tool_use`. | S1 | M | 3 | M |
+| E12.F1.S3 ✅ pre-vNext | OpenAI-compatible adapter | `openai-compatible.provider.ts` covers openai/openrouter/deepseek/groq/mistral/together/xai/fireworks/moonshot/cerebras/sambanova/perplexity/cohere/huggingface/ollama + `custom`. | S1 | M | 3 | M |
+| E12.F1.S4 ✅ v1.25.0 | Gemini adapter | Native `functionDeclarations` shipped v1.25.0; `supportsNativeTools = true`. | S1 | M | 2 | M |
+| E12.F1.S5 ✅ v1.26.0 | AbortSignal propagation | `ChatRequest.signal` wired into all 3 adapters (Anthropic SDK + fetch(OpenAI, Gemini)). | S2–S4 | S | 1 | L |
 
 **F2 Routing, fallback, metering** — *value: keeps v1's best subsystem, adds health + budgets.*
 
 | ID | Title | Description & AC | Deps | Size | d | Risk |
 |---|---|---|---|---|---|---|
-| E12.F2.S1 | Router: route tiers + task classifier port | port v1 `classifyTask`; tier config (reasoning/coding/fast/vision/embed/rerank). AC: v1 routing tests pass on new router. | E12.F1.S1 | M | 2 | L |
-| E12.F2.S2 | Fallback chains + circuit breaker per provider | health-aware skip, downgrade rules, events on fallback. AC: fault-injection suite (provider 500s/timeouts). | S1 | M | 3 | M |
-| E12.F2.S3 | Usage metering + spend limits | per-tenant/run token+cost ledger; hard budget → typed error; degradation hook for router. AC: budget breach test; ledger feeds telemetry. | E0.F1.S4 | M | 2 | M |
-| E12.F2.S4 | Key pools (encrypted, rotating) | port v1 credentials pool onto Secrets. AC: rotation test; explicit precedence config (kills env-shadowing bug class). | E0.F2.S8 | M | 2 | H |
-| E12.F2.S5 | v1 adapter shim (`gateway.model: legacy\|vnext`) | v1 runtime calls gateway via `ModelProvider`-shaped shim. AC: all v1 integration tests green through shim. `[GOLDEN][FLAG]` | S1–S4 | M | 3 | H |
+| E12.F2.S1 ✅ pre-vNext | Router: route tiers + task classifier port | `classifyTask` + `strategyForRoute` + `ModelRouter` shipped in `packages/models`. | E12.F1.S1 | M | 2 | L |
+| E12.F2.S2 ✅ v1.27.0 | Fallback chains + circuit breaker per provider | `walkFallbackChain` + `ProviderCircuitBreaker` (closed→open→half-open); attempts record `skipped:'circuit-open'`. | S1 | M | 3 | M |
+| E12.F2.S3 ✅ v1.27.0 | Usage metering + spend limits | `SpendBudgetLedger` + hard `MODEL_SPEND_BUDGET_EXCEEDED` (HTTP 402); wired in `ModelRouter.chargeBudget()`. | E0.F1.S4 | M | 2 | M |
+| E12.F2.S4 ⚠️ partial pre-vNext | Key pools (encrypted, rotating) | `packages/credentials` shipped; `RouteTarget.pool` consumed. Rotation test coverage still light. | E0.F2.S8 | M | 2 | H |
+| E12.F2.S5 ❌ N/A | v1 adapter shim (`gateway.model: legacy\|vnext`) | Not needed — `packages/models` IS the vnext gateway per [ADR-0013](adr/0013-model-gateway-evolution.md) D2. No greenfield rewrite. | S1–S4 | M | 3 | H |
 
 ### Epic 5 — Tool Bus (core in Phase 2, rest Phase 4)
 
@@ -118,7 +118,7 @@ Layer rule machine-enforced by dependency-cruiser config (P2 story E0.F1.S3). An
 
 | ID | Title | Description & AC | Deps | Size | d | Risk |
 |---|---|---|---|---|---|---|
-| E5.F1.S1 | ToolRegistry + ToolPolicy schema + layered resolution | default→tenant→project→agent merge. AC: decision-table tests for merge precedence. | E0.F1.S2 | M | 2 | M |
+| E5.F1.S1 ⚠️ partial v1.26.0 | ToolRegistry + ToolPolicy schema + layered resolution | `@anvio/tool-bus` ships `ToolPolicy` schema, `mergeToolPolicies` (default→tenant→project→agent), `decideToolCall`; 11 decision-table tests. ToolRegistry + runtime enforcement wiring still pending. | E0.F1.S2 | M | 2 | M |
 | E5.F1.S2 | PolicyGate | scope/approval/rate/tainted-turn verdicts. AC: exhaustive decision-table tests; deny → synthetic tool error shape. | S1 | M | 3 | H |
 | E5.F1.S3 | Executor: timeout, retry, parallel independent calls | per-policy timeout race; bounded parallelism. AC: fault-injection matrix (hang/throw/slow). | S1 | M | 3 | M |
 | E5.F1.S4 | OutputGovernor + read_artifact tool | token-budget clip, CAS offload, reference format. AC: property test — result never exceeds budget, artifact always retrievable. | E0.F2.S4 | M | 2 | M |
