@@ -30,7 +30,7 @@ Adopt a **Channel Hub** pattern:
 5. **Agent Inbox** — in-process queue (`LocalAgentInbox`) for injecting instructions into active sessions.
 6. **SupervisorOrchestrator** — manager/subagent patterns (sequential, parallel, fan-out, fan-in) without channel awareness.
 
-Slack, Telegram, Discord, and WhatsApp ship as **stub adapters** — real SDK wiring is configuration-driven per deployment.
+Sixteen adapters ship in `packages/channels/src/`: `cli`, `discord`, `email` (SMTP+IMAP), `feishu`, `google-chat`, `matrix`, `mattermost`, `rest-api`, `signal`, `slack`, `sms` (Twilio), `teams`, `telegram`, `web-chat`, `whatsapp`, plus a generic `webhook` base. Real SDK/HTTP wiring is configuration-driven per deployment; credentials come from env or the connection broker.
 
 ## Consequences
 

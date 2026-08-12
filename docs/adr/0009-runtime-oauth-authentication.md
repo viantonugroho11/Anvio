@@ -8,11 +8,11 @@ Accepted
 
 Anvio supports multiple **runtime providers** (`local`, `claude-code`, `cursor`, `codex`, future `antigravity`) in addition to direct **model providers** (`anthropic`, `openai`, …).
 
-Today, Claude is accessed primarily via `@anthropic-ai/sdk` and `ANTHROPIC_API_KEY`. External runtimes (`claude-code`, `cursor`, `codex`) were stubs. Product direction requires:
+Today, Claude is accessed primarily via `@anthropic-ai/sdk` and `ANTHROPIC_API_KEY`. External runtimes (`claude-code`, `cursor`, `codex`, `antigravity`) were stubs. Product direction requires:
 
 - **Vendor-native runtimes** authenticate through the official app/CLI OAuth or session (Pro/Max subscription), not Anvio-managed API keys.
 - **`local` runtime** continues to use API keys / credential pools for direct provider access and fallback.
-- Future parity targets: Cursor (ACP + app session), OpenAI Codex CLI, Google Antigravity CLI.
+- Vendor-native parity shipped for Cursor (ACP + app session), OpenAI Codex CLI, and Google Antigravity CLI — see "(implemented)" sections below.
 
 Anthropic policy note: third-party products must not host claude.ai login UI or resell subscription rate limits. Anvio therefore **delegates login to the official Claude Code CLI** (`claude setup-token`) and only stores the resulting token locally (encrypted connection broker).
 

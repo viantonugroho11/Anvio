@@ -43,6 +43,42 @@ describe('Phase L6 — runtime skill self-improve', () => {
     expect(skillFiles.length).toBeGreaterThan(0);
   });
 
+  it('skips session-end learning when soul evolution disabled', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'anvio-l6-session-skip-'));
+    await Workspace.init(tmp);
+    const ws = await Workspace.open(tmp);
+    const memory = createMemoryProvider('filesystem', ws.storage);
+    const learning = new LearningEngine(memory, tmp);
+
+    const result = await learning.onSessionCompleted({
+      sessionId: 's-denied',
+      userId: 'u1',
+      agentId: 'architect',
+      messages: [
+        { role: 'user', content: 'remember: prefer TypeScript' },
+        { role: 'assistant', content: 'noted — will prefer TypeScript' },
+      ],
+      soul: {
+        apiVersion: 'anvio.io/v1',
+        kind: 'Soul',
+        metadata: { slug: 'locked-soul', version: '1.0.0' },
+        spec: {
+          name: 'Locked',
+          identity: { name: 'Locked', role: 'test' },
+          evolution: { allowAutoUpdate: false, requireApproval: false },
+        },
+      },
+    });
+
+    expect(result.skipped).toBe('soul evolution disabled');
+    expect(result.memoryNudge).toEqual({ factsStored: 0, facts: [] });
+    expect(result.sessionSummary).toBeUndefined();
+    expect(result.skillDraft).toBeUndefined();
+
+    const drafts = await learning.listDrafts();
+    expect(drafts).toHaveLength(0);
+  });
+
   it('skips runtime learning when soul evolution disabled', async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'anvio-l6-skip-'));
     await Workspace.init(tmp);

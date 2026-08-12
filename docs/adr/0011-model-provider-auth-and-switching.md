@@ -58,8 +58,7 @@ Credential pools (`packages/credentials`) allow key rotation: the router calls
 
 - No web UI to add, test, or revoke provider API keys at runtime.
 - No per-session provider override via CLI flag (must change `routing.yaml` or agent frontmatter).
-- Gemini provider does not use native `function_calling` (`supportsNativeTools` is false); it falls
-  back to fenced `anvio_tool` blocks.
+- ~~Gemini provider does not use native `function_calling`~~ — closed in v1.25.0 (D7).
 - No hot-reload of `routing.yaml`; changes require a process restart.
 
 ## Decision
@@ -121,11 +120,13 @@ API keys.
 A browser-based key management UI is deferred. Until then, operators use env vars or credential
 pools configured via CLI.
 
-### D7 — Deferred: Gemini native tools
+### D7 — Shipped (v1.25.0): Gemini native tools
 
-`GeminiProvider.supportsNativeTools` remains `false`. Gemini conversations use fenced `anvio_tool`
-blocks. Native `function_calling` will be added in a future phase when the Gemini SDK's tool loop
-is stable.
+`GeminiProvider.supportsNativeTools` is `true`. `ChatRequest.tools` is emitted as a
+`tools.functionDeclarations` block; `functionCall` responses are extracted as `ModelToolCall`;
+prior assistant tool calls plus tool responses are serialized as `role: model → functionCall`
+and `role: user → functionResponse`. Coverage in `gemini-native-tools.spec.ts`. See CHANGELOG
+[v1.25.0](../../CHANGELOG.md#1250---2026-08-03).
 
 ### D8 — Deferred: hot-reload of routing.yaml
 
