@@ -1,5 +1,4 @@
 export * from './errors/anvio-error.js';
-export * from './errors/result.js';
 export * from './types/common.js';
 export * from './token-usage.js';
 export * from './types/channel.js';

@@ -1,35 +1,35 @@
 # Graph Report - packages  (2026-08-13)
 
 ## Corpus Check
-- 414 files · ~107,765 words
+- 413 files · ~107,670 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4027 nodes · 6597 edges · 244 communities (186 shown, 58 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 26 edges (avg confidence: 0.74)
+- 4021 nodes · 6577 edges · 239 communities (181 shown, 58 thin omitted)
+- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 14 edges (avg confidence: 0.69)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
-- Channels — WebChat + Runtime glue
-- Events bus + envelope
-- Delegation + progress
-- Channels — Feishu / Email / SMS / Signal
-- Git worktree manager
-- Goals port + engine
-- Agent Inbox (in-mem + FS)
-- Memory port + store
-- @anvio/db package deps
-- Tools — media + gateway
-- @anvio/agents package deps
-- Kanban port + engine
-- Runtime setup-token (claude/cursor/codex/antigravity)
-- Channel port (adapter contract)
-- Harness port (approval + output)
-- Email channel — IMAP+SMTP
-- Base channel adapter + session bridge
-- @anvio/observability package deps
-- Agent-session tools (todo / clarify / search)
-- @anvio/workspace package deps
+- Community 0
+- Community 1
+- Community 2
+- Community 3
+- Community 4
+- Community 5
+- Community 6
+- Community 7
+- Community 8
+- Community 9
+- Community 10
+- Community 11
+- Community 12
+- Community 13
+- Community 14
+- Community 15
+- Community 16
+- Community 17
+- Community 18
+- Community 19
 - Community 20
 - Community 21
 - Community 22
@@ -178,9 +178,9 @@
 - Community 165
 - Community 166
 - Community 167
-- Community 168
 - Community 169
 - Community 170
+- Community 171
 - Community 172
 - Community 173
 - Community 174
@@ -247,11 +247,6 @@
 - Community 235
 - Community 236
 - Community 237
-- Community 238
-- Community 239
-- Community 240
-- Community 241
-- Community 242
 
 ## God Nodes (most connected - your core abstractions)
 1. `runBuiltinTool()` - 77 edges
@@ -266,99 +261,99 @@
 10. `BaseChannelAdapter` - 18 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `startLoginHost()` --indirect_call--> `err()`  [INFERRED]
-  harness/src/connect/login-host.ts → core/src/errors/result.ts
-- `startUnifiedGateway()` --indirect_call--> `err()`  [INFERRED]
-  platform/src/unified-gateway.ts → core/src/errors/result.ts
-- `executeSkill()` --indirect_call--> `err()`  [INFERRED]
-  skills/src/executor.ts → core/src/errors/result.ts
 - `main()` --indirect_call--> `parseAgentDefinition()`  [INFERRED]
   db/src/seed.ts → core/src/schemas/agent.schema.ts
 - `main()` --indirect_call--> `parsePersonaDefinition()`  [INFERRED]
   db/src/seed.ts → core/src/schemas/persona.schema.ts
+- `readJson()` --references--> `buffer`  [EXTRACTED]
+  acp/src/acp-server.ts → integrations/scripts/mock-mcp-server.mjs
+- `base64url()` --references--> `buffer`  [EXTRACTED]
+  channels/src/google-chat-auth.ts → integrations/scripts/mock-mcp-server.mjs
+- `readResponse()` --references--> `buffer`  [EXTRACTED]
+  channels/src/imap-client.ts → integrations/scripts/mock-mcp-server.mjs
 
 ## Import Cycles
 - 2-file cycle: `platform/src/index.ts -> platform/src/unified-gateway.ts -> platform/src/index.ts`
 
-## Communities (244 total, 58 thin omitted)
+## Communities (239 total, 58 thin omitted)
 
-### Community 0 - "Channels — WebChat + Runtime glue"
+### Community 0 - "Community 0"
 Cohesion: 0.05
 Nodes (39): WebChatChannel, WebChatClient, finalizeAgentRun(), publishAgentRunCompleted(), findRepoRoot(), findWorkspacePath(), handleGatewayHttp(), json() (+31 more)
 
-### Community 1 - "Events bus + envelope"
+### Community 1 - "Community 1"
+Cohesion: 0.07
+Nodes (26): ModelProvider, SoulStore, hashSoulSource(), readCachedPolicy(), writeCachedPolicy(), bulletValues(), fieldValue(), loadSoulPolicy() (+18 more)
+
+### Community 2 - "Community 2"
 Cohesion: 0.06
 Nodes (34): createEvent(), deserializeEvent(), serializeEvent(), EventBus, EventBusOptions, EventHandler, createEventBus(), LocalEventBus (+26 more)
 
-### Community 2 - "Delegation + progress"
+### Community 3 - "Community 3"
 Cohesion: 0.09
 Nodes (29): DelegationEventPublisher, DelegationProgressSnapshot, DelegationProgressTracker, approvalSummaryFromResult(), executeNativeToolCalls(), createOrchestrationPlan(), sleep(), SupervisorOrchestrator (+21 more)
 
-### Community 3 - "Channels — Feishu / Email / SMS / Signal"
-Cohesion: 0.09
-Nodes (20): EmailChannelOptions, FeishuChannel, FeishuChannelOptions, FetchRetryOptions, fetchWithRetry(), sleep(), base64url(), getGoogleChatAccessToken() (+12 more)
+### Community 4 - "Community 4"
+Cohesion: 0.08
+Nodes (21): EmailChannelOptions, FeishuChannel, FeishuChannelOptions, FetchRetryOptions, fetchWithRetry(), sleep(), base64url(), getGoogleChatAccessToken() (+13 more)
 
-### Community 4 - "Git worktree manager"
+### Community 5 - "Community 5"
 Cohesion: 0.08
 Nodes (20): createWorktreeManager(), exec, GitWorktreeManager, GitWorktreeManagerOptions, createSessionStore(), defaultAnvioYaml(), defaultHarnessProfilesYaml(), defaultHarnessYaml() (+12 more)
 
-### Community 5 - "Goals port + engine"
+### Community 6 - "Community 6"
 Cohesion: 0.07
 Nodes (19): CreateGoalInput, GoalEngine, GoalStore, UpdateGoalProgressInput, goalAssigneeSchema, GoalDefinition, goalDefinitionSchema, goalIndexSchema (+11 more)
 
-### Community 6 - "Agent Inbox (in-mem + FS)"
+### Community 7 - "Community 7"
 Cohesion: 0.06
 Nodes (8): LocalAgentInbox, FilesystemAgentInbox, ConfigLoader, StorageObject, StorageProvider, PersonaService, readTokenUsageAudit(), appendJsonl()
 
-### Community 7 - "Memory port + store"
-Cohesion: 0.07
-Nodes (10): MemoryContext, MemoryEntry, MemoryEntryType, MemoryStore, SearchOptions, SemanticMemoryPort, MemoryProvider, MemoryProviderHealth (+2 more)
-
-### Community 8 - "@anvio/db package deps"
+### Community 8 - "Community 8"
 Cohesion: 0.05
 Nodes (40): bcryptjs, dependencies, @anvio/core, bcryptjs, drizzle-orm, postgres, uuid, yaml (+32 more)
 
-### Community 9 - "Tools — media + gateway"
-Cohesion: 0.09
-Nodes (20): executeCode(), webSearch(), imageGenerate(), textToSpeech(), ToolCompletedHandler, ToolGateway, ToolGatewayCallContext, PostgresToolAuditLogger (+12 more)
+### Community 9 - "Community 9"
+Cohesion: 0.10
+Nodes (31): SessionSearchFn, browserAction(), BrowserActionInput, tryLoadPlaywright(), BuiltinToolContext, memoryRecall(), MemoryRecallFn, httpRequest() (+23 more)
 
-### Community 10 - "@anvio/agents package deps"
+### Community 10 - "Community 10"
 Cohesion: 0.05
 Nodes (38): dependencies, @anvio/core, @anvio/events, @anvio/memory, @anvio/models, @anvio/personas, @anvio/skills, @anvio/souls (+30 more)
 
-### Community 11 - "Kanban port + engine"
+### Community 11 - "Community 11"
 Cohesion: 0.09
 Nodes (23): CreateKanbanTaskInput, KanbanEngine, KanbanStore, AgentWorkStatus, agentWorkStatusSchema, AssigneeState, assigneeStateSchema, assigneeTypeSchema (+15 more)
 
-### Community 12 - "Runtime setup-token (claude/cursor/codex/antigravity)"
+### Community 12 - "Community 12"
 Cohesion: 0.11
 Nodes (28): AntigravitySetupTokenOptions, isAuthSuccess(), runAntigravitySetupToken(), CodexSetupTokenOptions, defaultCodexAuthPath(), parseCodexConnectionPayload(), runCodexSetupToken(), CursorSetupTokenOptions (+20 more)
 
-### Community 13 - "Channel port (adapter contract)"
-Cohesion: 0.08
-Nodes (13): ChannelAdapter, ChannelHubPort, InboundMessage, InboundMessageHandler, OutboundMessage, HarnessGatewayPort, AgentNotification, ApprovalRequestMessage (+5 more)
-
-### Community 14 - "Harness port (approval + output)"
-Cohesion: 0.06
-Nodes (28): HarnessApprovalContext, HarnessApprovalMessage, HarnessOutputAction, HarnessOutputPort, HarnessOutputRequest, HarnessTrustTier, InboundDecision, InboundEnvelope (+20 more)
-
-### Community 15 - "Email channel — IMAP+SMTP"
-Cohesion: 0.11
-Nodes (25): EmailChannel, awaitTaggedResponse(), dispatchNewMessages(), extractFetchBody(), hasIdleCapability(), idleWatchInbox(), imapCommand(), ImapIdleOptions (+17 more)
-
-### Community 16 - "Base channel adapter + session bridge"
+### Community 13 - "Community 13"
 Cohesion: 0.09
-Nodes (13): BaseChannelAdapter, ChannelSessionBridge, ChannelSessionBridgeDefaults, MattermostChannelOptions, MattermostPost, MattermostWebSocketEvent, parseSlackTarget(), SlackChannel (+5 more)
+Nodes (27): AgentResult, AgentRuntime, AgentRuntimeContext, AgentStreamEvent, ApprovalDecision, ApprovalRequest, Session, SessionState (+19 more)
 
-### Community 17 - "@anvio/observability package deps"
+### Community 14 - "Community 14"
+Cohesion: 0.10
+Nodes (21): MemoryContext, MemoryEntry, MemoryEntryType, MemoryStore, SearchOptions, SemanticMemoryPort, MemoryProviderHealth, ChatRequest (+13 more)
+
+### Community 15 - "Community 15"
 Cohesion: 0.06
 Nodes (34): dependencies, @opentelemetry/api, @opentelemetry/auto-instrumentations-node, @opentelemetry/exporter-trace-otlp-http, @opentelemetry/resources, @opentelemetry/sdk-node, @opentelemetry/semantic-conventions, pino (+26 more)
 
-### Community 18 - "Agent-session tools (todo / clarify / search)"
+### Community 16 - "Community 16"
 Cohesion: 0.10
 Nodes (32): clarifyTool(), sessionSearchTool(), TodoItem, todoStore, todoTool(), atroposDirectCall(), computerUse(), discordAdmin() (+24 more)
 
-### Community 19 - "@anvio/workspace package deps"
+### Community 17 - "Community 17"
+Cohesion: 0.10
+Nodes (14): BaseChannelAdapter, ChannelSessionBridge, ChannelSessionBridgeDefaults, MattermostChannelOptions, MattermostPost, MattermostWebSocketEvent, parseChatTarget(), sleep() (+6 more)
+
+### Community 18 - "Community 18"
+Cohesion: 0.12
+Nodes (26): AgentMdFrontmatter, parseAgentMd(), ParsedMarkdownDocument, parseFrontmatter(), parsePersonaMd(), PersonaMdFrontmatter, parseSkillMd(), SkillMdFrontmatter (+18 more)
+
+### Community 19 - "Community 19"
 Cohesion: 0.06
 Nodes (33): dependencies, @anvio/core, @anvio/storage, better-sqlite3, uuid, yaml, devDependencies, @types/better-sqlite3 (+25 more)
 
@@ -367,36 +362,36 @@ Cohesion: 0.11
 Nodes (12): BlueprintExecutionDeps, BlueprintExecutor, BlueprintRunOptions, BlueprintRunResult, BlueprintStepResult, callTool(), BlueprintCatalogRegistry, CatalogPaths (+4 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.12
-Nodes (27): SessionSearchFn, BuiltinToolContext, memoryRecall(), MemoryRecallFn, httpRequest(), HttpRequestInput, McpDelegateFn, CronjobFn (+19 more)
-
-### Community 22 - "Community 22"
 Cohesion: 0.06
 Nodes (31): @anvio/db, playwright, dependencies, @anvio/core, @anvio/db, @anvio/voice, yaml, devDependencies (+23 more)
 
-### Community 23 - "Community 23"
+### Community 22 - "Community 22"
 Cohesion: 0.09
 Nodes (20): BatchEngine, BatchRunOptions, BatchRunResult, BlueprintRunner, batchInputSchema, BatchItemRecord, batchItemRecordSchema, BatchItemStatus (+12 more)
 
-### Community 24 - "Community 24"
+### Community 23 - "Community 23"
 Cohesion: 0.13
 Nodes (30): Browser, browserBack(), browserCdp(), browserClick(), browserConsole(), browserDialog(), browserGetImages(), browserNavigate() (+22 more)
 
-### Community 25 - "Community 25"
+### Community 24 - "Community 24"
 Cohesion: 0.07
 Nodes (30): @anthropic-ai/sdk, dependencies, @anthropic-ai/sdk, @anvio/core, @anvio/observability, @anvio/storage, yaml, devDependencies (+22 more)
 
-### Community 26 - "Community 26"
+### Community 25 - "Community 25"
 Cohesion: 0.07
 Nodes (30): dependencies, @anvio/blueprints, @anvio/core, @anvio/events, @anvio/storage, yaml, devDependencies, typescript (+22 more)
 
+### Community 26 - "Community 26"
+Cohesion: 0.09
+Nodes (22): parseSkillDefinition(), createDb(), Database, Agent, agents, agentSkills, memoryEntries, Persona (+14 more)
+
 ### Community 27 - "Community 27"
-Cohesion: 0.14
-Nodes (23): AgentResult, AgentRuntimeContext, ApprovalDecision, ApprovalRequest, SessionState, ChatRequest, ChatResponse, ModelProviderConfig (+15 more)
+Cohesion: 0.09
+Nodes (11): ChannelHubBundle, ChannelHub, createChannelHub(), CreateChannelHubOptions, createInboundHandler(), mergeVoiceOptions(), registerAdapter(), resolveVoicePipeline() (+3 more)
 
 ### Community 28 - "Community 28"
-Cohesion: 0.08
-Nodes (18): AgentRuntime, AgentStreamEvent, Session, UserInput, AgentOrchestrator, OrchestrationResult, OrchestrationTaskResult, AgentRuntimeBinding (+10 more)
+Cohesion: 0.14
+Nodes (20): EmailChannel, awaitTaggedResponse(), dispatchNewMessages(), extractFetchBody(), hasIdleCapability(), idleWatchInbox(), imapCommand(), ImapIdleOptions (+12 more)
 
 ### Community 29 - "Community 29"
 Cohesion: 0.13
@@ -427,148 +422,144 @@ Cohesion: 0.15
 Nodes (7): IngestResult, KnowledgeIngestEngine, KnowledgeBaseStore, WorkspaceManifest, WorkspaceManifestImporter, WorkspaceManifestImportResult, workspaceManifestSchema
 
 ### Community 36 - "Community 36"
-Cohesion: 0.07
-Nodes (26): acpConfigSchema, AuthConfig, authConfigSchema, channelProviderSchema, channelsConfigSchema, credentialsConfigSchema, emailChannelSchema, eventsConfigSchema (+18 more)
+Cohesion: 0.15
+Nodes (25): appendFile(), editFile(), executeCodeWithExecutor(), fileDelete(), fileRead(), fileWrite(), listDir(), pathExists() (+17 more)
 
 ### Community 37 - "Community 37"
 Cohesion: 0.07
-Nodes (27): dependencies, @anvio/core, @anvio/storage, yaml, devDependencies, @anvio/workspace, typescript, vitest (+19 more)
+Nodes (26): acpConfigSchema, AuthConfig, authConfigSchema, channelProviderSchema, channelsConfigSchema, credentialsConfigSchema, emailChannelSchema, eventsConfigSchema (+18 more)
 
 ### Community 38 - "Community 38"
-Cohesion: 0.08
-Nodes (26): dependencies, @anvio/core, @anvio/storage, yaml, devDependencies, typescript, vitest, exports (+18 more)
+Cohesion: 0.07
+Nodes (27): dependencies, @anvio/core, @anvio/storage, yaml, devDependencies, @anvio/workspace, typescript, vitest (+19 more)
 
 ### Community 39 - "Community 39"
-Cohesion: 0.08
-Nodes (13): AcquiredCredential, CredentialPoolManager, CredentialStore, CredentialEntry, credentialEntrySchema, CredentialPool, credentialPoolSchema, credentialPoolsIndexSchema (+5 more)
+Cohesion: 0.13
+Nodes (16): imageGenerate(), textToSpeech(), searchFiles(), CodePipelineStep, globFiles(), globToRegExp(), grepSearch(), walkFiles() (+8 more)
 
 ### Community 40 - "Community 40"
 Cohesion: 0.08
 Nodes (26): dependencies, @anvio/core, @anvio/storage, yaml, devDependencies, typescript, vitest, exports (+18 more)
 
 ### Community 41 - "Community 41"
-Cohesion: 0.08
-Nodes (26): dependencies, @anvio/core, @anvio/events, yaml, devDependencies, typescript, vitest, exports (+18 more)
+Cohesion: 0.11
+Nodes (10): ChannelAdapter, ChannelHubPort, InboundMessage, InboundMessageHandler, OutboundMessage, InboundEnvelope, AgentNotification, ApprovalRequestMessage (+2 more)
 
 ### Community 42 - "Community 42"
-Cohesion: 0.09
-Nodes (7): DockerRuntimeOptions, DockerRuntimeProvider, LocalRuntimeProvider, createRuntimeFactory(), RuntimeFactoryDeps, SshRuntimeOptions, SshRuntimeProvider
+Cohesion: 0.08
+Nodes (13): AcquiredCredential, CredentialPoolManager, CredentialStore, CredentialEntry, credentialEntrySchema, CredentialPool, credentialPoolSchema, credentialPoolsIndexSchema (+5 more)
 
 ### Community 43 - "Community 43"
-Cohesion: 0.17
-Nodes (18): buildTrace(), evaluateCondition(), executeSkill(), runStep(), SkillExecuteInput, SkillExecuteResult, SkillStepError, SkillStepResult (+10 more)
-
-### Community 44 - "Community 44"
 Cohesion: 0.08
 Nodes (26): dependencies, @anvio/core, @anvio/storage, yaml, devDependencies, typescript, vitest, exports (+18 more)
 
+### Community 44 - "Community 44"
+Cohesion: 0.08
+Nodes (26): dependencies, @anvio/core, @anvio/events, yaml, devDependencies, typescript, vitest, exports (+18 more)
+
 ### Community 45 - "Community 45"
+Cohesion: 0.09
+Nodes (7): DockerRuntimeOptions, DockerRuntimeProvider, LocalRuntimeProvider, createRuntimeFactory(), RuntimeFactoryDeps, SshRuntimeOptions, SshRuntimeProvider
+
+### Community 46 - "Community 46"
+Cohesion: 0.17
+Nodes (18): buildTrace(), evaluateCondition(), executeSkill(), runStep(), SkillExecuteInput, SkillExecuteResult, SkillStepError, SkillStepResult (+10 more)
+
+### Community 47 - "Community 47"
+Cohesion: 0.08
+Nodes (26): dependencies, @anvio/core, @anvio/storage, yaml, devDependencies, typescript, vitest, exports (+18 more)
+
+### Community 48 - "Community 48"
 Cohesion: 0.08
 Nodes (25): @anthropic-ai/claude-agent-sdk, dependencies, @anthropic-ai/claude-agent-sdk, @anvio/core, @anvio/harness, devDependencies, typescript, vitest (+17 more)
 
-### Community 46 - "Community 46"
+### Community 49 - "Community 49"
 Cohesion: 0.08
 Nodes (25): dependencies, @anvio/core, jsonwebtoken, devDependencies, @types/jsonwebtoken, typescript, vitest, exports (+17 more)
 
-### Community 47 - "Community 47"
+### Community 50 - "Community 50"
 Cohesion: 0.17
 Nodes (11): BatchEngineDeps, BatchEngineImpl, createBatchEngine(), sleep(), computeProgress(), backoffDelay(), buildItemsFromLines(), isRetryableError() (+3 more)
 
-### Community 48 - "Community 48"
-Cohesion: 0.11
-Nodes (11): ChannelHubBundle, ChannelHub, createChannelHub(), CreateChannelHubOptions, createInboundHandler(), mergeVoiceOptions(), registerAdapter(), resolveVoicePipeline() (+3 more)
-
-### Community 49 - "Community 49"
+### Community 51 - "Community 51"
 Cohesion: 0.14
 Nodes (9): DiscordChannel, DiscordChannelOptions, DiscordGatewayPayload, DiscordInteraction, DiscordMessage, guessAudioMime(), isAudioAttachment(), splitMessage() (+1 more)
 
-### Community 50 - "Community 50"
+### Community 52 - "Community 52"
 Cohesion: 0.08
 Nodes (25): dependencies, @anvio/core, @anvio/storage, yaml, devDependencies, typescript, vitest, exports (+17 more)
 
-### Community 51 - "Community 51"
+### Community 53 - "Community 53"
 Cohesion: 0.08
 Nodes (25): dependencies, @anvio/core, @anvio/soul-gate, yaml, devDependencies, typescript, vitest, exports (+17 more)
 
-### Community 52 - "Community 52"
+### Community 54 - "Community 54"
 Cohesion: 0.17
 Nodes (17): loadHarnessConfig(), loadHarnessProfiles(), resolveChannelProfile(), LoginHostOptions, LoginHostSession, startLoginHost(), EngagementState, evaluateEngagement() (+9 more)
 
-### Community 53 - "Community 53"
+### Community 55 - "Community 55"
 Cohesion: 0.08
 Nodes (25): dependencies, @anvio/core, yaml, zod, devDependencies, typescript, vitest, exports (+17 more)
 
-### Community 54 - "Community 54"
+### Community 56 - "Community 56"
 Cohesion: 0.11
 Nodes (12): bigUsage, stubStorage, createModelRouter(), ModelRouterDeps, RoutedChatRequest, RoutedChatResponse, SpendBudgetLedger, ClassificationInput (+4 more)
 
-### Community 55 - "Community 55"
+### Community 57 - "Community 57"
 Cohesion: 0.13
 Nodes (10): ObservabilityOptions, buildRoot(), createLogger(), getRoot(), setRootLogger(), getMetricsRegistry(), labelKey(), Labels (+2 more)
 
-### Community 56 - "Community 56"
+### Community 58 - "Community 58"
 Cohesion: 0.14
 Nodes (14): buildAntigravityAgentEnv(), isAntigravityRuntimeConfigured(), parseAntigravityConnectionPayload(), ResolveAntigravityAuthOptions, resolveAntigravityOAuthToken(), AntigravityRuntimeOptions, AntigravityRuntimeProvider, CodexRuntimeOptions (+6 more)
 
-### Community 57 - "Community 57"
+### Community 59 - "Community 59"
 Cohesion: 0.08
 Nodes (25): dependencies, @anvio/core, ws, devDependencies, @types/ws, typescript, vitest, exports (+17 more)
 
-### Community 58 - "Community 58"
+### Community 60 - "Community 60"
 Cohesion: 0.08
 Nodes (24): dependencies, @anvio/core, yaml, devDependencies, typescript, vitest, exports, import (+16 more)
-
-### Community 59 - "Community 59"
-Cohesion: 0.08
-Nodes (24): dependencies, yaml, zod, devDependencies, typescript, vitest, exports, import (+16 more)
-
-### Community 60 - "Community 60"
-Cohesion: 0.13
-Nodes (12): createMcpFirstCallGate(), formatMcpToolName(), mcpApprovalKey(), McpFirstCallGate, McpFirstCallGateOptions, parseMcpToolName(), createMcpToolPort(), mapMcpStatus() (+4 more)
 
 ### Community 61 - "Community 61"
 Cohesion: 0.08
+Nodes (24): dependencies, yaml, zod, devDependencies, typescript, vitest, exports, import (+16 more)
+
+### Community 63 - "Community 63"
+Cohesion: 0.08
 Nodes (24): dependencies, @anvio/core, yaml, devDependencies, typescript, vitest, exports, import (+16 more)
 
-### Community 62 - "Community 62"
+### Community 64 - "Community 64"
 Cohesion: 0.08
 Nodes (24): dependencies, @anvio/core, zod, devDependencies, typescript, vitest, exports, import (+16 more)
 
-### Community 63 - "Community 63"
+### Community 65 - "Community 65"
 Cohesion: 0.15
 Nodes (12): buildDefaultInputs(), callTool(), DagExecutor, renderTemplate(), TemplateContext, WorkflowExecutionDeps, WorkflowNodeResult, WorkflowRunOptions (+4 more)
 
-### Community 64 - "Community 64"
-Cohesion: 0.09
-Nodes (23): dependencies, @anvio/core, yaml, devDependencies, typescript, vitest, exports, import (+15 more)
-
-### Community 65 - "Community 65"
-Cohesion: 0.09
-Nodes (23): dependencies, @anvio/core, yaml, devDependencies, typescript, vitest, exports, import (+15 more)
-
 ### Community 66 - "Community 66"
+Cohesion: 0.09
+Nodes (23): dependencies, @anvio/core, yaml, devDependencies, typescript, vitest, exports, import (+15 more)
+
+### Community 67 - "Community 67"
+Cohesion: 0.09
+Nodes (23): dependencies, @anvio/core, yaml, devDependencies, typescript, vitest, exports, import (+15 more)
+
+### Community 68 - "Community 68"
 Cohesion: 0.09
 Nodes (22): dependencies, @anvio/core, devDependencies, typescript, vitest, exports, import, @anvio/core (+14 more)
 
-### Community 67 - "Community 67"
+### Community 69 - "Community 69"
 Cohesion: 0.17
 Nodes (11): buildClaudeCodeAgentEnv(), extractOAuthTokenFromSetupOutput(), parseClaudeCodeConnectionPayload(), ResolveClaudeCodeOAuthOptions, resolveClaudeCodeOAuthToken(), runClaudeSetupToken(), ClaudeCodeRuntimeOptions, ClaudeCodeRuntimeProvider (+3 more)
 
-### Community 68 - "Community 68"
-Cohesion: 0.25
-Nodes (15): hashSoulSource(), readCachedPolicy(), writeCachedPolicy(), bulletValues(), fieldValue(), loadSoulPolicy(), parseSoulMd(), policyFromSoulDefinition() (+7 more)
-
-### Community 69 - "Community 69"
+### Community 70 - "Community 70"
 Cohesion: 0.10
 Nodes (21): dependencies, @anvio/core, devDependencies, typescript, vitest, exports, import, @anvio/core (+13 more)
 
-### Community 70 - "Community 70"
-Cohesion: 0.13
-Nodes (12): AgentInbox, ArtifactStore, CreateArtifactInput, AgentArtifact, ArtifactKind, InboxMessage, InboxMessageType, NotificationType (+4 more)
-
 ### Community 71 - "Community 71"
 Cohesion: 0.13
-Nodes (19): createDb(), Agent, agents, agentSkills, memoryEntries, Persona, personas, Session (+11 more)
+Nodes (12): AgentInbox, ArtifactStore, CreateArtifactInput, AgentArtifact, ArtifactKind, InboxMessage, InboxMessageType, NotificationType (+4 more)
 
 ### Community 72 - "Community 72"
 Cohesion: 0.16
@@ -587,156 +578,160 @@ Cohesion: 0.10
 Nodes (21): dependencies, @anvio/core, devDependencies, typescript, vitest, exports, import, @anvio/core (+13 more)
 
 ### Community 76 - "Community 76"
+Cohesion: 0.20
+Nodes (11): AcpServer, createAcpServer(), readJson(), AcpErrorResponse, AcpHealthResponse, AcpPromptRequest, AcpPromptResponse, AcpRunHandler (+3 more)
+
+### Community 77 - "Community 77"
 Cohesion: 0.27
 Nodes (20): BUILTIN_CHANNELS, incrementHealthSummary(), isEnabled(), OPTIONAL_CHANNELS, probeAllChannels(), probeBuiltin(), probeDiscord(), probeEmail() (+12 more)
 
-### Community 77 - "Community 77"
-Cohesion: 0.13
+### Community 78 - "Community 78"
+Cohesion: 0.12
 Nodes (4): HarnessGateway, runSimulationScenario(), SimulatedMessage, SimulationTransport
 
-### Community 78 - "Community 78"
-Cohesion: 0.16
-Nodes (5): createMcpStdioClient(), JsonRpcMessage, McpStdioClient, McpStdioToolDescriptor, resolveEnv()
-
 ### Community 79 - "Community 79"
+Cohesion: 0.18
+Nodes (6): buffer, drain(), handleMessage(), send(), TOOLS, McpStdioClient
+
+### Community 80 - "Community 80"
+Cohesion: 0.15
+Nodes (12): createIntegrationRegistry(), IntegrationRegistry, createMcpBridge(), DEFAULT_STUB_TOOLS, McpServerHealth, McpToolCall, McpToolDescriptor, McpToolResult (+4 more)
+
+### Community 81 - "Community 81"
+Cohesion: 0.16
+Nodes (11): createMcpFirstCallGate(), formatMcpToolName(), mcpApprovalKey(), McpFirstCallGate, McpFirstCallGateOptions, parseMcpToolName(), createMcpToolPort(), mapMcpStatus() (+3 more)
+
+### Community 82 - "Community 82"
+Cohesion: 0.14
+Nodes (10): executeCode(), webSearch(), ToolCompletedHandler, ToolGateway, ToolGatewayCallContext, DEFAULT_DESCRIPTIONS, describeBuiltinTool(), renderToolInstructions() (+2 more)
+
+### Community 83 - "Community 83"
 Cohesion: 0.17
 Nodes (8): isUsableModelProvider(), parseLlmJson(), SessionSummarizerOptions, SessionSummaryResult, formatSessionExcerpt(), LlmSkillProposal, SkillEvolutionProposal, SkillEvolutionSummarizer
 
-### Community 80 - "Community 80"
+### Community 84 - "Community 84"
 Cohesion: 0.18
 Nodes (10): extractGeminiText(), extractGeminiToolCalls(), GeminiContent, GeminiPart, toGeminiContents(), fetchMock, GeminiCandidate, GeminiGenerateResponse (+2 more)
 
-### Community 81 - "Community 81"
+### Community 85 - "Community 85"
 Cohesion: 0.18
 Nodes (11): recordStreamMetrics(), withCallMetrics(), extractToolCalls(), OpenAIChatCompletionResponse, OpenAICompatibleProvider, OpenAICompatibleProviderOptions, OpenAIToolCall, OpenAIToolCallDelta (+3 more)
 
-### Community 82 - "Community 82"
+### Community 86 - "Community 86"
 Cohesion: 0.17
 Nodes (13): createMock, streamMock, AnthropicMessage, ContentBlock, toAnthropicMessages(), AnthropicProvider, AnthropicProviderOptions, AnthropicUsage (+5 more)
 
-### Community 83 - "Community 83"
+### Community 87 - "Community 87"
 Cohesion: 0.21
 Nodes (5): OpenAiRealtimeSttOptions, OpenAiRealtimeSttSession, RealtimeSttSession, RealtimeTranscriptEvent, streamRealtimeTranscribe()
 
-### Community 84 - "Community 84"
-Cohesion: 0.19
-Nodes (8): parseChatTarget(), sleep(), splitMessage(), TelegramChannel, TelegramChannelOptions, TelegramChatTarget, TelegramUpdate, threadKey()
-
-### Community 85 - "Community 85"
+### Community 88 - "Community 88"
 Cohesion: 0.18
 Nodes (9): ExecutionAuditLog, CodeExecutorDeps, createCodeExecutor(), DefaultCodeExecutor, buildCommand(), ProcessSandboxOptions, ProcessSandboxResult, runDockerSandbox() (+1 more)
 
-### Community 87 - "Community 87"
+### Community 89 - "Community 89"
 Cohesion: 0.16
 Nodes (8): parseWhatsAppTarget(), splitMessage(), threadKey(), WhatsAppChannel, WhatsAppChannelOptions, WhatsAppInboundMessage, WhatsAppTarget, WhatsAppWebhookBody
 
-### Community 88 - "Community 88"
+### Community 90 - "Community 90"
+Cohesion: 0.15
+Nodes (14): bullets(), field(), parseSoulDefinitionMd(), sectionBody(), SoulEngine, parseSoulDefinition(), soulCommunicationStyleSchema, SoulDefinition (+6 more)
+
+### Community 91 - "Community 91"
 Cohesion: 0.20
 Nodes (7): ApprovalGate, ApprovalGateOptions, approverMatchesSummary(), isAuthorizedApprover(), resolveApproversForSummary(), STOP_WORDS, tokenize()
 
-### Community 89 - "Community 89"
-Cohesion: 0.18
-Nodes (6): harnessToolDefinitions(), createHarnessAwareToolPort(), filterForToolSurface(), HarnessAwareToolPort, HarnessBuiltinToolCaller, mcpAndChannelOnly()
-
-### Community 91 - "Community 91"
+### Community 93 - "Community 93"
 Cohesion: 0.14
 Nodes (8): CircuitBreakerOptions, CircuitState, ProviderCircuitBreaker, Slot, FallbackResult, RouteAttempt, walkFallbackChain(), WalkFallbackOptions
 
-### Community 92 - "Community 92"
+### Community 94 - "Community 94"
 Cohesion: 0.20
 Nodes (7): buildCodexAgentEnv(), isCodexRuntimeConfigured(), parseCodexAuthJson(), prepareCodexAuthHome(), resolveCodexAuthJson(), ResolveCodexAuthOptions, CodexRuntimeProvider
 
-### Community 93 - "Community 93"
+### Community 95 - "Community 95"
 Cohesion: 0.12
-Nodes (17): @anvio/execution, @anvio/goals, dependencies, @anvio/blueprints, @anvio/execution, @anvio/goals, @anvio/harness, @anvio/memory (+9 more)
+Nodes (17): @anvio/agents, @anvio/execution, @anvio/goals, dependencies, @anvio/agents, @anvio/blueprints, @anvio/execution, @anvio/goals (+9 more)
 
-### Community 94 - "Community 94"
+### Community 96 - "Community 96"
+Cohesion: 0.20
+Nodes (7): parseSlackTarget(), SlackChannel, SlackChannelOptions, SlackMessageEvent, SlackSocketEnvelope, SlackTarget, threadKey()
+
+### Community 97 - "Community 97"
 Cohesion: 0.12
 Nodes (14): BlueprintDefinition, blueprintDefinitionSchema, blueprintInputSchema, BlueprintSpec, blueprintSpecSchema, BlueprintStep, blueprintStepSchema, workflowDefinitionSchema (+6 more)
 
-### Community 95 - "Community 95"
+### Community 98 - "Community 98"
+Cohesion: 0.20
+Nodes (6): harnessToolDefinitions(), createHarnessAwareToolPort(), filterForToolSurface(), HarnessAwareToolPort, HarnessBuiltinToolCaller, mcpAndChannelOnly()
+
+### Community 99 - "Community 99"
 Cohesion: 0.19
 Nodes (4): RemoteExecResult, RemoteRuntimeStubOptions, SingularityRuntimeOptions, SingularityRuntimeProvider
 
-### Community 96 - "Community 96"
+### Community 100 - "Community 100"
 Cohesion: 0.19
 Nodes (3): AutomationEngine, AutomationEventBus, AutomationRegistry
 
-### Community 97 - "Community 97"
+### Community 101 - "Community 101"
 Cohesion: 0.14
 Nodes (13): agentApprovalsSchema, agentDefinitionSchema, agentMemorySchema, agentModelSchema, agentOrchestrationSchema, agentRuntimeBindingSchema, AgentSpec, agentSpecSchema (+5 more)
 
-### Community 98 - "Community 98"
+### Community 102 - "Community 102"
 Cohesion: 0.25
 Nodes (9): formatForChannel(), markdownToDiscord(), markdownToPlain(), markdownToSlackMrkdwn(), markdownToTelegramHtml(), createHarnessOutputPort(), createHarnessToolHandlers(), HarnessOutputPortImpl (+1 more)
 
-### Community 99 - "Community 99"
-Cohesion: 0.27
-Nodes (13): buffer, drain(), handleMessage(), send(), TOOLS, appendFile(), editFile(), fileDelete() (+5 more)
-
-### Community 100 - "Community 100"
+### Community 103 - "Community 103"
 Cohesion: 0.20
 Nodes (3): DaytonaRuntimeProvider, ModalRuntimeProvider, RemoteRuntimeStub
 
-### Community 101 - "Community 101"
+### Community 104 - "Community 104"
 Cohesion: 0.19
 Nodes (5): CacheEntry, SkillTriggerCache, matchTriggers(), mergeSkillSlugs(), TriggerMatchContext
 
-### Community 102 - "Community 102"
-Cohesion: 0.23
-Nodes (13): runBuiltinTool(), kanbanBlockTask(), kanbanCommentTask(), kanbanCompleteTask(), kanbanCreateTask(), kanbanHeartbeatTask(), kanbanLinkTask(), kanbanListTasks() (+5 more)
-
-### Community 103 - "Community 103"
+### Community 105 - "Community 105"
 Cohesion: 0.18
 Nodes (5): createSkillCatalogResolver(), SkillCatalogPaths, SkillCatalogResolver, createSkillInstaller(), InstalledSkillManifest
 
-### Community 105 - "Community 105"
-Cohesion: 0.24
-Nodes (11): createIntegrationRegistry(), createMcpBridge(), DEFAULT_STUB_TOOLS, McpServerHealth, McpToolCall, McpToolDescriptor, McpToolResult, applyMcpPreset() (+3 more)
-
-### Community 106 - "Community 106"
+### Community 107 - "Community 107"
 Cohesion: 0.13
 Nodes (14): dist, node_modules, **/*.spec.ts, compilerOptions, declaration, declarationMap, outDir, rootDir (+6 more)
 
-### Community 107 - "Community 107"
+### Community 108 - "Community 108"
 Cohesion: 0.24
 Nodes (5): hasCursorCliSession(), isCursorRuntimeConfigured(), parseCursorConnectionPayload(), ResolveCursorSessionOptions, CursorRuntimeProvider
 
-### Community 108 - "Community 108"
+### Community 109 - "Community 109"
 Cohesion: 0.19
 Nodes (4): CodexRuntimeProvider, CursorRuntimeProvider, ExternalRuntimeOptions, ExternalRuntimeStub
 
-### Community 109 - "Community 109"
-Cohesion: 0.22
-Nodes (12): executeCodeWithExecutor(), ManagedProcess, manageProcess(), processes, runTerminal(), searchFiles(), CodePipelineStep, executeCodePipeline() (+4 more)
-
-### Community 110 - "Community 110"
+### Community 111 - "Community 111"
 Cohesion: 0.26
 Nodes (7): ChannelVoiceDeps, ChannelVoiceOptions, isChannelVoiceEnabled(), transcribeInboundAudio(), voiceInboundContent(), VoicePipeline, VoiceTurnResult
 
-### Community 111 - "Community 111"
+### Community 112 - "Community 112"
 Cohesion: 0.15
 Nodes (3): JwtAuthProvider, NoAuthProvider, OAuth2AuthProvider
 
-### Community 112 - "Community 112"
+### Community 113 - "Community 113"
 Cohesion: 0.18
 Nodes (6): PlanExecuteReviewEngine, PlannerConfig, PlannerPhase, PlannerPhaseResult, PlannerRunInput, PlannerRunner
-
-### Community 113 - "Community 113"
-Cohesion: 0.23
-Nodes (12): SkillMdFrontmatter, parseSkillDefinition(), SkillDefinition, skillDefinitionSchema, SkillOutput, skillOutputSchema, SkillParameter, skillParameterSchema (+4 more)
 
 ### Community 114 - "Community 114"
 Cohesion: 0.18
 Nodes (3): LongTermMemoryPort, ShortTermMemoryPort, CompositeMemoryStore
+
+### Community 115 - "Community 115"
+Cohesion: 0.19
+Nodes (3): FilesystemSoulStore, renderSoulMd(), FilesystemStorageProvider
 
 ### Community 116 - "Community 116"
 Cohesion: 0.34
 Nodes (11): decideToolCall(), escapeRegex(), LayeredPolicy, matches(), mergeToolPolicies(), POLICY_LAYER_ORDER, PolicyDecision, PolicyLayer (+3 more)
 
 ### Community 117 - "Community 117"
-Cohesion: 0.37
-Nodes (9): createAcpServer(), AcpErrorResponse, AcpHealthResponse, AcpPromptRequest, AcpPromptResponse, AcpRunHandler, AcpServerConfig, AcpServerStatus (+1 more)
+Cohesion: 0.27
+Nodes (12): haCallService(), haConfig(), haFail(), haFetch(), haGetState(), haListEntities(), haListServices(), buildSimpleDiff() (+4 more)
 
 ### Community 120 - "Community 120"
 Cohesion: 0.35
@@ -747,12 +742,12 @@ Cohesion: 0.21
 Nodes (7): createRealtimeSttSession(), ChunkedStreamingSttSession, CreateStreamingSttOptions, createStreamingSttSession(), StreamingSttChunk, StreamingSttSession, streamTranscribe()
 
 ### Community 126 - "Community 126"
-Cohesion: 0.36
-Nodes (8): AgentMdFrontmatter, parseAgentMd(), ParsedMarkdownDocument, parseFrontmatter(), parseSkillMd(), parseWorkflowMd(), parseWorkflowDefinition(), WorkflowDefinition
-
-### Community 127 - "Community 127"
 Cohesion: 0.21
 Nodes (8): RuntimeToolContext, BuiltinToolCall, BuiltinToolResult, ToolGatewayConfig, toolGatewayConfigSchema, ToolGatewaySpec, toolGatewaySpecSchema, toolGatewayToolSchema
+
+### Community 127 - "Community 127"
+Cohesion: 0.17
+Nodes (9): HarnessChannelProfile, harnessChannelProfileSchema, HarnessConfig, harnessConfigSchema, harnessDefaultsSchema, harnessEngageTriggerSchema, HarnessProfilesConfig, harnessProfilesSchema (+1 more)
 
 ### Community 128 - "Community 128"
 Cohesion: 0.27
@@ -770,9 +765,9 @@ Nodes (11): compilerOptions, outDir, rootDir, exclude, extends, include, src/**/
 Cohesion: 0.18
 Nodes (9): ProviderRouting, providerRoutingSchema, providerRoutingSpecSchema, RouteDefinition, routeDefinitionSchema, RouteTarget, routeTargetSchema, RoutingStrategy (+1 more)
 
-### Community 135 - "Community 135"
-Cohesion: 0.18
-Nodes (10): compilerOptions, outDir, rootDir, exclude, extends, include, src/**/*, src/**/*.spec.ts (+2 more)
+### Community 133 - "Community 133"
+Cohesion: 0.20
+Nodes (9): defaultSoulPolicy(), parseSoulPolicy(), SoulPolicy, SoulPolicyApprover, soulPolicyApproverSchema, soulPolicyIdentitySchema, soulPolicySchema, soulPolicyUserRefSchema (+1 more)
 
 ### Community 136 - "Community 136"
 Cohesion: 0.18
@@ -782,71 +777,63 @@ Nodes (10): compilerOptions, outDir, rootDir, exclude, extends, include, src/**/
 Cohesion: 0.18
 Nodes (10): compilerOptions, outDir, rootDir, exclude, extends, include, src/**/*, src/**/*.spec.ts (+2 more)
 
-### Community 139 - "Community 139"
-Cohesion: 0.31
-Nodes (7): extractSoulData(), isUsableModelProvider(), LlmSoulData, mergeSoulData(), parseLlmJson(), preferArray(), preferString()
+### Community 138 - "Community 138"
+Cohesion: 0.18
+Nodes (10): compilerOptions, outDir, rootDir, exclude, extends, include, src/**/*, src/**/*.spec.ts (+2 more)
 
 ### Community 140 - "Community 140"
 Cohesion: 0.27
 Nodes (4): extensionForMime(), OpenAiSpeechAdapter, SpeechToTextAdapter, TextToSpeechAdapter
 
-### Community 142 - "Community 142"
+### Community 141 - "Community 141"
 Cohesion: 0.38
 Nodes (8): CronField, cronMatches(), DOW, matchesField(), nextCronRuns(), parseCronExpression(), parseDowField(), parseField()
 
 ### Community 144 - "Community 144"
 Cohesion: 0.24
-Nodes (3): AnvioError, AnvioErrorCode, Result
-
-### Community 145 - "Community 145"
-Cohesion: 0.24
 Nodes (3): RuntimeToolPort, loadMcpToolCatalog(), McpToolPort
 
-### Community 146 - "Community 146"
-Cohesion: 0.24
-Nodes (3): SoulEngine, SoulStore, SoulDefinition
-
-### Community 147 - "Community 147"
+### Community 145 - "Community 145"
 Cohesion: 0.20
 Nodes (8): AutomationAction, automationActionSchema, AutomationDefinition, automationDefinitionSchema, automationRetrySchema, automationSpecSchema, AutomationTrigger, automationTriggerSchema
 
-### Community 148 - "Community 148"
+### Community 146 - "Community 146"
 Cohesion: 0.20
 Nodes (9): compilerOptions, outDir, rootDir, exclude, extends, include, src/**/*.spec.ts, ../../tsconfig.base.json (+1 more)
 
-### Community 149 - "Community 149"
+### Community 148 - "Community 148"
 Cohesion: 0.31
 Nodes (8): CostEstimateInput, DESCRIPTORS, estimateModelCostUsd(), getModelDescriptor(), INDEX, listModelDescriptors(), ModelCost, ModelDescriptor
 
-### Community 150 - "Community 150"
+### Community 149 - "Community 149"
 Cohesion: 0.20
 Nodes (9): compilerOptions, outDir, rootDir, exclude, extends, include, src/**/*, src/**/*.spec.ts (+1 more)
 
+### Community 150 - "Community 150"
+Cohesion: 0.22
+Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
+
 ### Community 151 - "Community 151"
-Cohesion: 0.33
-Nodes (3): AcpServer, readJson(), err()
+Cohesion: 0.22
+Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
 ### Community 152 - "Community 152"
 Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
 ### Community 153 - "Community 153"
-Cohesion: 0.22
-Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
+Cohesion: 0.31
+Nodes (5): ActionExecutionContext, ActionExecutionResult, ActionExecutor, ActionExecutorDeps, sleep()
 
 ### Community 154 - "Community 154"
 Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
 ### Community 155 - "Community 155"
-Cohesion: 0.31
-Nodes (5): ActionExecutionContext, ActionExecutionResult, ActionExecutor, ActionExecutorDeps, sleep()
-
-### Community 156 - "Community 156"
 Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
-### Community 157 - "Community 157"
+### Community 156 - "Community 156"
 Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
@@ -854,17 +841,21 @@ Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../t
 Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
+### Community 159 - "Community 159"
+Cohesion: 0.22
+Nodes (7): hookBindingSchema, HookEventName, hookEventNameSchema, HookHandler, hookHandlerSchema, HookRegistry, hookRegistrySchema
+
 ### Community 160 - "Community 160"
 Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
 ### Community 161 - "Community 161"
-Cohesion: 0.31
-Nodes (7): parsePersonaMd(), PersonaMdFrontmatter, parsePersonaDefinition(), PersonaDefinition, personaDefinitionSchema, PersonaProfile, personaProfileSchema
+Cohesion: 0.22
+Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
 ### Community 162 - "Community 162"
 Cohesion: 0.22
-Nodes (7): hookBindingSchema, HookEventName, hookEventNameSchema, HookHandler, hookHandlerSchema, HookRegistry, hookRegistrySchema
+Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
 ### Community 163 - "Community 163"
 Cohesion: 0.22
@@ -886,10 +877,6 @@ Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../t
 Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
-### Community 168 - "Community 168"
-Cohesion: 0.22
-Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
-
 ### Community 169 - "Community 169"
 Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
@@ -898,9 +885,13 @@ Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../t
 Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
-### Community 172 - "Community 172"
+### Community 171 - "Community 171"
 Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
+
+### Community 172 - "Community 172"
+Cohesion: 0.25
+Nodes (8): exports, import, main, name, private, type, types, version
 
 ### Community 173 - "Community 173"
 Cohesion: 0.22
@@ -911,8 +902,8 @@ Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
 ### Community 175 - "Community 175"
-Cohesion: 0.25
-Nodes (8): exports, import, main, name, private, type, types, version
+Cohesion: 0.22
+Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
 ### Community 176 - "Community 176"
 Cohesion: 0.22
@@ -935,16 +926,12 @@ Cohesion: 0.22
 Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
 
 ### Community 181 - "Community 181"
-Cohesion: 0.22
-Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
-
-### Community 182 - "Community 182"
-Cohesion: 0.22
-Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
+Cohesion: 0.25
+Nodes (7): HarnessApprovalContext, HarnessApprovalMessage, HarnessOutputAction, HarnessOutputRequest, HarnessTrustTier, InboundDecision, InboundGateResult
 
 ### Community 183 - "Community 183"
-Cohesion: 0.22
-Nodes (8): compilerOptions, outDir, rootDir, extends, include, src/**/*, ../../tsconfig.base.json, references
+Cohesion: 0.29
+Nodes (3): FACT_PATTERNS, MemoryNudgeEngine, MemoryNudgeResult
 
 ### Community 184 - "Community 184"
 Cohesion: 0.25
@@ -955,88 +942,76 @@ Cohesion: 0.25
 Nodes (5): KnowledgeBaseDefinition, knowledgeBaseDefinitionSchema, knowledgeBaseSpecSchema, KnowledgeManifest, knowledgeManifestSchema
 
 ### Community 186 - "Community 186"
-Cohesion: 0.25
-Nodes (7): soulCommunicationStyleSchema, soulDefinitionSchema, soulEvolutionSchema, soulIdentitySchema, soulRelationshipMemorySchema, SoulSpec, soulSpecSchema
-
-### Community 188 - "Community 188"
 Cohesion: 0.32
 Nodes (3): EngagementStore, MemoryEngagementStore, HarnessGatewayOptions
 
-### Community 189 - "Community 189"
+### Community 187 - "Community 187"
 Cohesion: 0.36
 Nodes (5): LearningEngineOptions, SessionLearningInput, SessionLearningResult, SessionSummaryJobResult, StaleSessionInput
 
-### Community 191 - "Community 191"
+### Community 189 - "Community 189"
 Cohesion: 0.32
 Nodes (3): renderSkillMd(), SkillDraftInput, SkillEvolutionWriter
 
-### Community 192 - "Community 192"
+### Community 190 - "Community 190"
 Cohesion: 0.43
 Nodes (3): MemoryRecallIndex, scoreOverlap(), tokenize()
 
-### Community 196 - "Community 196"
-Cohesion: 0.57
-Nodes (7): haCallService(), haConfig(), haFail(), haFetch(), haGetState(), haListEntities(), haListServices()
-
-### Community 197 - "Community 197"
+### Community 193 - "Community 193"
 Cohesion: 0.33
 Nodes (3): AutomationEngineOptions, matchesFilter(), AutomationRunState
 
-### Community 198 - "Community 198"
+### Community 194 - "Community 194"
 Cohesion: 0.29
 Nodes (5): CodeExecutionRequest, CodeExecutionResult, CodeExecutor, CodeRuntime, ExecutionAuditRecord
 
-### Community 202 - "Community 202"
-Cohesion: 0.33
-Nodes (3): FACT_PATTERNS, MemoryNudgeEngine, MemoryNudgeResult
-
-### Community 204 - "Community 204"
+### Community 198 - "Community 198"
 Cohesion: 0.29
 Nodes (7): devDependencies, @types/ws, typescript, vitest, @types/ws, typescript, vitest
 
-### Community 205 - "Community 205"
-Cohesion: 0.60
-Nodes (5): bullets(), field(), parseSoulDefinitionMd(), sectionBody(), parseSoulDefinition()
+### Community 199 - "Community 199"
+Cohesion: 0.53
+Nodes (5): expectCode(), readResponse(), sendLine(), sendSmtpMail(), SmtpSendOptions
 
-### Community 207 - "Community 207"
+### Community 201 - "Community 201"
 Cohesion: 0.33
 Nodes (4): ConnectionGrant, connectionGrantSchema, StoredConnection, storedConnectionSchema
 
-### Community 208 - "Community 208"
+### Community 202 - "Community 202"
 Cohesion: 0.33
 Nodes (4): McpConfig, mcpConfigSchema, McpServerSpec, mcpServerSpecSchema
 
+### Community 210 - "Community 210"
+Cohesion: 0.40
+Nodes (3): ChannelHealthProbe, ChannelHealthReport, ChannelHealthState
+
 ### Community 211 - "Community 211"
-Cohesion: 0.53
-Nodes (4): browserAction(), BrowserActionInput, tryLoadPlaywright(), webFetch()
+Cohesion: 0.60
+Nodes (4): applyMcpPreset(), listMcpPresets(), parsePresetServers(), presetPath()
 
 ### Community 212 - "Community 212"
-Cohesion: 0.60
-Nodes (5): buildSimpleDiff(), normalizeWhitespace(), patchFile(), resolveWorkspacePath(), tryReplace()
-
-### Community 216 - "Community 216"
 Cohesion: 0.40
 Nodes (5): scripts, build, clean, test, typecheck
 
 ## Knowledge Gaps
-- **1161 isolated node(s):** `name`, `version`, `private`, `type`, `main` (+1156 more)
+- **1160 isolated node(s):** `name`, `version`, `private`, `type`, `main` (+1155 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **58 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `err()` connect `Community 151` to `Channels — WebChat + Runtime glue`, `Delegation + progress`, `Community 43`, `Community 47`, `Community 144`, `Community 83`, `Community 52`?**
-  _High betweenness centrality (0.128) - this node is a cross-community bridge._
-- **Why does `buffer` connect `Community 99` to `Channels — WebChat + Runtime glue`, `Channels — Feishu / Email / SMS / Signal`, `Community 133`, `Tools — media + gateway`, `Runtime setup-token (claude/cursor/codex/antigravity)`, `Community 140`, `Email channel — IMAP+SMTP`, `Community 151`, `Community 49`, `Community 56`, `Community 67`, `Community 72`, `Community 78`, `Community 83`, `Community 84`, `Community 85`, `Community 212`, `Community 109`, `Community 110`, `Community 123`?**
-  _High betweenness centrality (0.101) - this node is a cross-community bridge._
-- **Why does `createPlatform()` connect `Channels — WebChat + Runtime glue` to `Community 201`, `Community 48`, `Community 20`, `Community 189`, `Community 63`?**
-  _High betweenness centrality (0.052) - this node is a cross-community bridge._
+- **Why does `buffer` connect `Community 79` to `Community 0`, `Community 4`, `Community 134`, `Community 12`, `Community 140`, `Community 17`, `Community 28`, `Community 36`, `Community 39`, `Community 51`, `Community 58`, `Community 69`, `Community 199`, `Community 72`, `Community 76`, `Community 87`, `Community 88`, `Community 111`, `Community 117`, `Community 123`?**
+  _High betweenness centrality (0.109) - this node is a cross-community bridge._
+- **Why does `createPlatform()` connect `Community 0` to `Community 65`, `Community 196`, `Community 187`, `Community 82`, `Community 20`, `Community 27`?**
+  _High betweenness centrality (0.054) - this node is a cross-community bridge._
+- **Why does `SessionStore` connect `Community 142` to `Community 27`, `Community 13`, `Community 110`?**
+  _High betweenness centrality (0.045) - this node is a cross-community bridge._
 - **What connects `name`, `version`, `private` to the rest of the system?**
-  _1161 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Channels — WebChat + Runtime glue` be split into smaller, more focused modules?**
-  _Cohesion score 0.05098934550989345 - nodes in this community are weakly interconnected._
-- **Should `Events bus + envelope` be split into smaller, more focused modules?**
+  _1160 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Community 0` be split into smaller, more focused modules?**
+  _Cohesion score 0.05311871227364185 - nodes in this community are weakly interconnected._
+- **Should `Community 1` be split into smaller, more focused modules?**
+  _Cohesion score 0.06954887218045112 - nodes in this community are weakly interconnected._
+- **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.0632996632996633 - nodes in this community are weakly interconnected._
-- **Should `Delegation + progress` be split into smaller, more focused modules?**
-  _Cohesion score 0.08563134978229318 - nodes in this community are weakly interconnected._
