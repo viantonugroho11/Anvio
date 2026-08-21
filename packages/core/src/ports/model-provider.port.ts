@@ -23,7 +23,16 @@ export interface ChatResponse {
 export type StreamChunk =
   | { type: 'text_delta'; delta: string }
   | { type: 'tool_use'; toolCall: ModelToolCall }
-  | { type: 'done'; usage?: TokenUsage; toolCalls?: ModelToolCall[] }
+  | {
+      type: 'done';
+      usage?: TokenUsage;
+      toolCalls?: ModelToolCall[];
+      /**
+       * Raw provider stop reason, passed through unmapped: Anthropic `max_tokens`,
+       * OpenAI `length`, Gemini `MAX_TOKENS`. Undefined when the provider did not report one.
+       */
+      finishReason?: string;
+    }
   | { type: 'error'; error?: string };
 
 export interface ModelProvider {
