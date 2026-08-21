@@ -14,6 +14,11 @@ export interface CreateModelProviderOptions {
   apiKey?: string;
   model?: string;
   baseUrl?: string;
+  /**
+   * Overrides the catalog's value. Needed for hosts that serve arbitrary models —
+   * an Ollama instance running a model without tool support, for instance.
+   */
+  supportsNativeTools?: boolean;
 }
 
 function createOpenAICompatibleFromSpec(
@@ -21,9 +26,11 @@ function createOpenAICompatibleFromSpec(
   options: CreateModelProviderOptions,
 ): ModelProvider {
   const spec = OPENAI_COMPATIBLE_PROVIDER_SPECS[specId];
-  const apiKey =
-    options.apiKey ??
-    (spec.optionalApiKey ? undefined : resolveApiKeyFromEnv(spec));
+
+  // Read the env var for optional-key providers too: a remote or authenticated
+  // Ollama still needs OLLAMA_API_KEY. `optionalApiKey` governs whether a key is
+  // *required*, not whether one is looked up.
+  const apiKey = options.apiKey ?? resolveApiKeyFromEnv(spec);
 
   if (!apiKey && !spec.optionalApiKey) {
     throw new AnvioError('VALIDATION_ERROR', `${spec.id} provider requires apiKey`);
@@ -41,6 +48,9 @@ function createOpenAICompatibleFromSpec(
     baseUrl,
     defaultModel: options.model ?? spec.defaultModel,
     extraHeaders: spec.extraHeaders,
+    path: spec.path,
+    maxOutputTokens: spec.maxOutputTokens,
+    supportsNativeTools: options.supportsNativeTools ?? spec.supportsNativeTools,
   });
 }
 
