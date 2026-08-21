@@ -5,11 +5,12 @@ import type {
   ModelToolCall,
   StreamChunk,
 } from '@anvio/core';
-import { httpProviderError, toProviderError } from '../provider-error.js';
+import { httpProviderError, providerRefusalError, toProviderError } from '../provider-error.js';
 import {
   extractGeminiText,
   extractGeminiToolCalls,
   toGeminiContents,
+  toGeminiSchema,
   type GeminiPart,
 } from './gemini-messages.js';
 import { withCallMetrics, recordStreamMetrics } from '../metrics-emitter.js';
@@ -33,6 +34,15 @@ interface GeminiGenerateResponse {
     totalTokenCount?: number;
   };
   modelVersion?: string;
+  /**
+   * Present when the prompt itself was refused. The HTTP call still returns 200
+   * with an empty `candidates`, so this has to be checked explicitly or a blocked
+   * request reads as an empty successful answer.
+   */
+  promptFeedback?: {
+    blockReason?: string;
+    safetyRatings?: Array<{ category?: string; probability?: string }>;
+  };
 }
 
 export class GeminiProvider implements ModelProvider {
@@ -61,6 +71,15 @@ export class GeminiProvider implements ModelProvider {
       }
 
       const body = (await response.json()) as GeminiGenerateResponse;
+
+      if (body.promptFeedback?.blockReason) {
+        throw providerRefusalError(
+          this.providerId,
+          body.promptFeedback.blockReason,
+          JSON.stringify(body.promptFeedback.safetyRatings ?? []),
+        );
+      }
+
       const parts = body.candidates?.[0]?.content?.parts;
       const toolCalls = extractGeminiToolCalls(parts);
       const content = extractGeminiText(parts);
@@ -74,7 +93,9 @@ export class GeminiProvider implements ModelProvider {
           totalTokens: usage?.totalTokenCount ?? 0,
         },
         model: body.modelVersion ?? model,
-        finishReason: body.candidates?.[0]?.finishReason ?? 'STOP',
+        // Not defaulted to 'STOP': claiming a clean finish the provider never
+        // reported is how a truncated or filtered answer passes as complete.
+        finishReason: body.candidates?.[0]?.finishReason ?? 'UNKNOWN',
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       };
     } catch (error) {
@@ -124,6 +145,15 @@ export class GeminiProvider implements ModelProvider {
           if (!data || data === '[DONE]') continue;
 
           const parsed = JSON.parse(data) as GeminiGenerateResponse;
+
+          if (parsed.promptFeedback?.blockReason) {
+            yield {
+              type: 'error',
+              error: providerRefusalError(this.providerId, parsed.promptFeedback.blockReason).message,
+            };
+            return;
+          }
+
           const parts = parsed.candidates?.[0]?.content?.parts;
           const meta = parsed.usageMetadata;
           const candidateFinish = parsed.candidates?.[0]?.finishReason;
@@ -176,11 +206,14 @@ export class GeminiProvider implements ModelProvider {
     if (request.tools?.length) {
       body.tools = [
         {
-          functionDeclarations: request.tools.map((tool) => ({
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.inputSchema,
-          })),
+          functionDeclarations: request.tools.map((tool) => {
+            // Omit `parameters` for a no-argument function: Gemini rejects an
+            // OBJECT schema with no properties, and one bad tool fails the request.
+            const parameters = toGeminiSchema(tool.inputSchema);
+            return parameters
+              ? { name: tool.name, description: tool.description, parameters }
+              : { name: tool.name, description: tool.description };
+          }),
         },
       ];
     }
@@ -201,4 +234,4 @@ export class GeminiProvider implements ModelProvider {
   }
 }
 
-export { toGeminiContents, extractGeminiToolCalls, extractGeminiText };
+export { toGeminiContents, extractGeminiToolCalls, extractGeminiText, toGeminiSchema };

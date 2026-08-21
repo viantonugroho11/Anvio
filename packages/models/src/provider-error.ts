@@ -87,6 +87,19 @@ function providerErrorType(body: string): string | undefined {
 }
 
 /**
+ * The provider accepted the request and refused to answer it — a safety block or
+ * other policy stop. Never retryable: another target would refuse the same content,
+ * and the HTTP call itself succeeded.
+ */
+export function providerRefusalError(
+  provider: string,
+  reason: string,
+  detail?: string,
+): AnvioError {
+  return build(provider, { provider, type: `blocked:${reason}`, retryable: false }, detail);
+}
+
+/**
  * Normalises anything thrown while calling a provider into an `AnvioError` carrying
  * `ProviderErrorDetails`. Already-normalised errors pass through unchanged so a
  * wrapping `catch` cannot bury the status a caller already established.

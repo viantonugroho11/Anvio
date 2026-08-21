@@ -17,7 +17,13 @@ export interface OpenAICompatibleProviderOptions {
   extraHeaders?: Record<string, string>;
   /** When false, tools are omitted even if the provider supports them. */
   supportsNativeTools?: boolean;
+  /** Completions path appended to `baseUrl`. Defaults to `/chat/completions`. */
+  path?: string;
+  /** Hard ceiling applied to every request's `max_tokens`, whatever the caller asked for. */
+  maxOutputTokens?: number;
 }
+
+const DEFAULT_MAX_TOKENS = 8192;
 
 interface OpenAIChatCompletionResponse {
   model?: string;
@@ -98,6 +104,8 @@ export class OpenAICompatibleProvider implements ModelProvider {
   private readonly apiKey?: string;
   private readonly defaultModel: string;
   private readonly extraHeaders: Record<string, string>;
+  private readonly path: string;
+  private readonly maxOutputTokens?: number;
 
   constructor(options: OpenAICompatibleProviderOptions) {
     this.providerId = options.providerId;
@@ -106,6 +114,18 @@ export class OpenAICompatibleProvider implements ModelProvider {
     this.defaultModel = options.defaultModel;
     this.extraHeaders = options.extraHeaders ?? {};
     this.supportsNativeTools = options.supportsNativeTools ?? true;
+    this.path = options.path ?? '/chat/completions';
+    this.maxOutputTokens = options.maxOutputTokens;
+  }
+
+  /**
+   * Clamps at the adapter rather than defaulting, because the caller's value is
+   * rarely absent: agent frontmatter always populates `maxTokens`, so a provider
+   * ceiling expressed as a default would never take effect.
+   */
+  private resolveMaxTokens(requested?: number): number {
+    const wanted = requested ?? DEFAULT_MAX_TOKENS;
+    return this.maxOutputTokens ? Math.min(wanted, this.maxOutputTokens) : wanted;
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
@@ -114,7 +134,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
       const body: Record<string, unknown> = {
         model: request.model ?? this.defaultModel,
         messages: toOpenAIMessages(request),
-        max_tokens: request.maxTokens ?? 8192,
+        max_tokens: this.resolveMaxTokens(request.maxTokens),
         temperature: request.temperature,
         stream: false,
       };
@@ -129,7 +149,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
         }));
       }
 
-      const response = await this.post('/chat/completions', body, request.signal);
+      const response = await this.post(this.path, body, request.signal);
 
       // Read as text before parsing: an error response is often not JSON (a proxy
       // HTML page, a plain-text gateway message), and parsing it first loses the
@@ -168,7 +188,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
       const body: Record<string, unknown> = {
         model: request.model ?? this.defaultModel,
         messages: toOpenAIMessages(request),
-        max_tokens: request.maxTokens ?? 8192,
+        max_tokens: this.resolveMaxTokens(request.maxTokens),
         temperature: request.temperature,
         stream: true,
         // Without this the final frame carries no usage, so streamed calls report
@@ -186,7 +206,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
         }));
       }
 
-      const response = await this.post('/chat/completions', body, request.signal);
+      const response = await this.post(this.path, body, request.signal);
 
       if (!response.ok) {
         const errorBody = await response.text();

@@ -7,6 +7,16 @@ export interface OpenAICompatibleProviderSpec {
   extraHeaders?: Record<string, string>;
   /** Register without API key (local inference). */
   optionalApiKey?: boolean;
+  /** Completions path appended to `baseUrl`. Defaults to `/chat/completions`. */
+  path?: string;
+  /**
+   * Hard ceiling on `max_tokens` for this provider. Clamped at the adapter, not
+   * merely used as a default — agent frontmatter injects an explicit 8192
+   * (`packages/core/src/schemas/agent.schema.ts`), so a default alone never binds.
+   */
+  maxOutputTokens?: number;
+  /** False when this provider's models reject an OpenAI `tools` array. */
+  supportsNativeTools?: boolean;
 }
 
 export const OPENAI_COMPATIBLE_PROVIDER_SPECS: Record<string, OpenAICompatibleProviderSpec> = {
@@ -67,6 +77,9 @@ export const OPENAI_COMPATIBLE_PROVIDER_SPECS: Record<string, OpenAICompatiblePr
     baseUrl: 'https://api.moonshot.ai/v1',
     defaultModel: 'moonshot-v1-8k',
     apiKeyEnv: 'MOONSHOT_API_KEY',
+    // The default model's 8k budget covers prompt *and* completion, so the
+    // repo-wide 8192 request would leave no room for the prompt.
+    maxOutputTokens: 4096,
   },
   cerebras: {
     id: 'cerebras',
@@ -85,10 +98,17 @@ export const OPENAI_COMPATIBLE_PROVIDER_SPECS: Record<string, OpenAICompatiblePr
     baseUrl: 'https://api.perplexity.ai',
     defaultModel: 'sonar-pro',
     apiKeyEnv: 'PERPLEXITY_API_KEY',
+    // Sonar models are search-grounded and do not expose function calling;
+    // sending a `tools` array fails the request.
+    supportsNativeTools: false,
   },
   cohere: {
     id: 'cohere',
-    baseUrl: 'https://api.cohere.com/v2',
+    // Cohere's own v2 API is not OpenAI-shaped — it serves `/v2/chat`, not
+    // `/v2/chat/completions`, so the previous base URL could never work through
+    // this adapter. Their OpenAI compatibility endpoint is the one that can.
+    // NOTE: not yet exercised against a live key — see ADR-0015.
+    baseUrl: 'https://api.cohere.ai/compatibility/v1',
     defaultModel: 'command-r-plus-08-2024',
     apiKeyEnv: 'COHERE_API_KEY',
   },
