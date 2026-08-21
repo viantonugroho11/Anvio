@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { withCallMetrics, recordStreamMetrics } from '../metrics-emitter.js';
 import { toProviderError } from '../provider-error.js';
+import { DEFAULT_MODELS } from '@anvio/core';
 import type {
   ChatRequest,
   ChatResponse,
@@ -94,7 +95,7 @@ export class AnthropicProvider implements ModelProvider {
 
   constructor(options: AnthropicProviderOptions) {
     this.client = new Anthropic({ apiKey: options.apiKey });
-    this.defaultModel = options.defaultModel ?? 'claude-sonnet-4-20250514';
+    this.defaultModel = options.defaultModel ?? DEFAULT_MODELS.anthropic;
     this.promptCaching = options.promptCaching ?? true;
   }
 
@@ -109,6 +110,11 @@ export class AnthropicProvider implements ModelProvider {
             system: buildSystem(request.systemPrompt, this.promptCaching),
             messages: toAnthropicMessages(request.messages),
             tools: buildTools(request.tools, this.promptCaching),
+            // Auto-places a breakpoint on the last cacheable block — the growing
+            // conversation. The agent loop resends the whole message array each
+            // iteration, so without this only the system prompt and last tool
+            // were cached and every prior turn was re-billed at full rate.
+            ...(this.promptCaching ? { cache_control: { type: 'ephemeral' as const } } : {}),
           },
           request.signal ? { signal: request.signal } : undefined,
         );
@@ -141,6 +147,7 @@ export class AnthropicProvider implements ModelProvider {
           system: buildSystem(request.systemPrompt, this.promptCaching),
           messages: toAnthropicMessages(request.messages),
           tools: buildTools(request.tools, this.promptCaching),
+          ...(this.promptCaching ? { cache_control: { type: 'ephemeral' as const } } : {}),
         },
         request.signal ? { signal: request.signal } : undefined,
       );

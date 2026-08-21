@@ -31,7 +31,18 @@ export type AgentRunStatus =
 
 export type OrchestrationPattern = 'single' | 'supervisor' | 'parallel' | 'hierarchical';
 
+/**
+ * Token counts for one or more model calls.
+ *
+ * **Invariant: `inputTokens` is the total prompt size and already includes both
+ * cache fields.** The cache counts are a breakdown of it, not additions to it —
+ * so `inputTokens - cacheReadInputTokens - cacheCreationInputTokens` is the
+ * portion billed at full input rate. Costing code that charges `inputTokens`
+ * *and* the cache counts bills those tokens twice; use `costInputFromUsage`
+ * (`@anvio/models`) to split them into disjoint buckets.
+ */
 export interface TokenUsage {
+  /** Total prompt tokens, inclusive of both cache fields below. */
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;

@@ -1,3 +1,4 @@
+import { DEFAULT_MODELS } from '@anvio/core';
 import type {
   ChatRequest,
   ChatResponse,
@@ -54,7 +55,7 @@ export class GeminiProvider implements ModelProvider {
 
   constructor(options: GeminiProviderOptions) {
     this.apiKey = options.apiKey;
-    this.defaultModel = options.defaultModel ?? 'gemini-2.0-flash';
+    this.defaultModel = options.defaultModel ?? DEFAULT_MODELS.gemini;
     this.baseUrl = (options.baseUrl ?? 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
   }
 

@@ -11,6 +11,8 @@
  * The runtime still calls the provider and reports actual usage; descriptors just
  * enable pre-flight cost estimation and capability gating.
  */
+import { MODEL_IDS } from '@anvio/core';
+import type { TokenUsage } from '@anvio/core';
 
 export interface ModelCost {
   /** USD per 1M input tokens. */
@@ -42,7 +44,7 @@ export interface ModelDescriptor {
 const DESCRIPTORS: ModelDescriptor[] = [
   {
     provider: 'anthropic',
-    model: 'claude-sonnet-4-20250514',
+    model: MODEL_IDS.anthropicSonnet4,
     contextWindow: 200_000,
     maxOutput: 8_192,
     supportsTools: true,
@@ -51,7 +53,7 @@ const DESCRIPTORS: ModelDescriptor[] = [
   },
   {
     provider: 'anthropic',
-    model: 'claude-opus-4-20250514',
+    model: MODEL_IDS.anthropicOpus4,
     contextWindow: 200_000,
     maxOutput: 8_192,
     supportsTools: true,
@@ -60,7 +62,7 @@ const DESCRIPTORS: ModelDescriptor[] = [
   },
   {
     provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    model: MODEL_IDS.anthropicHaiku45,
     contextWindow: 200_000,
     maxOutput: 8_192,
     supportsTools: true,
@@ -69,7 +71,7 @@ const DESCRIPTORS: ModelDescriptor[] = [
   },
   {
     provider: 'openai',
-    model: 'gpt-4o',
+    model: MODEL_IDS.openaiGpt4o,
     contextWindow: 128_000,
     maxOutput: 16_384,
     supportsTools: true,
@@ -78,7 +80,7 @@ const DESCRIPTORS: ModelDescriptor[] = [
   },
   {
     provider: 'openai',
-    model: 'gpt-4o-mini',
+    model: MODEL_IDS.openaiGpt4oMini,
     contextWindow: 128_000,
     maxOutput: 16_384,
     supportsTools: true,
@@ -87,7 +89,7 @@ const DESCRIPTORS: ModelDescriptor[] = [
   },
   {
     provider: 'gemini',
-    model: 'gemini-2.0-flash',
+    model: MODEL_IDS.geminiFlash20,
     contextWindow: 1_000_000,
     maxOutput: 8_192,
     supportsTools: true,
@@ -96,7 +98,7 @@ const DESCRIPTORS: ModelDescriptor[] = [
   },
   {
     provider: 'gemini',
-    model: 'gemini-1.5-pro',
+    model: MODEL_IDS.geminiPro15,
     contextWindow: 2_000_000,
     maxOutput: 8_192,
     supportsTools: true,
@@ -105,7 +107,7 @@ const DESCRIPTORS: ModelDescriptor[] = [
   },
   {
     provider: 'deepseek',
-    model: 'deepseek-chat',
+    model: MODEL_IDS.deepseekChat,
     contextWindow: 64_000,
     maxOutput: 8_192,
     supportsTools: true,
@@ -114,7 +116,7 @@ const DESCRIPTORS: ModelDescriptor[] = [
   },
   {
     provider: 'groq',
-    model: 'llama-3.3-70b-versatile',
+    model: MODEL_IDS.groqLlama33,
     contextWindow: 128_000,
     maxOutput: 8_192,
     supportsTools: true,
@@ -133,11 +135,34 @@ export function listModelDescriptors(): readonly ModelDescriptor[] {
   return DESCRIPTORS;
 }
 
+/**
+ * Disjoint token buckets. `inputTokens` here means *uncached* input only —
+ * unlike `TokenUsage.inputTokens`, which is the inclusive total. Build one with
+ * `costInputFromUsage` rather than by hand.
+ */
 export interface CostEstimateInput {
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens?: number;
   cacheCreationTokens?: number;
+}
+
+/**
+ * Splits a `TokenUsage` into the disjoint buckets `estimateModelCostUsd` expects.
+ *
+ * `TokenUsage.inputTokens` is the inclusive prompt total, so passing it straight
+ * through alongside the cache counts charges cached tokens twice — once at the
+ * full input rate and again at the cache rate.
+ */
+export function costInputFromUsage(usage: TokenUsage): CostEstimateInput {
+  const cacheRead = usage.cacheReadInputTokens ?? 0;
+  const cacheCreation = usage.cacheCreationInputTokens ?? 0;
+  return {
+    inputTokens: Math.max(0, usage.inputTokens - cacheRead - cacheCreation),
+    outputTokens: usage.outputTokens,
+    ...(cacheRead > 0 ? { cacheReadTokens: cacheRead } : {}),
+    ...(cacheCreation > 0 ? { cacheCreationTokens: cacheCreation } : {}),
+  };
 }
 
 /**
