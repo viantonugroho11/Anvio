@@ -16,6 +16,8 @@ import { createMemoryProvider } from '@anvio/memory';
 import {
   createModelProviderRegistryFromEnv,
   createModelProviderRegistryInstance,
+  createModelRouter,
+  ProviderCircuitBreaker,
   allKnownProviderIds,
 } from '@anvio/models';
 import { PersonaService } from '@anvio/personas';
@@ -296,6 +298,14 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     });
   }
 
+  // First production construction of the breaker: until now it existed only in
+  // its own module and its specs, so no call path could ever open a circuit.
+  const modelRouter = createModelRouter({
+    storage: workspace.storage,
+    providers: providerMap,
+    breaker: new ProviderCircuitBreaker(),
+  });
+
   const localRuntime = new DefaultAgentRuntime({
     personaService,
     skillRegistry,
@@ -303,6 +313,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     memoryStore: memoryProvider,
     soulService,
     modelProviders,
+    modelRouter,
     toolPort,
     activeGoalSkillsResolver: async () => {
       const activeGoals = await sharedGoalEngine.list('active');

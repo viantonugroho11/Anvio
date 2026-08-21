@@ -6,7 +6,13 @@ import type {
   ModelToolCall,
   StreamChunk,
 } from '@anvio/core';
-import { httpProviderError, providerRefusalError, toProviderError } from '../provider-error.js';
+import {
+  httpErrorChunk,
+  httpProviderError,
+  providerRefusalError,
+  toErrorChunk,
+  toProviderError,
+} from '../provider-error.js';
 import {
   extractGeminiText,
   extractGeminiToolCalls,
@@ -113,7 +119,7 @@ export class GeminiProvider implements ModelProvider {
 
       if (!response.ok) {
         const body = await response.text();
-        yield { type: 'error', error: httpProviderError(this.providerId, response.status, body).message };
+        yield httpErrorChunk(this.providerId, response.status, body);
         return;
       }
 
@@ -148,9 +154,11 @@ export class GeminiProvider implements ModelProvider {
           const parsed = JSON.parse(data) as GeminiGenerateResponse;
 
           if (parsed.promptFeedback?.blockReason) {
+            // A safety block is never retryable: another provider refuses the same content.
             yield {
               type: 'error',
               error: providerRefusalError(this.providerId, parsed.promptFeedback.blockReason).message,
+              retryable: false,
             };
             return;
           }
@@ -188,7 +196,7 @@ export class GeminiProvider implements ModelProvider {
         finishReason,
       };
     } catch (error) {
-      yield { type: 'error', error: toProviderError(this.providerId, error).message };
+      yield toErrorChunk(this.providerId, error);
     }
   }
 

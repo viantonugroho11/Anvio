@@ -54,6 +54,18 @@ Credential pools (`packages/credentials`) allow key rotation: the router calls
 `credentialPools.acquire(poolId)` and constructs a provider on the fly for each request when
 `target.pool` is set in `routing.yaml`.
 
+> **Correction (ADR-0017).** The paragraph above describes an intent, not the shipped code.
+> `credentialPools` is never supplied — `@anvio/credentials` is not a dependency of
+> `packages/platform`, so `createPlatform()` cannot build a pool manager, and
+> `resolveProvider` returns the registered provider before the acquired key is used.
+> Pool rotation is not on any request path. Wiring it is Phase 5b, gated behind securing
+> `apps/api`.
+>
+> The routing and fallback description in this ADR **is** accurate as of ADR-0017: the
+> router now streams, the agent loop goes through it, and the circuit breaker is
+> constructed in `packages/platform`. Before that change none of it ran on a request path
+> either — see ADR-0017 Context for what was true when this ADR was written.
+
 ### Gaps at time of writing
 
 - No web UI to add, test, or revoke provider API keys at runtime.

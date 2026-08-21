@@ -100,6 +100,19 @@ export function providerRefusalError(
 }
 
 /**
+ * Re-raises a failure that a provider reported as a stream `error` chunk rather
+ * than a throw. Streaming adapters yield instead of throwing, so the fallback
+ * chain — which only sees exceptions — needs the chunk lifted back into one.
+ */
+export function providerStreamError(
+  provider: string,
+  message: string,
+  retryable: boolean,
+): AnvioError {
+  return build(provider, { provider, type: 'stream_error', retryable }, message);
+}
+
+/**
  * Normalises anything thrown while calling a provider into an `AnvioError` carrying
  * `ProviderErrorDetails`. Already-normalised errors pass through unchanged so a
  * wrapping `catch` cannot bury the status a caller already established.
@@ -147,6 +160,32 @@ export function toProviderError(provider: string, error: unknown): AnvioError {
     cause?.message,
     cause,
   );
+}
+
+/** A classified `error` stream chunk, for an adapter's catch block. */
+export function toErrorChunk(
+  provider: string,
+  error: unknown,
+): { type: 'error'; error: string; retryable: boolean } {
+  const mapped = toProviderError(provider, error);
+  return {
+    type: 'error',
+    error: mapped.message,
+    retryable: readProviderErrorDetails(mapped)?.retryable ?? false,
+  };
+}
+
+/** A classified `error` stream chunk for a non-2xx response. */
+export function httpErrorChunk(
+  provider: string,
+  status: number,
+  body: string,
+): { type: 'error'; error: string; retryable: boolean } {
+  return {
+    type: 'error',
+    error: httpProviderError(provider, status, body).message,
+    retryable: isRetryableStatus(status),
+  };
 }
 
 /** Walks the `cause` chain for provider details attached by `toProviderError`. */

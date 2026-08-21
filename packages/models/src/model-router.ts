@@ -6,12 +6,15 @@ import type {
   ModelProvider,
   ProviderRouting,
   RouteTarget,
+  StreamChunk,
 } from '@anvio/core';
 import { parseProviderRouting } from '@anvio/core';
 import type { FilesystemStorageProvider } from '@anvio/storage';
 import { parse as parseYaml } from 'yaml';
 import { createModelProvider } from './provider-factory.js';
 import { walkFallbackChain } from './fallback-chain.js';
+import type { ProviderCircuitBreaker } from './circuit-breaker.js';
+import { providerStreamError } from './provider-error.js';
 import { classifyTask, type TaskRoute } from './task-classifier.js';
 import { SpendBudgetLedger } from './spend-budget.js';
 import { costInputFromUsage, estimateModelCostUsd } from './model-descriptor.js';
@@ -22,6 +25,20 @@ export interface ModelRouterDeps {
   credentialPools?: CredentialPoolManager;
   /** Optional per-key USD budget ledger; when set, router charges every successful call. */
   spendBudget?: SpendBudgetLedger;
+  /**
+   * Skips targets whose circuit is open, on both `chat` and `stream`. Optional so
+   * a router built for inspection (`anvio routing show`) carries no health state.
+   */
+  breaker?: ProviderCircuitBreaker;
+}
+
+/**
+ * A provider stream advanced far enough to know the call is alive, with the
+ * chunks consumed in the process kept for replay.
+ */
+interface PrimedStream {
+  buffered: StreamChunk[];
+  iterator: AsyncIterator<StreamChunk>;
 }
 
 export interface RoutedChatRequest extends ChatRequest {
@@ -80,11 +97,13 @@ export class ModelRouter {
       };
     }
 
-    const routeName = request.routeOverride ?? classifyTask({
-      agent: request.agent,
-      skillRoutingHints: request.skillRoutingHints,
-      message: request.message ?? request.messages.at(-1)?.content,
-    });
+    const routeName =
+      request.routeOverride ??
+      classifyTask({
+        agent: request.agent,
+        skillRoutingHints: request.skillRoutingHints,
+        message: request.message ?? request.messages.at(-1)?.content,
+      });
 
     const routeDef = this.routing?.spec.routes[routeName] ?? this.routing?.spec.routes.coding;
     if (!routeDef) {
@@ -101,13 +120,17 @@ export class ModelRouter {
       };
     }
 
-    const chainResult = await walkFallbackChain(routeDef, async (target) => {
-      const provider = await this.resolveProvider(target);
-      return provider.chat({
-        ...request,
-        model: target.model ?? request.model,
-      });
-    });
+    const chainResult = await walkFallbackChain(
+      routeDef,
+      async (target) => {
+        const provider = await this.resolveProvider(target);
+        return provider.chat({
+          ...request,
+          model: target.model ?? request.model,
+        });
+      },
+      { breaker: this.deps.breaker },
+    );
 
     this.chargeBudget(
       request,
@@ -123,6 +146,136 @@ export class ModelRouter {
       failover: chainResult.failover,
       route: routeName,
     };
+  }
+
+  /**
+   * Streams a routed call, failing over to the next target when the chosen provider
+   * dies **before emitting anything**.
+   *
+   * That qualifier is the whole design. Once a `text_delta` or `tool_use` has been
+   * yielded it is already on the user's screen and cannot be retracted, so the
+   * failover window closes there and any later failure is surfaced as-is. To make
+   * the window exist at all, each candidate is advanced to its first content chunk
+   * before the chain commits — see `primeStream`. That costs nothing extra in the
+   * common case: the chunks pulled while priming are replayed, not discarded.
+   *
+   * `directProvider` is used when no route matches, so a workspace with no
+   * `providers/routing.yaml` behaves exactly as it did before the router existed —
+   * the caller's own resolved provider, not an arbitrary first entry.
+   */
+  async *stream(
+    request: RoutedChatRequest,
+    directProvider?: ModelProvider,
+  ): AsyncIterable<StreamChunk> {
+    if (!this.routing) await this.loadRouting();
+
+    const routeName =
+      request.routeOverride ??
+      classifyTask({
+        agent: request.agent,
+        skillRoutingHints: request.skillRoutingHints,
+        message: request.message ?? request.messages.at(-1)?.content,
+      });
+
+    const routeDef = this.routing?.spec.routes[routeName] ?? this.routing?.spec.routes.coding;
+    if (!routeDef) {
+      const direct = directProvider ?? this.deps.providers.values().next().value;
+      if (!direct) throw new Error('No model providers registered');
+      yield* this.drain(
+        direct.stream(request)[Symbol.asyncIterator](),
+        [],
+        request,
+        direct.providerId,
+        request.model,
+      );
+      return;
+    }
+
+    const chain = await walkFallbackChain(
+      routeDef,
+      async (target) => {
+        const provider = await this.resolveProvider(target);
+        return this.primeStream(provider, target, request);
+      },
+      { breaker: this.deps.breaker },
+    );
+
+    yield* this.drain(
+      chain.result.iterator,
+      chain.result.buffered,
+      request,
+      chain.target.provider,
+      chain.target.model ?? request.model,
+    );
+  }
+
+  /**
+   * Advances a provider's stream until the call has proven itself — first content,
+   * a terminal error, or completion — keeping whatever it consumed for replay.
+   *
+   * A retryable error seen here is thrown rather than returned: adapters report
+   * failures as `error` chunks, and `walkFallbackChain` only reacts to exceptions.
+   * Nothing has been emitted to the caller at this point, which is what makes the
+   * failover invisible.
+   */
+  private async primeStream(
+    provider: ModelProvider,
+    target: RouteTarget,
+    request: RoutedChatRequest,
+  ): Promise<PrimedStream> {
+    const source = provider.stream({ ...request, model: target.model ?? request.model });
+    const iterator = source[Symbol.asyncIterator]();
+    const buffered: StreamChunk[] = [];
+
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done) return { buffered, iterator };
+
+      const chunk = next.value;
+      if (chunk.type === 'error') {
+        if (chunk.retryable) {
+          throw providerStreamError(
+            target.provider,
+            chunk.error ?? 'stream failed before producing output',
+            true,
+          );
+        }
+        buffered.push(chunk);
+        return { buffered, iterator };
+      }
+
+      buffered.push(chunk);
+      // Content is committed from here on; so is the choice of provider.
+      if (chunk.type === 'text_delta' || chunk.type === 'tool_use' || chunk.type === 'done') {
+        return { buffered, iterator };
+      }
+    }
+  }
+
+  private async *drain(
+    iterator: AsyncIterator<StreamChunk>,
+    buffered: StreamChunk[],
+    request: RoutedChatRequest,
+    provider: string,
+    model: string | undefined,
+  ): AsyncIterable<StreamChunk> {
+    const charge = (chunk: StreamChunk) => {
+      if (chunk.type === 'done' && chunk.usage && model) {
+        this.chargeBudget(request, provider, model, chunk.usage);
+      }
+    };
+
+    for (const chunk of buffered) {
+      charge(chunk);
+      yield chunk;
+    }
+
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done) return;
+      charge(next.value);
+      yield next.value;
+    }
   }
 
   private chargeBudget(

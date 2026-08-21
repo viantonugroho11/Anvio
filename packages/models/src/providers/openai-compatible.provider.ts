@@ -7,7 +7,7 @@ import type {
 } from '@anvio/core';
 import { toOpenAIMessages, type OpenAIChatMessage } from './openai-messages.js';
 import { withCallMetrics, recordStreamMetrics } from '../metrics-emitter.js';
-import { httpProviderError, toProviderError } from '../provider-error.js';
+import { httpErrorChunk, httpProviderError, toErrorChunk, toProviderError } from '../provider-error.js';
 
 export interface OpenAICompatibleProviderOptions {
   providerId: string;
@@ -210,10 +210,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
 
       if (!response.ok) {
         const errorBody = await response.text();
-        yield {
-          type: 'error',
-          error: httpProviderError(this.providerId, response.status, errorBody).message,
-        };
+        yield httpErrorChunk(this.providerId, response.status, errorBody);
         return;
       }
 
@@ -254,7 +251,9 @@ export class OpenAICompatibleProvider implements ModelProvider {
           const parsed = JSON.parse(data) as OpenAIStreamFrame;
 
           if (parsed.error) {
-            yield { type: 'error', error: formatStreamFrameError(parsed.error) };
+            // No status on a frame error, so it is not classified as retryable:
+            // a context-length or bad-request frame would only fail the next target too.
+            yield { type: 'error', error: formatStreamFrameError(parsed.error), retryable: false };
             return;
           }
 
@@ -295,6 +294,8 @@ export class OpenAICompatibleProvider implements ModelProvider {
         yield {
           type: 'error',
           error: 'Stream ended before the provider signalled completion (no finish_reason, no [DONE])',
+          // A dropped connection is worth another target.
+          retryable: true,
         };
         return;
       }
@@ -319,7 +320,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
         finishReason,
       };
     } catch (error) {
-      yield { type: 'error', error: toProviderError(this.providerId, error).message };
+      yield toErrorChunk(this.providerId, error);
     }
   }
 

@@ -14,7 +14,7 @@ import type {
 import { addTokenUsage, ZERO_TOKEN_USAGE } from '@anvio/core';
 import type { MemoryStore } from '@anvio/core';
 import type { SoulService } from '@anvio/souls';
-import type { ModelProviderRegistry } from '@anvio/models';
+import type { ModelProviderRegistry, ModelRouter } from '@anvio/models';
 import { stripToolCalls } from '@anvio/tools';
 import { PersonaService } from '@anvio/personas';
 import {
@@ -52,6 +52,13 @@ export interface AgentRuntimeDeps {
   skillRegistry: SkillRegistry;
   memoryStore: MemoryStore;
   modelProviders: ModelProviderRegistry;
+  /**
+   * When supplied, model calls go through the router so a target that dies before
+   * emitting anything fails over to the route's next provider. Without a
+   * `providers/routing.yaml` the router streams from `modelProviders`' own
+   * resolution, so supplying it changes nothing until routing is configured.
+   */
+  modelRouter?: ModelRouter;
   soulService?: SoulService;
   toolPort?: RuntimeToolPort;
   skillCatalog?: SkillCatalogResolver;
@@ -196,14 +203,24 @@ export class DefaultAgentRuntime implements AgentRuntime {
 
         let iterationContent = '';
         const iterationToolCalls: ModelToolCall[] = [];
-        for await (const chunk of modelProvider.stream({
+        const modelRequest = {
           systemPrompt,
           messages,
           maxTokens: agent.spec.model.maxTokens,
           temperature: agent.spec.model.temperature,
           model: agent.spec.model.model,
           tools: nativeTools,
-        })) {
+        };
+        // The router hands back the resolved provider's own stream when no route
+        // matches, so this is the same call it always was until routing.yaml exists.
+        const modelStream = this.deps.modelRouter
+          ? this.deps.modelRouter.stream(
+              { ...modelRequest, agent, message: input.content, skillRoutingHints },
+              modelProvider,
+            )
+          : modelProvider.stream(modelRequest);
+
+        for await (const chunk of modelStream) {
           if (this.stopRequests.has(session.id)) {
             this.stopRequests.delete(session.id);
             yield { type: 'error' as const, error: 'Session stopped by user' };
