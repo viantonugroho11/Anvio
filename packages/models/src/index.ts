@@ -34,6 +34,13 @@ export {
 } from './model-descriptor.js';
 export { walkFallbackChain, type FallbackResult, type WalkFallbackOptions } from './fallback-chain.js';
 export {
+  httpProviderError,
+  isRetryableStatus,
+  readProviderErrorDetails,
+  toProviderError,
+  type ProviderErrorDetails,
+} from './provider-error.js';
+export {
   ProviderCircuitBreaker,
   type CircuitBreakerOptions,
   type CircuitState,

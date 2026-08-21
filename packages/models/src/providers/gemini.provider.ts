@@ -1,4 +1,3 @@
-import { AnvioError } from '@anvio/core';
 import type {
   ChatRequest,
   ChatResponse,
@@ -6,6 +5,7 @@ import type {
   ModelToolCall,
   StreamChunk,
 } from '@anvio/core';
+import { httpProviderError, toProviderError } from '../provider-error.js';
 import {
   extractGeminiText,
   extractGeminiToolCalls,
@@ -53,12 +53,14 @@ export class GeminiProvider implements ModelProvider {
     try {
       const model = request.model ?? this.defaultModel;
       const response = await this.generate(model, request, false);
-      const body = (await response.json()) as GeminiGenerateResponse;
 
+      // Read as text before parsing: an error response is often not JSON, and
+      // parsing it first loses the status that decides retryability.
       if (!response.ok) {
-        throw new Error(JSON.stringify(body));
+        throw httpProviderError(this.providerId, response.status, await response.text());
       }
 
+      const body = (await response.json()) as GeminiGenerateResponse;
       const parts = body.candidates?.[0]?.content?.parts;
       const toolCalls = extractGeminiToolCalls(parts);
       const content = extractGeminiText(parts);
@@ -76,9 +78,7 @@ export class GeminiProvider implements ModelProvider {
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       };
     } catch (error) {
-      throw new AnvioError('MODEL_PROVIDER_ERROR', 'Gemini API call failed', {
-        cause: error instanceof Error ? error : undefined,
-      });
+      throw toProviderError(this.providerId, error);
     }
     });
   }
@@ -91,7 +91,7 @@ export class GeminiProvider implements ModelProvider {
 
       if (!response.ok) {
         const body = await response.text();
-        yield { type: 'error', error: body };
+        yield { type: 'error', error: httpProviderError(this.providerId, response.status, body).message };
         return;
       }
 
@@ -157,10 +157,7 @@ export class GeminiProvider implements ModelProvider {
         finishReason,
       };
     } catch (error) {
-      yield {
-        type: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      yield { type: 'error', error: toProviderError(this.providerId, error).message };
     }
   }
 

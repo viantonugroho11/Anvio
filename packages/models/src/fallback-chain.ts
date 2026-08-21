@@ -1,5 +1,6 @@
 import type { RouteDefinition, RouteTarget } from '@anvio/core';
 import type { ProviderCircuitBreaker } from './circuit-breaker.js';
+import { readProviderErrorDetails } from './provider-error.js';
 
 export interface RouteAttempt {
   target: RouteTarget;
@@ -69,6 +70,13 @@ export async function walkFallbackChain<T>(
 }
 
 function defaultRetryable(error: unknown): boolean {
+  // Providers classify their own failures at the point where the typed SDK
+  // exception or HTTP status is still available.
+  const details = readProviderErrorDetails(error);
+  if (details) return details.retryable;
+
+  // Anything not raised by a provider (route resolution, budget guards, plain
+  // Errors from callers) keeps the original message-matching behaviour.
   const message = error instanceof Error ? error.message : String(error);
   return /429|rate limit|timeout|503|502/i.test(message);
 }

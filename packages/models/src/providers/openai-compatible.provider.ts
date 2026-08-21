@@ -1,4 +1,3 @@
-import { AnvioError } from '@anvio/core';
 import type {
   ChatRequest,
   ChatResponse,
@@ -8,6 +7,7 @@ import type {
 } from '@anvio/core';
 import { toOpenAIMessages, type OpenAIChatMessage } from './openai-messages.js';
 import { withCallMetrics, recordStreamMetrics } from '../metrics-emitter.js';
+import { httpProviderError, toProviderError } from '../provider-error.js';
 
 export interface OpenAICompatibleProviderOptions {
   providerId: string;
@@ -130,11 +130,15 @@ export class OpenAICompatibleProvider implements ModelProvider {
       }
 
       const response = await this.post('/chat/completions', body, request.signal);
-      const responseBody = (await response.json()) as OpenAIChatCompletionResponse;
+
+      // Read as text before parsing: an error response is often not JSON (a proxy
+      // HTML page, a plain-text gateway message), and parsing it first loses the
+      // status that decides retryability.
       if (!response.ok) {
-        throw new Error(JSON.stringify(responseBody));
+        throw httpProviderError(this.providerId, response.status, await response.text());
       }
 
+      const responseBody = (await response.json()) as OpenAIChatCompletionResponse;
       const message = responseBody.choices?.[0]?.message;
       const toolCalls = extractToolCalls(message?.tool_calls);
       const content = message?.content ?? '';
@@ -152,9 +156,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       };
     } catch (error) {
-      throw new AnvioError('MODEL_PROVIDER_ERROR', `${this.providerId} API call failed`, {
-        cause: error instanceof Error ? error : undefined,
-      });
+      throw toProviderError(this.providerId, error);
     }
     });
   }
@@ -188,7 +190,10 @@ export class OpenAICompatibleProvider implements ModelProvider {
 
       if (!response.ok) {
         const errorBody = await response.text();
-        yield { type: 'error', error: errorBody };
+        yield {
+          type: 'error',
+          error: httpProviderError(this.providerId, response.status, errorBody).message,
+        };
         return;
       }
 
@@ -294,10 +299,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
         finishReason,
       };
     } catch (error) {
-      yield {
-        type: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      yield { type: 'error', error: toProviderError(this.providerId, error).message };
     }
   }
 
