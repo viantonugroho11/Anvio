@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { AnvioError } from '@anvio/core';
 import { withCallMetrics, recordStreamMetrics } from '../metrics-emitter.js';
+import { toProviderError } from '../provider-error.js';
 import type {
   ChatRequest,
   ChatResponse,
@@ -124,9 +124,7 @@ export class AnthropicProvider implements ModelProvider {
           toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         };
       } catch (error) {
-        throw new AnvioError('MODEL_PROVIDER_ERROR', 'Anthropic API call failed', {
-          cause: error instanceof Error ? error : undefined,
-        });
+        throw toProviderError(this.providerId, error);
       }
     });
   }
@@ -198,10 +196,10 @@ export class AnthropicProvider implements ModelProvider {
         finishReason: finalMessage.stop_reason ?? undefined,
       };
     } catch (error) {
-      yield {
-        type: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      // Still an error chunk rather than a throw — routing streamed calls through
+      // the fallback chain is a separate change. Carry the classified message so
+      // the surfaced string names the status instead of a bare SDK sentence.
+      yield { type: 'error', error: toProviderError(this.providerId, error).message };
     }
   }
 }
