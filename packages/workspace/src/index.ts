@@ -22,6 +22,8 @@ import {
   type AgentArtifact,
   type AgentRunStatus,
   personaProfileSchema,
+  DEFAULT_MODELS,
+  MODEL_IDS,
 } from '@anvio/core';
 import { FilesystemStorageProvider } from '@anvio/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -158,7 +160,7 @@ spec:
 `;
 }
 
-function defaultRoutingYaml(): string {
+export function defaultRoutingYaml(): string {
   return `# Provider routing — see docs/36-provider-routing.md
 apiVersion: anvio.io/v1
 kind: ProviderRouting
@@ -171,18 +173,22 @@ spec:
       strategy: coding_optimized
       primary:
         provider: anthropic
-        model: claude-sonnet-4-20250514
+        model: ${DEFAULT_MODELS.anthropic}
         pool: anthropic
       fallback:
         - provider: openai
-          model: gpt-4o
+          model: ${MODEL_IDS.openaiGpt4o}
           pool: openai
     chat:
       strategy: cheapest
       primary:
         provider: anthropic
-        model: claude-haiku-3-5-20241022
+        model: ${MODEL_IDS.anthropicHaiku45}
         pool: anthropic
+      fallback:
+        - provider: anthropic
+          model: ${DEFAULT_MODELS.anthropic}
+          pool: anthropic
 `;
 }
 

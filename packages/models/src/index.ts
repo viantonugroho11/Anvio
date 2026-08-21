@@ -28,6 +28,7 @@ export {
   getModelDescriptor,
   listModelDescriptors,
   estimateModelCostUsd,
+  costInputFromUsage,
   type ModelDescriptor,
   type ModelCost,
   type CostEstimateInput,

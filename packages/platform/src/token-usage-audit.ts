@@ -2,6 +2,7 @@ import type { TokenUsage } from '@anvio/core';
 import type { StorageProvider } from '@anvio/core';
 import { appendJsonl } from '@anvio/storage';
 import { getMetricsRegistry } from '@anvio/observability';
+import { costInputFromUsage, estimateModelCostUsd } from '@anvio/models';
 
 export interface TokenUsageRecord {
   ts: string;
@@ -16,23 +17,22 @@ export interface TokenUsageRecord {
   latencyMs?: number;
 }
 
-/** Per-million-token list prices (USD) for rough cost estimates. */
-const MODEL_COST_PER_1M: Record<string, { input: number; output: number }> = {
-  'claude-sonnet-4-20250514': { input: 3, output: 15 },
-  'gpt-4o': { input: 2.5, output: 10 },
-  'gemini-2.0-flash': { input: 0.1, output: 0.4 },
-};
-
+/**
+ * Cost for an audit record, delegated to the `ModelDescriptor` registry.
+ *
+ * This previously carried its own three-entry price table, which silently
+ * disagreed with the registry and blanked the cost column of `anvio usage stats`
+ * for every model not among those three. `provider` is now required to look a
+ * descriptor up — descriptors are keyed on `provider:model`, since the same
+ * model id is served at different prices by different hosts.
+ */
 export function estimateTokenCostUsd(
+  provider: string | undefined,
   model: string | undefined,
   usage: TokenUsage,
 ): number | undefined {
-  if (!model) return undefined;
-  const rates = MODEL_COST_PER_1M[model];
-  if (!rates) return undefined;
-  const inputCost = (usage.inputTokens / 1_000_000) * rates.input;
-  const outputCost = (usage.outputTokens / 1_000_000) * rates.output;
-  return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000;
+  if (!provider || !model) return undefined;
+  return estimateModelCostUsd(provider, model, costInputFromUsage(usage));
 }
 
 export class TokenUsageAudit {
@@ -42,7 +42,7 @@ export class TokenUsageAudit {
   ) {}
 
   async record(input: Omit<TokenUsageRecord, 'ts'>): Promise<void> {
-    const estimatedCostUsd = estimateTokenCostUsd(input.model, input.usage);
+    const estimatedCostUsd = estimateTokenCostUsd(input.provider, input.model, input.usage);
     await appendJsonl(this.storage, this.auditPath, {
       ts: new Date().toISOString(),
       ...input,

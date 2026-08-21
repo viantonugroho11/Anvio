@@ -1,3 +1,4 @@
+import { DEFAULT_MODELS } from '../model-ids.js';
 import type { AgentDefinition } from '../schemas/agent.schema.js';
 import { parseAgentDefinition } from '../schemas/agent.schema.js';
 import { parseFrontmatter } from './frontmatter.js';
@@ -44,7 +45,7 @@ export function parseAgentMd(source: string, name: string): AgentDefinition {
       tools: frontmatter.tools ?? [],
       model: {
         provider: frontmatter.model?.provider ?? 'anthropic',
-        model: frontmatter.model?.model ?? 'claude-sonnet-4-20250514',
+        model: frontmatter.model?.model ?? DEFAULT_MODELS.anthropic,
         maxTokens: frontmatter.model?.maxTokens ?? 8192,
         temperature: frontmatter.model?.temperature,
         baseUrl: frontmatter.model?.baseUrl,

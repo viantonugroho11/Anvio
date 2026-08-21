@@ -14,7 +14,7 @@ import { createModelProvider } from './provider-factory.js';
 import { walkFallbackChain } from './fallback-chain.js';
 import { classifyTask, type TaskRoute } from './task-classifier.js';
 import { SpendBudgetLedger } from './spend-budget.js';
-import { estimateModelCostUsd } from './model-descriptor.js';
+import { costInputFromUsage, estimateModelCostUsd } from './model-descriptor.js';
 
 export interface ModelRouterDeps {
   storage: FilesystemStorageProvider;
@@ -132,12 +132,9 @@ export class ModelRouter {
     usage: ChatResponse['usage'],
   ): void {
     if (!this.deps.spendBudget || !request.budgetKey) return;
-    const usd = estimateModelCostUsd(provider, model, {
-      inputTokens: usage.inputTokens,
-      outputTokens: usage.outputTokens,
-      cacheReadTokens: usage.cacheReadInputTokens,
-      cacheCreationTokens: usage.cacheCreationInputTokens,
-    });
+    // usage.inputTokens already includes the cache counts, so the buckets must be
+    // made disjoint before costing or cached tokens are billed twice.
+    const usd = estimateModelCostUsd(provider, model, costInputFromUsage(usage));
     if (usd == null || usd === 0) return;
     // Throws MODEL_SPEND_BUDGET_EXCEEDED (typed AnvioError, HTTP 402) when cap would be exceeded.
     this.deps.spendBudget.charge(request.budgetKey, usd);

@@ -1,4 +1,5 @@
 import { AnvioError } from '@anvio/core';
+import { DEFAULT_MODELS } from '@anvio/core';
 import type { ModelProvider } from '@anvio/core';
 import {
   isOpenAICompatibleProviderId,
@@ -74,7 +75,7 @@ export function createModelProvider(
       }
       return new AnthropicProvider({
         apiKey: key,
-        defaultModel: options.model ?? 'claude-sonnet-4-20250514',
+        defaultModel: options.model ?? DEFAULT_MODELS.anthropic,
         promptCaching: process.env.ANVIO_PROMPT_CACHING !== 'false',
       });
     }
@@ -86,7 +87,7 @@ export function createModelProvider(
       }
       return new GeminiProvider({
         apiKey: key,
-        defaultModel: options.model ?? 'gemini-2.0-flash',
+        defaultModel: options.model ?? DEFAULT_MODELS.gemini,
         baseUrl: options.baseUrl,
       });
     }
