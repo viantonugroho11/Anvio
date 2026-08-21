@@ -132,8 +132,10 @@ export class FilesystemMemoryProvider implements MemoryProvider {
       summaryText = fallbackSummary(head);
     }
 
+    // Role must be 'user': this summary is prepended to the window, and providers
+    // reject a conversation whose first message is an assistant turn.
     const summaryMessage: ChatMessage = {
-      role: 'assistant',
+      role: 'user',
       content: `[Context summary — ${head.length} earlier messages compressed]\n${summaryText}`,
     };
     return [summaryMessage, ...tail];

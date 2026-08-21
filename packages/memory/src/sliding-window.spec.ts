@@ -63,7 +63,9 @@ describe('FilesystemMemoryProvider sliding-window', () => {
     const stored = await provider.getMessages('s1');
 
     expect(stored.length).toBe(6);
-    expect(stored[0].role).toBe('assistant');
+    // The summary leads the window, so it must be a user turn — providers reject
+    // a conversation whose first message is an assistant turn.
+    expect(stored[0].role).toBe('user');
     expect(stored[0].content).toContain('Context summary');
     expect(stored[0].content).toContain('compressed summary');
     expect(stored[stored.length - 1].content).toBe('msg-29');

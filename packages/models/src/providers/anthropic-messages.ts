@@ -13,6 +13,13 @@ export function toAnthropicMessages(messages: ChatMessage[]): AnthropicMessage[]
         out.push({ role: 'user', content: message.content });
         break;
       case 'assistant': {
+        // Anthropic rejects a conversation opening on an assistant turn. Injected
+        // context (a compressed-history summary) can land first — carry it as user
+        // context rather than losing the turn to a 400.
+        if (out.length === 0 && !message.toolCalls?.length) {
+          out.push({ role: 'user', content: message.content });
+          break;
+        }
         const blocks: ContentBlock[] = [];
         if (message.content.trim()) {
           blocks.push({ type: 'text', text: message.content });

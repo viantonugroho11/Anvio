@@ -195,6 +195,7 @@ export class AnthropicProvider implements ModelProvider {
         type: 'done',
         usage: finalUsage,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+        finishReason: finalMessage.stop_reason ?? undefined,
       };
     } catch (error) {
       yield {

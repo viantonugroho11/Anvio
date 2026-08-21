@@ -33,6 +33,20 @@ import {
 import { executeNativeToolCalls } from './native-tool-loop.js';
 import { readRunCheckpoint, type AgentRunCheckpoint } from './run-checkpoint.js';
 
+/**
+ * Provider stop reasons meaning the model was cut off at the output token limit
+ * rather than finishing: Anthropic `max_tokens`, OpenAI `length`, Gemini `MAX_TOKENS`.
+ */
+const TRUNCATED_FINISH_REASONS = new Set(['max_tokens', 'length']);
+
+function isTruncatedFinishReason(reason?: string): boolean {
+  return reason !== undefined && TRUNCATED_FINISH_REASONS.has(reason.toLowerCase());
+}
+
+const TRUNCATION_NOTICE =
+  '\n\n[Response truncated: the model hit its output token limit. ' +
+  'Raise maxTokens in the agent frontmatter, or ask for a shorter answer.]';
+
 export interface AgentRuntimeDeps {
   personaService: PersonaService;
   skillRegistry: SkillRegistry;
@@ -210,6 +224,10 @@ export class DefaultAgentRuntime implements AgentRuntime {
                   iterationToolCalls.push(call);
                 }
               }
+            }
+            if (isTruncatedFinishReason(chunk.finishReason)) {
+              iterationContent += TRUNCATION_NOTICE;
+              yield { type: 'chunk' as const, delta: TRUNCATION_NOTICE };
             }
           }
           if (chunk.type === 'error') {

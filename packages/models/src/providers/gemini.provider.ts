@@ -106,6 +106,7 @@ export class GeminiProvider implements ModelProvider {
       const seenToolIds = new Set<string>();
       const toolCalls: ModelToolCall[] = [];
       let streamUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+      let finishReason: string | undefined;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -125,6 +126,8 @@ export class GeminiProvider implements ModelProvider {
           const parsed = JSON.parse(data) as GeminiGenerateResponse;
           const parts = parsed.candidates?.[0]?.content?.parts;
           const meta = parsed.usageMetadata;
+          const candidateFinish = parsed.candidates?.[0]?.finishReason;
+          if (candidateFinish) finishReason = candidateFinish;
           if (meta) {
             streamUsage = {
               inputTokens: meta.promptTokenCount ?? streamUsage.inputTokens,
@@ -151,6 +154,7 @@ export class GeminiProvider implements ModelProvider {
         type: 'done',
         usage: streamUsage,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+        finishReason,
       };
     } catch (error) {
       yield {

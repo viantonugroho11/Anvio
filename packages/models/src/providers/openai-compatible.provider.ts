@@ -42,6 +42,32 @@ interface OpenAIToolCallDelta {
   function?: { name?: string; arguments?: string };
 }
 
+/**
+ * A single `data:` frame of a streaming completion. Distinct from the non-stream
+ * response: choices carry `delta` rather than `message`, and any OpenAI-compatible
+ * host may replace the frame entirely with an `error` object mid-stream.
+ */
+interface OpenAIStreamFrame {
+  model?: string;
+  choices?: Array<{
+    delta?: { content?: string; tool_calls?: OpenAIToolCallDelta[] };
+    finish_reason?: string | null;
+  }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+  error?: { message?: string; type?: string; code?: string };
+}
+
+function formatStreamFrameError(error: NonNullable<OpenAIStreamFrame['error']>): string {
+  const parts = [error.message ?? 'Provider returned an error frame'];
+  if (error.type) parts.push(`type=${error.type}`);
+  if (error.code) parts.push(`code=${error.code}`);
+  return parts.join(' ');
+}
+
 function parseToolCallArguments(raw: string): Record<string, unknown> {
   try {
     return JSON.parse(raw || '{}') as Record<string, unknown>;
@@ -143,6 +169,9 @@ export class OpenAICompatibleProvider implements ModelProvider {
         max_tokens: request.maxTokens ?? 8192,
         temperature: request.temperature,
         stream: true,
+        // Without this the final frame carries no usage, so streamed calls report
+        // zero tokens and never reach the spend ledger.
+        stream_options: { include_usage: true },
       };
       if (this.supportsNativeTools && request.tools?.length) {
         body.tools = request.tools.map((tool) => ({
@@ -173,6 +202,10 @@ export class OpenAICompatibleProvider implements ModelProvider {
       let buffer = '';
       const pendingToolCalls = new Map<number, { id: string; name: string; arguments: string }>();
       let streamUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+      let finishReason: string | undefined;
+      // A stream is only complete once the host sends `[DONE]` or a finish_reason.
+      // Ending without either means the connection dropped mid-generation.
+      let sawTerminator = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -187,11 +220,24 @@ export class OpenAICompatibleProvider implements ModelProvider {
           if (!trimmed.startsWith('data:')) continue;
 
           const data = trimmed.slice(5).trim();
-          if (!data || data === '[DONE]') continue;
+          if (!data) continue;
+          if (data === '[DONE]') {
+            sawTerminator = true;
+            continue;
+          }
 
-          const parsed = JSON.parse(data) as OpenAIChatCompletionResponse & {
-            choices?: Array<{ delta?: { content?: string; tool_calls?: OpenAIToolCallDelta[] } }>;
-          };
+          const parsed = JSON.parse(data) as OpenAIStreamFrame;
+
+          if (parsed.error) {
+            yield { type: 'error', error: formatStreamFrameError(parsed.error) };
+            return;
+          }
+
+          const frameFinish = parsed.choices?.[0]?.finish_reason;
+          if (frameFinish) {
+            finishReason = frameFinish;
+            sawTerminator = true;
+          }
 
           if (parsed.usage) {
             streamUsage = {
@@ -220,6 +266,14 @@ export class OpenAICompatibleProvider implements ModelProvider {
         }
       }
 
+      if (!sawTerminator) {
+        yield {
+          type: 'error',
+          error: 'Stream ended before the provider signalled completion (no finish_reason, no [DONE])',
+        };
+        return;
+      }
+
       const toolCalls: ModelToolCall[] = [];
       for (const pending of pendingToolCalls.values()) {
         if (!pending.id || !pending.name) continue;
@@ -237,6 +291,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
         type: 'done',
         usage: streamUsage,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+        finishReason,
       };
     } catch (error) {
       yield {
