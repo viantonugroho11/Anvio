@@ -33,7 +33,16 @@ export type StreamChunk =
        */
       finishReason?: string;
     }
-  | { type: 'error'; error?: string };
+  | {
+      type: 'error';
+      error?: string;
+      /**
+       * Whether another provider is worth trying. Set by the adapter, which still
+       * holds the typed SDK exception or HTTP status; consumers must not re-derive
+       * it from `error`, which is prose. Undefined means "do not fail over".
+       */
+      retryable?: boolean;
+    };
 
 export interface ModelProvider {
   readonly providerId: string;

@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { withCallMetrics, recordStreamMetrics } from '../metrics-emitter.js';
-import { toProviderError } from '../provider-error.js';
+import { toErrorChunk, toProviderError } from '../provider-error.js';
 import { DEFAULT_MODELS } from '@anvio/core';
 import type {
   ChatRequest,
@@ -203,10 +203,9 @@ export class AnthropicProvider implements ModelProvider {
         finishReason: finalMessage.stop_reason ?? undefined,
       };
     } catch (error) {
-      // Still an error chunk rather than a throw — routing streamed calls through
-      // the fallback chain is a separate change. Carry the classified message so
-      // the surfaced string names the status instead of a bare SDK sentence.
-      yield { type: 'error', error: toProviderError(this.providerId, error).message };
+      // Adapters report failures as chunks rather than throwing; ModelRouter.stream
+      // lifts a retryable one back into an exception so the fallback chain sees it.
+      yield toErrorChunk(this.providerId, error);
     }
   }
 }
