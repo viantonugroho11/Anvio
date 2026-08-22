@@ -27,6 +27,15 @@ describe('model id registry', () => {
     expect(getModelDescriptor('gemini', DEFAULT_MODELS.gemini)).toBeDefined();
   });
 
+  it('defaults Anthropic to an undated alias, not a snapshot', () => {
+    // A dated snapshot is a default with an expiry date on it: it works until the
+    // vendor retires that build, then every workspace that never named a model
+    // starts 404ing at once. `claude-sonnet-4-20250514` had already reached
+    // deprecation while still being what a fresh install used. An undated alias
+    // tracks the current build instead of pinning a decommissioned one.
+    expect(DEFAULT_MODELS.anthropic).not.toMatch(/-\d{8}$/);
+  });
+
   it('applies the shared default when no model is requested', () => {
     // Guards against a provider drifting back to its own literal.
     const anthropic = createModelProvider({ provider: 'anthropic', apiKey: 'k' }) as unknown as {
