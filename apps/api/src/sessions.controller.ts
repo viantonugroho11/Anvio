@@ -12,7 +12,8 @@ export class SessionsController {
   @Post()
   async create(
     @Auth() ctx: AuthContext,
-    @Body() body: { agentName: string; channel?: string; detached?: boolean; channelThreadId?: string },
+    @Body()
+    body: { agentName: string; channel?: string; detached?: boolean; channelThreadId?: string },
   ) {
     const { workspace } = this.appService.platform;
 
