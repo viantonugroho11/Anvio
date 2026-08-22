@@ -12,6 +12,7 @@ import { MatrixController } from './matrix.controller.js';
 import { MetricsController } from './metrics.controller.js';
 import { ToolsController } from './tools.controller.js';
 import { OverviewController } from './overview.controller.js';
+import { CredentialsController } from './credentials.controller.js';
 
 @Module({
   controllers: [
@@ -21,6 +22,7 @@ import { OverviewController } from './overview.controller.js';
     SessionsController,
     ToolsController,
     OverviewController,
+    CredentialsController,
     WhatsAppController,
     TeamsController,
     MatrixController,
