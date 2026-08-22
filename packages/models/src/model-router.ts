@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from 'node:crypto';
 import type {
   AgentDefinition,
   ChatRequest,
@@ -59,7 +60,26 @@ export interface RoutedChatResponse extends ChatResponse {
 
 export class ModelRouter {
   private routing: ProviderRouting | null = null;
-  private readonly pooledProviders = new Map<string, ModelProvider>();
+
+  /**
+   * Cached SDK clients, one per `provider:credentialId:model`. Each entry carries
+   * a fingerprint of the credential *value*, because the id alone cannot see a
+   * credential replaced in place — `anvio credentials add <pool> --id key1 --value $NEW`
+   * and the settings page both reuse the id. Keying on the id alone left the cached
+   * client holding the old secret until restart, which is the worst shape for a
+   * rotation: the operator believes the leaked key is out of use (issue #33).
+   */
+  private readonly pooledProviders = new Map<
+    string,
+    { fingerprint: string; provider: ModelProvider }
+  >();
+
+  /**
+   * Per-instance salt. The fingerprint only has to be stable inside this process,
+   * so salting it keeps a value that identifies a secret from being comparable
+   * across processes — or against a rainbow table — if one ever reaches a log.
+   */
+  private readonly fingerprintSalt = randomBytes(16);
 
   constructor(private readonly deps: ModelRouterDeps) {}
 
@@ -314,6 +334,16 @@ export class ModelRouter {
     this.deps.spendBudget.charge(request.budgetKey, usd);
   }
 
+  /**
+   * Salted digest of a credential value, used only as a cache-invalidation marker.
+   * Never logged, never returned, and never compared against anything a caller
+   * supplies — it exists so the router can tell "same secret" from "replaced
+   * secret" without holding a second plaintext copy of the key.
+   */
+  private fingerprintOf(value: string): string {
+    return createHash('sha256').update(this.fingerprintSalt).update(value, 'utf8').digest('hex');
+  }
+
   private async resolveProvider(target: RouteTarget): Promise<ModelProvider> {
     // A configured pool is the authority for this target's key. Previously the
     // acquired key was dropped on the floor and the registry's provider returned
@@ -324,14 +354,22 @@ export class ModelRouter {
       // Cached per credential, so rotation still yields a different client while
       // a stable credential does not rebuild an SDK client per request.
       const cacheKey = `${target.provider}:${acquired.credentialId}:${target.model ?? ''}`;
+      const fingerprint = this.fingerprintOf(acquired.value);
       const cached = this.pooledProviders.get(cacheKey);
-      if (cached) return cached;
+      // Same fingerprint means the same secret, so the cached client is still
+      // correct. A different one means the credential was replaced under its id:
+      // overwrite the entry, which both picks up the new secret on the very next
+      // request and drops the stale client rather than keeping the old secret
+      // alive in a map that would otherwise grow by one entry per rotation.
+      if (cached && cached.fingerprint === fingerprint) return cached.provider;
 
       const provider = createModelProvider(target.provider, acquired.value, target.model);
-      this.pooledProviders.set(cacheKey, provider);
+      this.pooledProviders.set(cacheKey, { fingerprint, provider });
       return provider;
     }
 
+    // Read through on every call rather than cached: `ModelProviderRegistry.upsert`
+    // writes into this same map, so a key added at runtime must take effect here.
     const existing = this.deps.providers.get(target.provider);
     if (existing) return existing;
 

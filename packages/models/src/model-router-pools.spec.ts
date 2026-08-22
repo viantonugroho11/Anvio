@@ -9,6 +9,23 @@ import { AnvioError } from '@anvio/core';
 import { ModelRouter } from './model-router.js';
 import { ModelProviderRegistry } from './model-provider-registry.js';
 
+/**
+ * Counts SDK-client constructions while leaving the real factory in place, so the
+ * wire assertions in this file keep exercising the actual Anthropic adapter.
+ */
+const { createProviderSpy } = vi.hoisted(() => ({ createProviderSpy: vi.fn() }));
+
+vi.mock('./provider-factory.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./provider-factory.js')>();
+  return {
+    ...actual,
+    createModelProvider: (...args: Parameters<typeof actual.createModelProvider>) => {
+      createProviderSpy(...args);
+      return actual.createModelProvider(...args);
+    },
+  };
+});
+
 const POOLED_ROUTING = `apiVersion: anvio.io/v1
 kind: ProviderRouting
 metadata:
@@ -167,6 +184,82 @@ describe('credential pools on the request path (issue #22)', () => {
 
     await expect(router.chat(ASK)).rejects.toThrow(AnvioError);
     await expect(router.chat(ASK)).rejects.toThrow(/neither a registered provider/);
+  });
+});
+
+describe('a credential replaced under the same id (issue #33)', () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue(anthropicReply());
+    globalThis.fetch = fetchMock as typeof fetch;
+    createProviderSpy.mockClear();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  /** Pool that always answers with the same id, serving whatever value it holds now. */
+  function poolReplacingInPlace(initial: string) {
+    const manager = {
+      value: initial,
+      async acquire(poolSlug: string): Promise<AcquiredCredential> {
+        return { poolSlug, credentialId: 'key1', value: manager.value, provider: 'anthropic' };
+      },
+    };
+    return manager as typeof manager & CredentialPoolManager;
+  }
+
+  function routerFor(pool: CredentialPoolManager) {
+    return new ModelRouter({
+      storage: storageWith(POOLED_ROUTING),
+      providers: new Map(),
+      credentialPools: pool,
+    });
+  }
+
+  it('sends the new secret on the very next request', async () => {
+    // The bug: the cache key was the credential id, so overwriting a leaked key
+    // under its own id kept the old secret on the wire until restart — while the
+    // operator believed it was out of use.
+    const pool = poolReplacingInPlace('sk-old');
+    const router = routerFor(pool);
+
+    await router.chat(ASK);
+    pool.value = 'sk-new';
+    await router.chat(ASK);
+
+    expect(sentKeys()).toEqual(['sk-old', 'sk-new']);
+  });
+
+  it('still builds one client while the credential is unchanged', async () => {
+    const router = routerFor(poolReplacingInPlace('sk-stable'));
+
+    await router.chat(ASK);
+    await router.chat(ASK);
+    await router.chat(ASK);
+
+    // The point of the cache: a stable credential must not rebuild an SDK client
+    // per request just because it is now checked by value.
+    expect(createProviderSpy).toHaveBeenCalledTimes(1);
+    expect(sentKeys()).toEqual(['sk-stable', 'sk-stable', 'sk-stable']);
+  });
+
+  it('drops the stale client instead of keeping one entry per rotation', async () => {
+    const pool = poolReplacingInPlace('sk-a');
+    const router = routerFor(pool);
+
+    await router.chat(ASK);
+    pool.value = 'sk-b';
+    await router.chat(ASK);
+    pool.value = 'sk-a';
+    await router.chat(ASK);
+
+    // Going back to the first secret builds a *third* client. Two would mean the
+    // entry for 'sk-a' had survived — i.e. the map grows by one live SDK client,
+    // each holding a superseded secret, for every rotation the process sees.
+    expect(createProviderSpy).toHaveBeenCalledTimes(3);
+    expect(sentKeys()).toEqual(['sk-a', 'sk-b', 'sk-a']);
   });
 });
 
