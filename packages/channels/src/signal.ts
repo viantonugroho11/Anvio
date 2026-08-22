@@ -30,7 +30,9 @@ export class SignalChannel extends WebhookChannelAdapter {
     const stored = await this.options.sessions.get(sessionId);
     const recipient =
       stored?.channelThread?.threadId ??
-      (typeof stored?.metadata?.signalRecipient === 'string' ? stored.metadata.signalRecipient : undefined);
+      (typeof stored?.metadata?.signalRecipient === 'string'
+        ? stored.metadata.signalRecipient
+        : undefined);
     if (!recipient) return;
 
     const base = restUrl.replace(/\/$/, '');

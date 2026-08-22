@@ -40,7 +40,11 @@ async function awaitTaggedResponse(socket: tls.TLSSocket, tag: string): Promise<
   while (true) {
     const chunk = await readResponse(socket);
     response += chunk;
-    if (response.includes(`${tag} OK`) || response.includes(`${tag} NO`) || response.includes(`${tag} BAD`)) {
+    if (
+      response.includes(`${tag} OK`) ||
+      response.includes(`${tag} NO`) ||
+      response.includes(`${tag} BAD`)
+    ) {
       break;
     }
   }
@@ -179,10 +183,7 @@ export function isIdleWakeLine(line: string): boolean {
   return /^\* \d+ (EXISTS|RECENT|EXPUNGE)/.test(line.trim());
 }
 
-async function dispatchNewMessages(
-  options: ImapIdleOptions,
-  seenUids: Set<number>,
-): Promise<void> {
+async function dispatchNewMessages(options: ImapIdleOptions, seenUids: Set<number>): Promise<void> {
   const messages = await pollImapInbox(options, seenUids);
   for (const message of messages) {
     const parsed = parseRawEmail(message.body);
@@ -199,7 +200,14 @@ async function dispatchNewMessages(
 async function sleepOrAbort(ms: number, signal?: AbortSignal): Promise<void> {
   await new Promise<void>((resolve) => {
     const timer = setTimeout(resolve, ms);
-    signal?.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
     timer.unref?.();
   });
 }

@@ -367,7 +367,9 @@ function splitMessage(text: string, maxLen: number): string[] {
   return chunks;
 }
 
-function isAudioAttachment(attachment: NonNullable<DiscordMessage['attachments']>[number]): boolean {
+function isAudioAttachment(
+  attachment: NonNullable<DiscordMessage['attachments']>[number],
+): boolean {
   if (attachment.content_type?.startsWith('audio/')) return true;
   return /\.(ogg|oga|mp3|wav|m4a|webm|flac)$/i.test(attachment.filename);
 }

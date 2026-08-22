@@ -47,7 +47,8 @@ export class SmsChannel extends WebhookChannelAdapter {
     const session = await this.options.sessions.get(sessionId);
     const to =
       (session?.metadata?.sms as { from?: string } | undefined)?.from ??
-      (session?.channelThread?.threadId?.replace(/^sms:/, '') ?? '');
+      session?.channelThread?.threadId?.replace(/^sms:/, '') ??
+      '';
     if (!to) return;
 
     const sid = this.smsOptions.accountSid!;

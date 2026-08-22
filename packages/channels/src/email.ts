@@ -17,8 +17,12 @@ export interface EmailChannelOptions extends WebhookChannelOptions {
 /** Email adapter — SMTP outbound + optional IMAP inbound polling. */
 export class EmailChannel extends WebhookChannelAdapter {
   readonly channelType: ChannelType = 'email';
-  readonly outboundQueue: Array<{ sessionId: string; to?: string; subject?: string; body: string }> =
-    [];
+  readonly outboundQueue: Array<{
+    sessionId: string;
+    to?: string;
+    subject?: string;
+    body: string;
+  }> = [];
   private readonly seenImapUids = new Set<number>();
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private idleAbort: AbortController | null = null;
@@ -125,7 +129,10 @@ export class EmailChannel extends WebhookChannelAdapter {
       const { parseRawEmail } = await import('./imap-client.js');
       const parsed = parseRawEmail(message.body);
       const threadRoot =
-        parsed.references?.[0] ?? parsed.inReplyTo ?? parsed.messageId ?? `${parsed.from}:${parsed.subject}`;
+        parsed.references?.[0] ??
+        parsed.inReplyTo ??
+        parsed.messageId ??
+        `${parsed.from}:${parsed.subject}`;
       await this.handleInboundEmail({
         from: parsed.from,
         subject: parsed.subject,

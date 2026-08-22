@@ -34,7 +34,10 @@ export async function getGoogleChatAccessToken(sa: GoogleServiceAccount): Promis
     }),
   );
   const signInput = `${header}.${payload}`;
-  const signature = crypto.createSign('RSA-SHA256').update(signInput).sign(sa.private_key, 'base64url');
+  const signature = crypto
+    .createSign('RSA-SHA256')
+    .update(signInput)
+    .sign(sa.private_key, 'base64url');
   const jwt = `${signInput}.${signature}`;
 
   const res = await fetch('https://oauth2.googleapis.com/token', {

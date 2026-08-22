@@ -20,8 +20,8 @@ export class MatrixChannel extends WebhookChannelAdapter {
   isConfigured(): boolean {
     return Boolean(
       this.matrixOptions.homeserverUrl &&
-        this.matrixOptions.accessToken &&
-        this.matrixOptions.roomId,
+      this.matrixOptions.accessToken &&
+      this.matrixOptions.roomId,
     );
   }
 

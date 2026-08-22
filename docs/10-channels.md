@@ -26,15 +26,15 @@ interface ChannelAdapter {
 
 Implementations live in `packages/channels/`:
 
-| Channel   | Adapter            | Status        |
-|-----------|--------------------|---------------|
-| Web Chat  | `WebChatChannel`   | Implemented   |
-| CLI       | `CliChannel`       | Implemented   |
-| REST API  | `RestApiChannel`   | Implemented   |
-| Telegram  | `TelegramChannel`  | Long-polling  |
-| Discord   | `DiscordChannel`   | Gateway WS    |
-| Slack     | `SlackChannel`     | Socket Mode   |
-| WhatsApp  | `WhatsAppChannel`  | Cloud API webhook |
+| Channel  | Adapter           | Status            |
+| -------- | ----------------- | ----------------- |
+| Web Chat | `WebChatChannel`  | Implemented       |
+| CLI      | `CliChannel`      | Implemented       |
+| REST API | `RestApiChannel`  | Implemented       |
+| Telegram | `TelegramChannel` | Long-polling      |
+| Discord  | `DiscordChannel`  | Gateway WS        |
+| Slack    | `SlackChannel`    | Socket Mode       |
+| WhatsApp | `WhatsAppChannel` | Cloud API webhook |
 
 ## Channel Hub
 
@@ -107,13 +107,13 @@ anvio approve <sessionId> <requestId> --reject
 
 ## Notifications
 
-| Type               | Trigger                    |
-|--------------------|----------------------------|
-| `task_completed`   | Agent run finished         |
-| `task_failed`      | Agent run error            |
-| `approval_required`| Tool needs human approval  |
-| `agent_waiting`    | Agent blocked on input     |
-| `workflow_finished`| Orchestration complete     |
+| Type                | Trigger                   |
+| ------------------- | ------------------------- |
+| `task_completed`    | Agent run finished        |
+| `task_failed`       | Agent run error           |
+| `approval_required` | Tool needs human approval |
+| `agent_waiting`     | Agent blocked on input    |
+| `workflow_finished` | Orchestration complete    |
 
 ## Multi-Agent Coordination
 
@@ -177,6 +177,7 @@ spec:
 Set `TELEGRAM_BOT_TOKEN` in environment (recommended) or `botToken` in config.
 
 Features:
+
 - Long-polling via Telegram Bot API (no webhook required)
 - Forum topic support via `message_thread_id`
 - Inline Approve/Reject buttons for tool approvals
@@ -194,6 +195,7 @@ spec:
 Set `DISCORD_BOT_TOKEN` in environment. Enable **Message Content Intent** in Discord Developer Portal.
 
 Features:
+
 - Gateway WebSocket connection (native WebSocket, no discord.js)
 - Thread channels map 1:1 to agent sessions
 - Button components for approvals
@@ -209,10 +211,12 @@ spec:
 ```
 
 Environment:
+
 - `SLACK_BOT_TOKEN` — Bot User OAuth Token (`xoxb-...`)
 - `SLACK_APP_TOKEN` — App-Level Token with `connections:write` scope (`xapp-...`)
 
 Features:
+
 - **Socket Mode** — no public webhook URL required (local-first friendly)
 - Slack thread `thread_ts` maps to agent session
 - Block Kit Approve/Reject buttons
@@ -230,22 +234,26 @@ spec:
 ```
 
 Environment:
+
 - `WHATSAPP_ACCESS_TOKEN` — Meta Cloud API token
 - `WHATSAPP_PHONE_NUMBER_ID` — Phone number ID from Meta Business
-- `WHATSAPP_VERIFY_TOKEN` — Custom verify string for webhook (default: `anvio-verify`)
+- `WHATSAPP_VERIFY_TOKEN` — **Required.** The string you enter in Meta's webhook configuration; the GET handshake fails without it. There is no default: one used to exist and was a published secret (issue #39).
 
 Webhook URL (configure in Meta Developer Console):
+
 ```
 https://<your-host>/api/channels/whatsapp/webhook
 ```
 
 Run API alongside worker:
+
 ```bash
 pnpm --filter @anvio/api dev
 pnpm --filter @anvio/worker dev
 ```
 
 Features:
+
 - Inbound via Meta webhook
 - Outbound via Graph API `v21.0`
 - Interactive reply buttons for approvals
@@ -263,7 +271,7 @@ Enable in `workspace/anvio.yaml`:
 spec:
   worktrees:
     enabled: true
-    repoPath: ..   # git repo root relative to workspace
+    repoPath: .. # git repo root relative to workspace
 ```
 
 Agents with isolated workspace:
@@ -295,6 +303,7 @@ anvio channels status --json
 ```
 
 Status values:
+
 - **healthy** — probe succeeded (API reachable, token valid)
 - **degraded** — partially ready (e.g. WhatsApp API ok but webhook needs API running)
 - **disabled** — not enabled in `anvio.yaml`

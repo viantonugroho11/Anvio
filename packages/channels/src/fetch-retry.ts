@@ -5,8 +5,7 @@ export interface FetchRetryOptions {
   retryOn?: (response: Response) => boolean;
 }
 
-const DEFAULT_RETRY_ON = (response: Response) =>
-  response.status === 429 || response.status >= 500;
+const DEFAULT_RETRY_ON = (response: Response) => response.status === 429 || response.status >= 500;
 
 /** Fetch with exponential backoff for rate limits and transient errors. */
 export async function fetchWithRetry(

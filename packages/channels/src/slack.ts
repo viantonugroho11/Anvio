@@ -241,7 +241,9 @@ export class SlackChannel extends BaseChannelAdapter {
     });
   }
 
-  private async handleBlockActions(payload: NonNullable<SlackSocketEnvelope['payload']>): Promise<void> {
+  private async handleBlockActions(
+    payload: NonNullable<SlackSocketEnvelope['payload']>,
+  ): Promise<void> {
     const action = payload.actions?.[0];
     if (!action?.action_id || !this.options.onApproval) return;
 

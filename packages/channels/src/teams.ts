@@ -31,14 +31,14 @@ export class TeamsChannel extends WebhookChannelAdapter {
 
   isConfigured(): boolean {
     return Boolean(
-      this.teamsOptions.appId &&
-        this.teamsOptions.appPassword &&
-        this.teamsOptions.serviceUrl,
+      this.teamsOptions.appId && this.teamsOptions.appPassword && this.teamsOptions.serviceUrl,
     );
   }
 
   /** Handle Bot Framework activity webhook payload. */
-  async handleActivity(activity: TeamsActivity): Promise<{ sessionId: string; userId: string } | null> {
+  async handleActivity(
+    activity: TeamsActivity,
+  ): Promise<{ sessionId: string; userId: string } | null> {
     if (activity.type === 'invoke') {
       await this.handleInvokeActivity(activity);
       return null;
@@ -104,12 +104,16 @@ export class TeamsChannel extends WebhookChannelAdapter {
   ): Promise<void> {
     const session = await this.options.sessions.get(sessionId);
     const teamsMeta = session?.metadata?.teams as
-      | { conversationId?: string; serviceUrl?: string }
-      | undefined;
+      { conversationId?: string; serviceUrl?: string } | undefined;
     const conversationId = teamsMeta?.conversationId;
     const serviceUrl = teamsMeta?.serviceUrl ?? this.teamsOptions.serviceUrl;
 
-    if (!this.teamsOptions.appId || !this.teamsOptions.appPassword || !serviceUrl || !conversationId) {
+    if (
+      !this.teamsOptions.appId ||
+      !this.teamsOptions.appPassword ||
+      !serviceUrl ||
+      !conversationId
+    ) {
       await super.sendApprovalRequestWithActions(sessionId, request);
       return;
     }
@@ -183,12 +187,16 @@ export class TeamsChannel extends WebhookChannelAdapter {
 
     const session = await this.options.sessions.get(sessionId);
     const teamsMeta = session?.metadata?.teams as
-      | { conversationId?: string; serviceUrl?: string }
-      | undefined;
+      { conversationId?: string; serviceUrl?: string } | undefined;
     const conversationId = teamsMeta?.conversationId;
     const serviceUrl = teamsMeta?.serviceUrl ?? this.teamsOptions.serviceUrl;
 
-    if (!this.teamsOptions.appId || !this.teamsOptions.appPassword || !serviceUrl || !conversationId) {
+    if (
+      !this.teamsOptions.appId ||
+      !this.teamsOptions.appPassword ||
+      !serviceUrl ||
+      !conversationId
+    ) {
       return;
     }
 
@@ -227,13 +235,16 @@ export class TeamsChannel extends WebhookChannelAdapter {
     token: string,
     activity: Record<string, unknown>,
   ): Promise<void> {
-    await fetchWithRetry(`${serviceUrl.replace(/\/$/, '')}/v3/conversations/${conversationId}/activities`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+    await fetchWithRetry(
+      `${serviceUrl.replace(/\/$/, '')}/v3/conversations/${conversationId}/activities`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(activity),
       },
-      body: JSON.stringify(activity),
-    });
+    );
   }
 }
