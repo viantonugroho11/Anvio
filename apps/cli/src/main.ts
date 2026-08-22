@@ -1648,6 +1648,13 @@ async function cmdAcp(sub: string[]) {
   }
 }
 
+/** Reads a secret piped on stdin, so it never appears in argv. */
+async function readAllStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks).toString('utf-8');
+}
+
 async function cmdCredentials(sub: string[]) {
   const action = sub[0] ?? 'list';
   const wsPath = resolveWorkspacePath();
@@ -1681,10 +1688,43 @@ async function cmdCredentials(sub: string[]) {
       const pool = sub[1];
       const idIdx = sub.indexOf('--id');
       const valueIdx = sub.indexOf('--value');
+      const valueEnvIdx = sub.indexOf('--value-env');
       const id = idIdx >= 0 ? sub[idIdx + 1] : undefined;
-      const value = valueIdx >= 0 ? sub[valueIdx + 1] : undefined;
+
+      // A secret passed as `--value <secret>` sits in the process argv, which is
+      // world-readable in `ps` and lands in shell history. Reading it from stdin
+      // or an env var keeps it off both.
+      let value: string | undefined;
+      if (valueEnvIdx >= 0) {
+        const envName = sub[valueEnvIdx + 1];
+        if (!envName) {
+          console.error('Usage: anvio credentials add <pool> --id <id> --value-env <ENV_NAME>');
+          process.exit(1);
+        }
+        value = process.env[envName];
+        if (!value) {
+          console.error(`Environment variable ${envName} is empty or unset`);
+          process.exit(1);
+        }
+      } else if (valueIdx >= 0 && sub[valueIdx + 1] === '-') {
+        value = (await readAllStdin()).trim();
+        if (!value) {
+          console.error('No key received on stdin');
+          process.exit(1);
+        }
+      } else if (valueIdx >= 0) {
+        value = sub[valueIdx + 1];
+        console.warn(
+          'Warning: --value puts the key in this process\'s argv, visible to `ps` and saved in shell history.\n' +
+            '  Prefer: anvio credentials add <pool> --id <id> --value -      (reads stdin)\n' +
+            '      or: anvio credentials add <pool> --id <id> --value-env ANTHROPIC_API_KEY',
+        );
+      }
+
       if (!pool || !id || !value) {
-        console.error('Usage: anvio credentials add <pool> --id <id> --value <secret>');
+        console.error(
+          'Usage: anvio credentials add <pool> --id <id> (--value - | --value-env <ENV> | --value <secret>)',
+        );
         process.exit(1);
       }
       await manager.addCredential(pool, id, value);
