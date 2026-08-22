@@ -32,7 +32,19 @@ export type StreamChunk =
        * OpenAI `length`, Gemini `MAX_TOKENS`. Undefined when the provider did not report one.
        */
       finishReason?: string;
+      /**
+       * Who actually served the call. Stamped by the router, which may have failed
+       * over to a target the caller never named, and left unset by a bare adapter.
+       */
+      provider?: string;
+      model?: string;
     }
+  /**
+   * The router abandoned one target and continued on another. Emitted before any
+   * content, since failover is only possible while nothing has been shown yet —
+   * so a surface can tell the user the answer is coming from somewhere else.
+   */
+  | { type: 'failover'; from: string; to: string; reason?: string }
   | {
       type: 'error';
       error?: string;

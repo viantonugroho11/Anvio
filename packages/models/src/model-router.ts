@@ -200,6 +200,20 @@ export class ModelRouter {
       { breaker: this.deps.breaker },
     );
 
+    if (chain.failover) {
+      const abandoned = chain.attempts.find((attempt) => attempt.error);
+      if (abandoned) {
+        // Emitted before any buffered content, so a surface can say the answer is
+        // coming from elsewhere rather than silently substituting a second voice.
+        yield {
+          type: 'failover',
+          from: abandoned.target.provider,
+          to: chain.target.provider,
+          reason: abandoned.error,
+        };
+      }
+    }
+
     yield* this.drain(
       chain.result.iterator,
       chain.result.buffered,
@@ -265,16 +279,22 @@ export class ModelRouter {
       }
     };
 
+    // Adapters cannot know they were routed, so the router records who served the
+    // call — otherwise a failed-over answer is indistinguishable from the one the
+    // agent asked for.
+    const stamp = (chunk: StreamChunk): StreamChunk =>
+      chunk.type === 'done' ? { ...chunk, provider, model } : chunk;
+
     for (const chunk of buffered) {
       charge(chunk);
-      yield chunk;
+      yield stamp(chunk);
     }
 
     for (;;) {
       const next = await iterator.next();
       if (next.done) return;
       charge(next.value);
-      yield next.value;
+      yield stamp(next.value);
     }
   }
 

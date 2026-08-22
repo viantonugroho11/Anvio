@@ -47,6 +47,20 @@ const TRUNCATION_NOTICE =
   '\n\n[Response truncated: the model hit its output token limit. ' +
   'Raise maxTokens in the agent frontmatter, or ask for a shorter answer.]';
 
+/**
+ * Shown when a provider dies part-way through an answer.
+ *
+ * The router can only fail over before the first content chunk, so a failure past
+ * that point ends this turn — but the text already generated is real and the user
+ * has already read it. Keeping it turns a dead session into a short answer.
+ */
+function interruptedNotice(reason?: string): string {
+  return (
+    `\n\n[Response interrupted: ${reason ?? 'the provider stopped responding'}. ` +
+    'The partial answer above was kept — ask to continue if you need the rest.]'
+  );
+}
+
 export interface AgentRuntimeDeps {
   personaService: PersonaService;
   skillRegistry: SkillRegistry;
@@ -202,6 +216,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
         );
 
         let iterationContent = '';
+        let streamInterrupted = false;
         const iterationToolCalls: ModelToolCall[] = [];
         const modelRequest = {
           systemPrompt,
@@ -247,10 +262,31 @@ export class DefaultAgentRuntime implements AgentRuntime {
               yield { type: 'chunk' as const, delta: TRUNCATION_NOTICE };
             }
           }
-          if (chunk.type === 'error') {
-            yield { type: 'error' as const, error: chunk.error };
-            return;
+          if (chunk.type === 'failover') {
+            const phase = `Switched to ${chunk.to} — ${chunk.from} failed`;
+            yield { type: 'progress' as const, phase, status: 'running' as const };
+            this.deps.onProgress?.(session.id, phase);
           }
+          if (chunk.type === 'error') {
+            // Nothing generated yet: there is nothing to keep, so surface the failure.
+            if (!iterationContent) {
+              yield { type: 'error' as const, error: chunk.error };
+              return;
+            }
+            // Output already reached the user and cannot be retracted, so end the
+            // turn with what exists instead of discarding it (see issue #20).
+            const notice = interruptedNotice(chunk.error);
+            iterationContent += notice;
+            yield { type: 'chunk' as const, delta: notice };
+            streamInterrupted = true;
+            break;
+          }
+        }
+
+        if (streamInterrupted) {
+          // Skip the tool loop: a half-finished turn has no reliable tool calls.
+          fullContent = iterationContent;
+          break;
         }
 
         if (!toolPort || toolPort.listTools().length === 0) {
