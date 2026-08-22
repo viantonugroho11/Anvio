@@ -58,6 +58,22 @@ export class ModelProviderRegistry {
     return this.providers.values().next().value;
   }
 
+  /**
+   * Registers or replaces a provider after construction.
+   *
+   * The map was built once at boot, so a credential added at runtime could not
+   * reach the running process — the caller had to restart. Anything that writes
+   * a key must call this for the write to mean anything.
+   */
+  upsert(providerId: string, provider: ModelProvider): void {
+    this.providers.set(providerId, provider);
+  }
+
+  /** Drops a provider, e.g. after its credential is revoked. */
+  remove(providerId: string): boolean {
+    return this.providers.delete(providerId);
+  }
+
   asMap(): Map<string, ModelProvider> {
     return new Map(this.providers);
   }

@@ -1,5 +1,6 @@
 import type { AgentRuntime } from '@anvio/core';
 import type { RuntimeFactory } from '@anvio/runtimes';
+import type { CredentialPoolManager } from '@anvio/core';
 import type { AuthProvider, AgentInbox, ChannelHubPort, ModelProvider } from '@anvio/core';
 import type { AutomationEngine } from '@anvio/automation';
 import type { BlueprintExecutor } from '@anvio/blueprints';
@@ -21,6 +22,11 @@ export interface PlatformContext {
   eventBus: EventBusLike;
   modelProvider: ModelProvider;
   modelProviders: ModelProviderRegistry;
+  /**
+   * Present only when ANVIO_CREDENTIALS_PASSPHRASE is set. Absent means the
+   * feature is off — never that credentials are stored under a weaker key.
+   */
+  credentialPools?: CredentialPoolManager;
   channelHub: ChannelHubPort;
   inbox: AgentInbox;
   whatsapp?: WhatsAppChannel;
