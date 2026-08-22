@@ -10,6 +10,7 @@
  * in agent frontmatter.
  */
 export const MODEL_IDS = {
+  anthropicSonnet5: 'claude-sonnet-5',
   anthropicSonnet4: 'claude-sonnet-4-20250514',
   anthropicOpus4: 'claude-opus-4-20250514',
   anthropicHaiku45: 'claude-haiku-4-5',
@@ -24,15 +25,19 @@ export const MODEL_IDS = {
 /**
  * Defaults applied when neither the request nor agent frontmatter names a model.
  *
- * `anthropic` is a deprecated dated snapshot. It still resolves, and every real
- * caller supplies an explicit model (`packages/agents/src/runtime.ts` forwards
- * `agent.spec.model.model`, which `agent-md.ts` always populates), so this is a
- * rarely-taken branch. Rotating it is now a one-line change here rather than a
- * sweep — but it is a live behaviour and cost change for every existing
- * workspace, so it is deliberately left as an explicit decision.
+ * `anthropic` was a deprecated dated snapshot until issue #25 rotated it to the
+ * current undated Sonnet alias. Both sit at $3/$15 per 1M tokens, so the swap is
+ * cost-neutral at list price — which is what made it safe to take as a plain
+ * rotation rather than a tier change. Moving to an Opus-class default would not
+ * have been: it is 5x the input rate, and picking a spend tier on an operator's
+ * behalf is not a default's job.
+ *
+ * Every real caller supplies an explicit model — `packages/agents/src/runtime.ts`
+ * forwards `agent.spec.model.model`, which `agent-md.ts` always populates — so
+ * this is a rarely-taken branch either way.
  */
 export const DEFAULT_MODELS = {
-  anthropic: MODEL_IDS.anthropicSonnet4,
+  anthropic: MODEL_IDS.anthropicSonnet5,
   gemini: MODEL_IDS.geminiFlash20,
 } as const;
 

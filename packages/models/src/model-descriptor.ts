@@ -44,6 +44,19 @@ export interface ModelDescriptor {
 const DESCRIPTORS: ModelDescriptor[] = [
   {
     provider: 'anthropic',
+    model: MODEL_IDS.anthropicSonnet5,
+    contextWindow: 1_000_000,
+    maxOutput: 128_000,
+    supportsTools: true,
+    supportsCaching: true,
+    // List price. Anthropic is running $2/$10 introductory rates through
+    // 2026-08-31; encoding a promotion that lapses in days would make every
+    // estimate wrong from the first of the month, and a cost table that is
+    // quietly low is worse than one that is plainly list.
+    cost: { input: 3, output: 15 },
+  },
+  {
+    provider: 'anthropic',
     model: MODEL_IDS.anthropicSonnet4,
     contextWindow: 200_000,
     maxOutput: 8_192,

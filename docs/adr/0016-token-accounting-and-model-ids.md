@@ -65,6 +65,8 @@ Two specs guard it: descriptors and provider defaults resolve to shared constant
 
 `DEFAULT_MODELS.anthropic` remains `claude-sonnet-4-20250514`. It is a deprecated dated snapshot, and moving it is now a one-line change — but it is a live behaviour and cost change for every existing workspace, and this ADR is about removing duplication, not choosing models. That decision is left explicit rather than smuggled in behind a refactor.
 
+**Amended (issue #25):** rotated to `claude-sonnet-5` once the decision was taken on its own terms — see the second amendment below.
+
 The scaffold's malformed haiku id **was** changed, to `claude-haiku-4-5`. That one was broken under every reading, so leaving it was not an option.
 
 ## Consequences
@@ -81,7 +83,7 @@ The scaffold's malformed haiku id **was** changed, to `claude-haiku-4-5`. That o
 - `estimateTokenCostUsd`'s signature changed. It is exported from `packages/platform`, so any out-of-tree caller breaks — deliberately, because the old signature could not look up a descriptor and silently returned `undefined`.
 - `costInputFromUsage` clamps at zero, so a provider reporting cache counts exceeding its own input total under-charges rather than producing a negative. Pinned by a test; revisit if a provider actually does this.
 - ~~Config files (`configs/agents/architect.yaml`, `workspace/agents/architect.md`) still carry literal ids — YAML cannot import a constant. They are covered by neither guard spec.~~ **Closed — see the amendment below (issue #26).**
-- The default Anthropic model is still a deprecated snapshot (D5).
+- ~~The default Anthropic model is still a deprecated snapshot (D5).~~ **Closed — see the second amendment below (issue #25).**
 
 ## Amendment — shipped config is guarded too (issue #26)
 
@@ -102,3 +104,20 @@ Extensions are filtered in JS rather than passed as a git pathspec, because path
 - ADR-0013: `packages/models` is the Model Gateway — this closes its cost-metering and `ModelDescriptor` gaps.
 - ADR-0010: token optimization — prompt caching is Layer 2; D3 completes it for the conversation.
 - ADR-0015: provider capability catalog — the `maxOutputTokens` ceiling added there and the pricing here are the two per-model facts the catalog and registry now hold between them.
+
+## Amendment — the default model, decided on its own terms (issue #25)
+
+D5 deferred this deliberately, and deferring was right: a default model is a spend decision, and spend decisions do not belong inside a deduplication refactor. Taken separately, the choice turned out to be narrower than it looked.
+
+**`claude-sonnet-4-20250514` → `claude-sonnet-5`.**
+
+The concern D5 raised was that rotating is "a live behaviour and cost change for every existing workspace." Half of that survives contact with the price list and half does not:
+
+- **Cost: neutral.** Both sit at $3 / $15 per 1M tokens at list price. Anthropic is running $2 / $10 introductory rates on Sonnet 5 through 2026-08-31, so the rotation is briefly _cheaper_ and then identical. The descriptor records list price rather than the promotion — a cost table that goes quietly low the moment a promotion lapses is worse than one that is plainly list.
+- **Behaviour: real, and in the intended direction.** A newer model answers differently. It also carries a 1M context window against 200K, and 128K max output against 8,192 — the descriptor is updated so routing and cost estimation see both.
+
+**Staying in-tier was the point.** Moving the default to an Opus-class model would have been the change D5 actually warned about: 5x the input rate, chosen on the operator's behalf, for workspaces that never asked. A default's job is to be defensible when nobody is looking at it, not to be the best model available.
+
+**A dated snapshot is a default with an expiry date on it.** It works until the vendor retires that build, and then every workspace that never named a model fails at once — and they are precisely the workspaces whose owners were not thinking about models. A new test asserts `DEFAULT_MODELS.anthropic` does not end in `-YYYYMMDD`, so the default cannot silently drift back onto a snapshot.
+
+`MODEL_IDS.anthropicSonnet4` stays. Shipped config still names it, it still resolves, and removing it would break the guard added by the first amendment for no gain. It is a known id that is no longer the default — which is exactly what it should be.
