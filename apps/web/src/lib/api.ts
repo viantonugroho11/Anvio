@@ -1,4 +1,10 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
+/**
+ * Absolute by default. These calls run server-side — in server components and
+ * server actions — and Node's fetch rejects a relative URL, so an unset
+ * `NEXT_PUBLIC_API_URL` used to make every request throw before it was sent.
+ * The default matches the API's own loopback default (ADR-0018).
+ */
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:3000';
 
 export async function apiFetch<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}/api${path}`, { next: { revalidate: 5 } });
