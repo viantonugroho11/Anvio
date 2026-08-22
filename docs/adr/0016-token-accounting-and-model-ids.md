@@ -10,7 +10,7 @@ Three problems shared one root: nobody had written down what `TokenUsage.inputTo
 
 ### The inclusive-input invariant was never stated
 
-`usageFromAnthropic` (`packages/models/src/providers/anthropic.provider.ts`) folds cache counts *into* the input total:
+`usageFromAnthropic` (`packages/models/src/providers/anthropic.provider.ts`) folds cache counts _into_ the input total:
 
 ```ts
 const inputTokens = usage.input_tokens + cacheCreate + cacheRead;
@@ -18,7 +18,7 @@ const inputTokens = usage.input_tokens + cacheCreate + cacheRead;
 
 So `inputTokens` is the whole prompt, and `cacheCreationInputTokens` / `cacheReadInputTokens` are a **breakdown** of it. Nothing said so, and two consumers got it wrong in opposite directions:
 
-- `ModelRouter.chargeBudget` passed `inputTokens` *and* both cache counts to `estimateModelCostUsd`, which adds them — so cached tokens were billed twice, once at full input rate and again at the cache rate.
+- `ModelRouter.chargeBudget` passed `inputTokens` _and_ both cache counts to `estimateModelCostUsd`, which adds them — so cached tokens were billed twice, once at full input rate and again at the cache rate.
 - `addTokenUsage` (`packages/core/src/token-usage.ts`) dropped the cache fields entirely while summing. Accumulated usage therefore still carried cache tokens inside `inputTokens` with nothing left to identify them, so every downstream estimate billed cached reads at the full rate. The main accumulator silently violated the invariant it was accumulating.
 
 ### A duplicate price table shadowed the registry
@@ -39,7 +39,7 @@ So `inputTokens` is the whole prompt, and `cacheCreationInputTokens` / `cacheRea
 
 `TokenUsage.inputTokens` is documented as the inclusive prompt total. Costing code must not consume it alongside the cache counts; it calls `costInputFromUsage()` (`packages/models/src/model-descriptor.ts`), which returns the disjoint buckets `estimateModelCostUsd` expects.
 
-`CostEstimateInput.inputTokens` means *uncached input only* — a different quantity from `TokenUsage.inputTokens` despite the shared name. That is the trap this ADR exists to close, so both types now say which one they are.
+`CostEstimateInput.inputTokens` means _uncached input only_ — a different quantity from `TokenUsage.inputTokens` despite the shared name. That is the trap this ADR exists to close, so both types now say which one they are.
 
 `addTokenUsage` sums the cache fields rather than dropping them.
 
@@ -59,7 +59,9 @@ Core is the less obvious home — it holds schemas and ports, and a model id is 
 
 Two specs guard it: descriptors and provider defaults resolve to shared constants (`packages/models/src/model-ids.spec.ts`), and the scaffolded `routing.yaml` names only known, non-retired ids and gives every route a fallback (`packages/workspace/src/scaffold-model-ids.spec.ts`). `defaultRoutingYaml` was exported to make the second possible.
 
-### D5 — The default model is *not* rotated here
+**Amended (issue #26):** a third guard, `packages/workspace/src/config-model-ids.spec.ts`, covers ids the repo _ships_ as config rather than generates — see the amendment below.
+
+### D5 — The default model is _not_ rotated here
 
 `DEFAULT_MODELS.anthropic` remains `claude-sonnet-4-20250514`. It is a deprecated dated snapshot, and moving it is now a one-line change — but it is a live behaviour and cost change for every existing workspace, and this ADR is about removing duplication, not choosing models. That decision is left explicit rather than smuggled in behind a refactor.
 
@@ -78,8 +80,22 @@ The scaffold's malformed haiku id **was** changed, to `claude-haiku-4-5`. That o
 
 - `estimateTokenCostUsd`'s signature changed. It is exported from `packages/platform`, so any out-of-tree caller breaks — deliberately, because the old signature could not look up a descriptor and silently returned `undefined`.
 - `costInputFromUsage` clamps at zero, so a provider reporting cache counts exceeding its own input total under-charges rather than producing a negative. Pinned by a test; revisit if a provider actually does this.
-- Config files (`configs/agents/architect.yaml`, `workspace/agents/architect.md`) still carry literal ids — YAML cannot import a constant. They are covered by neither guard spec.
+- ~~Config files (`configs/agents/architect.yaml`, `workspace/agents/architect.md`) still carry literal ids — YAML cannot import a constant. They are covered by neither guard spec.~~ **Closed — see the amendment below (issue #26).**
 - The default Anthropic model is still a deprecated snapshot (D5).
+
+## Amendment — shipped config is guarded too (issue #26)
+
+The two original guards cover ids the repo _generates_. Config files carry ids the repo _ships_, and YAML and Markdown cannot import a constant, so nothing checked them — which is exactly where the bug this guard family exists for would hide. `claude-haiku-3-5-20241022` reversed the family and version segments of an already-retired id, matched no model in any generation, and shipped on every `anvio init` because no spec read the file it lived in.
+
+`config-model-ids.spec.ts` extracts every `model: <scalar>` from tracked files under `configs/` and `workspace/` and checks each against `KNOWN_MODEL_IDS` and `RETIRED_ANTHROPIC_MODEL_IDS`.
+
+Three decisions inside it are load-bearing:
+
+- **`git ls-files` is the scope, not a hand-maintained exclude list.** `workspace/` also holds runtime data — sessions, credential stores, soul caches — which is gitignored, machine-local, and free to name whatever model the operator actually ran. Scanning it would fail the spec on a developer's machine for a reason that is not a defect. What the repo commits is what the repo must stand behind, and git already knows exactly what that is.
+- **`docs/` and `README.md` are out of scope.** They carry illustrative ids for providers this repo does not enumerate (`qwen/qwen-2.5-72b-instruct`, `o3`). Correct as prose, false positives as assertions.
+- **The spec asserts it found something.** A guard that greps for its own inputs passes vacuously the day a directory is renamed or the key changes. Two explicit assertions — files matched, and `model:` values found — fail loudly instead.
+
+Extensions are filtered in JS rather than passed as a git pathspec, because pathspecs are a union: `ls-files configs -- '*.md'` returns every tracked `.md` in the repo _plus_ everything under `configs/`. That mistake, made while writing this spec, produced a false failure on a docs example before it was caught.
 
 ## Cross-references
 
