@@ -1652,7 +1652,17 @@ async function cmdCredentials(sub: string[]) {
   const action = sub[0] ?? 'list';
   const wsPath = resolveWorkspacePath();
   const storage = new FilesystemStorageProvider(wsPath);
-  const passphrase = process.env.ANVIO_CREDENTIALS_PASSPHRASE ?? 'local-dev-passphrase';
+  const passphrase = process.env.ANVIO_CREDENTIALS_PASSPHRASE;
+  if (!passphrase) {
+    console.error(
+      'Set ANVIO_CREDENTIALS_PASSPHRASE to use credential pools.\n' +
+        '  Credentials are encrypted at rest with a key derived from it, and the salt is\n' +
+        '  stored beside the ciphertext — so a default passphrase would protect nothing.\n' +
+        '  Pools written under the previous built-in default cannot be read with a new\n' +
+        '  passphrase; re-add those credentials with `anvio credentials add`.',
+    );
+    process.exit(1);
+  }
   const manager = createCredentialPoolManager(storage, passphrase);
 
   switch (action) {

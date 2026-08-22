@@ -127,8 +127,9 @@ export class CredentialPoolManagerImpl implements CredentialPoolManager {
   async testPool(poolSlug: string): Promise<{ ok: boolean; message: string }> {
     try {
       const cred = await this.acquire(poolSlug);
-      const masked = `${cred.value.slice(0, 4)}...`;
-      return { ok: true, message: `Acquired ${cred.credentialId} (${masked})` };
+      // Deliberately echoes no part of the value: this result is printed by the
+      // CLI and will travel over HTTP once a settings UI calls it.
+      return { ok: true, message: `Acquired ${cred.credentialId} (${cred.value.length} chars)` };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return { ok: false, message };

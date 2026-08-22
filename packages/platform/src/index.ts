@@ -13,6 +13,7 @@ import type {
 } from '@anvio/core';
 import { createEventBus, EventSubjects } from '@anvio/events';
 import { createMemoryProvider } from '@anvio/memory';
+import { createCredentialPoolManager } from '@anvio/credentials';
 import {
   createModelProviderRegistryFromEnv,
   createModelProviderRegistryInstance,
@@ -298,12 +299,22 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     });
   }
 
+  // Credential pools reach the request path for the first time here. Without a
+  // passphrase the feature stays off rather than falling back to a known key:
+  // ADR-0011 claimed the router rotated pooled keys, and it never could, because
+  // nothing ever supplied a manager.
+  const credentialsPassphrase = process.env.ANVIO_CREDENTIALS_PASSPHRASE;
+  const credentialPools = credentialsPassphrase
+    ? createCredentialPoolManager(workspace.storage, credentialsPassphrase)
+    : undefined;
+
   // First production construction of the breaker: until now it existed only in
   // its own module and its specs, so no call path could ever open a circuit.
   const modelRouter = createModelRouter({
     storage: workspace.storage,
     providers: providerMap,
     breaker: new ProviderCircuitBreaker(),
+    credentialPools,
   });
 
   const localRuntime = new DefaultAgentRuntime({
@@ -694,6 +705,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     eventBus,
     modelProvider,
     modelProviders,
+    credentialPools,
     channelHub,
     inbox,
     whatsapp,

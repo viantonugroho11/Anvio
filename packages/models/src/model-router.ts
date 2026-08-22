@@ -8,7 +8,7 @@ import type {
   RouteTarget,
   StreamChunk,
 } from '@anvio/core';
-import { parseProviderRouting } from '@anvio/core';
+import { AnvioError, parseProviderRouting } from '@anvio/core';
 import type { FilesystemStorageProvider } from '@anvio/storage';
 import { parse as parseYaml } from 'yaml';
 import { createModelProvider } from './provider-factory.js';
@@ -59,6 +59,7 @@ export interface RoutedChatResponse extends ChatResponse {
 
 export class ModelRouter {
   private routing: ProviderRouting | null = null;
+  private readonly pooledProviders = new Map<string, ModelProvider>();
 
   constructor(private readonly deps: ModelRouterDeps) {}
 
@@ -314,20 +315,30 @@ export class ModelRouter {
   }
 
   private async resolveProvider(target: RouteTarget): Promise<ModelProvider> {
-    let apiKey: string | undefined;
+    // A configured pool is the authority for this target's key. Previously the
+    // acquired key was dropped on the floor and the registry's provider returned
+    // instead — so rotation counters advanced on every call while the request
+    // went out under the env-var key, and no pooled credential was ever used.
     if (target.pool && this.deps.credentialPools) {
       const acquired = await this.deps.credentialPools.acquire(target.pool);
-      apiKey = acquired.value;
+      // Cached per credential, so rotation still yields a different client while
+      // a stable credential does not rebuild an SDK client per request.
+      const cacheKey = `${target.provider}:${acquired.credentialId}:${target.model ?? ''}`;
+      const cached = this.pooledProviders.get(cacheKey);
+      if (cached) return cached;
+
+      const provider = createModelProvider(target.provider, acquired.value, target.model);
+      this.pooledProviders.set(cacheKey, provider);
+      return provider;
     }
 
     const existing = this.deps.providers.get(target.provider);
     if (existing) return existing;
 
-    if (!apiKey) {
-      throw new Error(`Provider not registered: ${target.provider}`);
-    }
-
-    return createModelProvider(target.provider, apiKey, target.model);
+    throw new AnvioError(
+      'MODEL_PROVIDER_ERROR',
+      `Route target "${target.provider}" is neither a registered provider nor backed by a credential pool`,
+    );
   }
 }
 

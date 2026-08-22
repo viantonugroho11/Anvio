@@ -54,6 +54,11 @@ Credential pools (`packages/credentials`) allow key rotation: the router calls
 `credentialPools.acquire(poolId)` and constructs a provider on the fly for each request when
 `target.pool` is set in `routing.yaml`.
 
+> **Discharged (ADR-0019).** The paragraph above is now accurate: `packages/platform`
+> constructs a pool manager when `ANVIO_CREDENTIALS_PASSPHRASE` is set, and the router
+> sends the acquired key rather than discarding it. The correction below is kept for the
+> record of what was true between this ADR and ADR-0019.
+>
 > **Correction (ADR-0017).** The paragraph above describes an intent, not the shipped code.
 > `credentialPools` is never supplied — `@anvio/credentials` is not a dependency of
 > `packages/platform`, so `createPlatform()` cannot build a pool manager, and
