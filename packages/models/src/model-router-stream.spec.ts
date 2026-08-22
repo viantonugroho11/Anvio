@@ -149,7 +149,12 @@ describe('ModelRouter.stream failover', () => {
       providers: new Map([['anthropic', scriptedProvider('anthropic', script, calls)]]),
     });
 
-    expect(await collect(router.stream(ASK))).toEqual(script);
+    // Content chunks replay byte-for-byte; only `done` differs, by the provenance
+    // stamp the router adds (issue #21).
+    expect(await collect(router.stream(ASK))).toEqual([
+      ...script.slice(0, -1),
+      { ...script.at(-1), provider: 'anthropic', model: 'm1' },
+    ]);
   });
 
   it('skips a target whose circuit is open', async () => {
@@ -237,5 +242,80 @@ describe('ModelRouter.stream without routing.yaml', () => {
     await collect(router.stream(ASK));
 
     expect(calls).toEqual(['anthropic']);
+  });
+});
+
+describe('ModelRouter.stream provenance (issue #21)', () => {
+  it('announces the switch before any content', async () => {
+    const calls: string[] = [];
+    const router = new ModelRouter({
+      storage: storageWith(ROUTING_YAML),
+      providers: new Map([
+        [
+          'anthropic',
+          scriptedProvider(
+            'anthropic',
+            [{ type: 'error', error: 'HTTP 529', retryable: true }],
+            calls,
+          ),
+        ],
+        [
+          'openai',
+          scriptedProvider('openai', [{ type: 'text_delta', delta: 'from openai' }], calls),
+        ],
+      ]),
+    });
+
+    const chunks = await collect(router.stream(ASK));
+
+    expect(chunks[0]).toMatchObject({ type: 'failover', from: 'anthropic', to: 'openai' });
+    // Ordering matters: the announcement has to precede the answer it explains.
+    expect(chunks.findIndex((c) => c.type === 'failover')).toBeLessThan(
+      chunks.findIndex((c) => c.type === 'text_delta'),
+    );
+  });
+
+  it('emits no failover chunk when the primary serves the call', async () => {
+    const calls: string[] = [];
+    const router = new ModelRouter({
+      storage: storageWith(ROUTING_YAML),
+      providers: new Map([
+        [
+          'anthropic',
+          scriptedProvider(
+            'anthropic',
+            [{ type: 'text_delta', delta: 'ok' }, { type: 'done' }],
+            calls,
+          ),
+        ],
+      ]),
+    });
+
+    expect((await collect(router.stream(ASK))).some((c) => c.type === 'failover')).toBe(false);
+  });
+
+  it('stamps the done chunk with who actually served the call', async () => {
+    const calls: string[] = [];
+    const router = new ModelRouter({
+      storage: storageWith(ROUTING_YAML),
+      providers: new Map([
+        [
+          'anthropic',
+          scriptedProvider(
+            'anthropic',
+            [{ type: 'error', error: 'HTTP 503', retryable: true }],
+            calls,
+          ),
+        ],
+        [
+          'openai',
+          scriptedProvider('openai', [{ type: 'text_delta', delta: 'x' }, { type: 'done' }], calls),
+        ],
+      ]),
+    });
+
+    const chunks = await collect(router.stream(ASK));
+
+    expect(chunks.at(-1)).toMatchObject({ type: 'done', provider: 'openai', model: 'm2' });
   });
 });

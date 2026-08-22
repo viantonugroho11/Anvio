@@ -59,8 +59,9 @@ ADR-0011's routing and fallback description becomes true with this change. Its c
 
 **Negative**
 
-- **A mid-answer failure is still a dead session.** D1 makes this a deliberate limit rather than an oversight, but it is the common case for a long generation: the longer the answer, the smaller the fraction of it the failover window covers.
-- **Answers can now come from a model the user did not choose**, with different phrasing, formatting, and refusal behaviour, and nothing surfaces which target served the request. `RoutedChatResponse` carries `failover`, but the streaming path has no equivalent — a stream chunk announcing the switch would be the natural follow-up.
+- ~~**A mid-answer failure is still a dead session.**~~ **Addressed (issue #20).** The turn is no longer discarded: `runtime.ts` keeps the generated text, appends a visible interruption notice, and ends cleanly instead of throwing. The underlying limit stands — failover itself still cannot cross the first content chunk — but the cost of hitting it is now a short answer rather than a lost one.
+- ~~**Nothing surfaces which target served the request.**~~ **Addressed (issue #21).** `StreamChunk` gains a `failover` variant that the router emits before any content, and the `done` chunk carries `provider` / `model`. The agent runtime renders the switch as a progress event, deliberately not spliced into the answer text.
+- **Answers can still come from a model the user did not choose**, with different phrasing, formatting, and refusal behaviour. Announcing the switch makes it visible; it does not make it consented to. A per-route "never fail over" opt-out is the natural next control.
 - Priming adds one `await` before the chain commits. In practice that is the latency already required to reach the first token, not new latency — but a provider that buffers heavily before its first chunk will hold the whole chain open.
 - The router now sits on the hot path, so a bug in `primeStream` breaks every agent turn rather than only `anvio routing test`. The eight tests in `model-router-stream.spec.ts` are the guard.
 
