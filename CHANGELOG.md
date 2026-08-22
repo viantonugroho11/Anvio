@@ -18,6 +18,7 @@ Nine merged changes ([#15](https://github.com/viantonugroho11/Anvio/pull/15), [#
 - **Partial answers are kept when a stream dies** ([#29](https://github.com/viantonugroho11/Anvio/pull/29)). Failing over mid-answer discarded whatever text had already arrived. The runtime now preserves it and appends the failure, so a long answer that breaks at 90% is still worth 90%.
 - **The API bound to `0.0.0.0` with auth off by default** ([#30](https://github.com/viantonugroho11/Anvio/pull/30)). At Level 1 that exposed sessions, agents, and tool execution to the whole LAN. The default host is now `127.0.0.1`, and `assertSafeBinding` refuses to `listen()` on a non-loopback address with auth disabled unless `ANVIO_API_ALLOW_INSECURE=true` says so explicitly.
 - **`ModelRouter` was not on the request path** ([#32](https://github.com/viantonugroho11/Anvio/pull/32)). Provider fallback, the circuit breaker, and the credential pools shipped in earlier releases were all real and all unreachable — `PlatformContext` constructed providers directly. The router is now what the platform hands out, so a pool named on a route actually decides which key a call uses.
+- **A credential replaced under the same id kept serving the old secret** ([#35](https://github.com/viantonugroho11/Anvio/pull/35)). `ModelRouter` cached SDK clients by credential _id_, so overwriting a leaked key under its own id — the obvious remediation, and since the settings page shipped, a form that invites it — left the old secret going out on the wire until restart, with no error to say so. Each cache entry now carries a salted digest of the credential value; a mismatch rebuilds the client and overwrites the entry, so the new secret is used on the very next request and the stale client is dropped rather than accumulating one per rotation. Closes [#33](https://github.com/viantonugroho11/Anvio/issues/33), which [ADR-0019](docs/adr/0019-credential-pools-on-the-request-path.md) had recorded as a known limit.
 - **API startup and dashboard fetches** ([#34](https://github.com/viantonugroho11/Anvio/pull/34)). Two bootstrap ordering bugs from [#30](https://github.com/viantonugroho11/Anvio/pull/30) meant `apps/api` did not start at all; both are fixed and the correct order (`setGlobalPrefix` → `init()` → read auth state → `assertSafeBinding` → `listen()`) is recorded in [ADR-0020](docs/adr/0020-provider-key-management-surface.md). Separately, `apps/web` called the API with a relative URL from server components, where Node's `fetch` rejects it — every dashboard page had been failing behind a bare `catch` and rendering an empty state.
 
 ### Added
@@ -50,11 +51,11 @@ Nine merged changes ([#15](https://github.com/viantonugroho11/Anvio/pull/15), [#
 
 ### Known gaps
 
-Filed rather than quietly closed: [#24](https://github.com/viantonugroho11/Anvio/issues/24)–[#28](https://github.com/viantonugroho11/Anvio/issues/28) (remaining audit findings), [#31](https://github.com/viantonugroho11/Anvio/issues/31) (Teams and Matrix webhooks accept unauthenticated posts), [#33](https://github.com/viantonugroho11/Anvio/issues/33) (a credential replaced under the same id keeps serving the old client until restart). The dashboard authenticates as one static server-side token, not as a user, and there is no boot smoke test for `apps/api` — both recorded in [ADR-0020](docs/adr/0020-provider-key-management-surface.md).
+Filed rather than quietly closed: [#24](https://github.com/viantonugroho11/Anvio/issues/24)–[#28](https://github.com/viantonugroho11/Anvio/issues/28) (remaining audit findings) and [#31](https://github.com/viantonugroho11/Anvio/issues/31) (Teams and Matrix webhooks accept unauthenticated posts — only WhatsApp verifies anything, and only on the GET handshake). The dashboard authenticates as one static server-side token, not as a user, and there is no boot smoke test for `apps/api` — both recorded in [ADR-0020](docs/adr/0020-provider-key-management-surface.md).
 
 ### Tests
 
-- 471 total, up from 349.
+- 474 total, up from 349.
 
 ---
 
