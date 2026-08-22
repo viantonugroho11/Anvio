@@ -1,16 +1,22 @@
 import { ActionExecutor, createAutomationEngine } from '@anvio/automation';
 import { BlueprintExecutor, createCatalogRegistry } from '@anvio/blueprints';
-import { createIntegrationRegistry, createMcpBridge, createMcpFirstCallGate, createMcpToolPort, loadMcpToolCatalog } from '@anvio/integrations';
+import {
+  createIntegrationRegistry,
+  createMcpBridge,
+  createMcpFirstCallGate,
+  createMcpToolPort,
+  loadMcpToolCatalog,
+} from '@anvio/integrations';
 import { createHookEngine } from '@anvio/hooks';
 import { DefaultAgentRuntime } from '@anvio/agents';
-import { createChannelHub, ChannelHub, FilesystemAgentInbox, type WhatsAppChannel } from '@anvio/channels';
+import {
+  createChannelHub,
+  ChannelHub,
+  FilesystemAgentInbox,
+  type WhatsAppChannel,
+} from '@anvio/channels';
 import { createAuthProvider } from '@anvio/auth';
-import type {
-  ChannelHubPort,
-  AgentInbox,
-  ModelProvider,
-  ChannelType,
-} from '@anvio/core';
+import type { ChannelHubPort, AgentInbox, ModelProvider, ChannelType } from '@anvio/core';
 import { createEventBus, EventSubjects } from '@anvio/events';
 import { createMemoryProvider } from '@anvio/memory';
 import { createCredentialPoolManager } from '@anvio/credentials';
@@ -89,9 +95,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   }
   const modelProviders = createModelProviderRegistryInstance(providerMap);
   const modelProvider =
-    modelProviders.getOptional('anthropic') ??
-    modelProviders.first() ??
-    createMockModelProvider();
+    modelProviders.getOptional('anthropic') ?? modelProviders.first() ?? createMockModelProvider();
 
   const eventBus = await createEventBus(spec.events.provider, {
     url: spec.events.url ?? process.env.NATS_URL,
@@ -161,9 +165,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     },
   });
 
-  const learningModelProvider =
-    modelProviders.getOptional('anthropic') ??
-    modelProviders.first();
+  const learningModelProvider = modelProviders.getOptional('anthropic') ?? modelProviders.first();
   const learningEngine = new LearningEngine(memoryProvider, workspacePath, {
     modelProvider:
       learningModelProvider && learningModelProvider.providerId !== 'mock'
@@ -198,7 +200,12 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       }
       const q = query.toLowerCase();
       const sessions = await workspace.sessions.list();
-      const results: Array<{ sessionId: string; agentName: string; channel: string; snippet: string }> = [];
+      const results: Array<{
+        sessionId: string;
+        agentName: string;
+        channel: string;
+        snippet: string;
+      }> = [];
       for (const s of sessions) {
         for (const m of s.messages) {
           if (m.content.toLowerCase().includes(q)) {
@@ -275,7 +282,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     getApproved: async (sessionId) => {
       const stored = await workspace.sessions.get(sessionId);
       const keys = stored?.metadata?.mcpApprovedTools;
-      return Array.isArray(keys) ? keys.filter((key): key is string => typeof key === 'string') : [];
+      return Array.isArray(keys)
+        ? keys.filter((key): key is string => typeof key === 'string')
+        : [];
     },
     persistApproved: async (sessionId, keys) => {
       const stored = await workspace.sessions.get(sessionId);
@@ -286,9 +295,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     },
   });
 
-  let toolPort = harness.enabled
-    ? createHarnessAwareToolPort(toolGateway, harness)
-    : toolGateway;
+  let toolPort = harness.enabled ? createHarnessAwareToolPort(toolGateway, harness) : toolGateway;
 
   if (mcpCatalog.names.length > 0) {
     toolPort = createMcpToolPort(toolPort, {
@@ -427,7 +434,8 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       return { outputs: result.outputs };
     },
     runSkill: async (slug, params) => {
-      const { executeSkill: execSkill, createComposableSkillRegistry: createReg } = await import('@anvio/skills');
+      const { executeSkill: execSkill, createComposableSkillRegistry: createReg } =
+        await import('@anvio/skills');
       const skill = await skillCatalog.load(slug);
       const reg = createReg([], skillCatalog, toolGateway);
       const result = await execSkill({
@@ -502,8 +510,10 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     actionExecutor,
     userId: spec.defaultUserId,
     eventBus: {
-      subscribeCore: (subject, handler) => eventBus.subscribeCore(subject as typeof EventSubjects.SESSION_STARTED, handler),
-      publish: (subject, type, data) => eventBus.publish(subject as typeof EventSubjects.SESSION_STARTED, type, data),
+      subscribeCore: (subject, handler) =>
+        eventBus.subscribeCore(subject as typeof EventSubjects.SESSION_STARTED, handler),
+      publish: (subject, type, data) =>
+        eventBus.publish(subject as typeof EventSubjects.SESSION_STARTED, type, data),
     },
   });
 
@@ -745,7 +755,11 @@ function createMockModelProvider(): ModelProvider {
 
 export { loadAgent, storedSessionToRuntime } from './session-runtime.js';
 export { registerGatewayWorker } from './gateway-worker.js';
-export { startUnifiedGateway, type UnifiedGatewayHandle, type UnifiedGatewayOptions } from './unified-gateway.js';
+export {
+  startUnifiedGateway,
+  type UnifiedGatewayHandle,
+  type UnifiedGatewayOptions,
+} from './unified-gateway.js';
 
 export type { ChannelHubPort, AgentInbox, WhatsAppChannel };
 export { findRepoRoot, findWorkspacePath } from './find-workspace.js';
@@ -767,3 +781,34 @@ export {
   type TrajectoryExport,
   type TrajectoryEntry,
 } from './trajectory-export.js';
+
+/**
+ * Transport-level security shared by both HTTP surfaces.
+ *
+ * These lived in `apps/api` and covered only `apps/api`, while
+ * `unified-gateway.ts` served the same routes with none of it — bound `0.0.0.0`,
+ * resolved a failed `authenticate()` to the default context, and dispatched the
+ * channel webhooks unverified (issue #42). They are pure and depend on nothing
+ * but `node:crypto`, so there is no reason for two copies to exist.
+ */
+export {
+  isLoopbackHost,
+  resolveApiBinding,
+  assertSafeBinding,
+  InsecureBindingError,
+  type ApiBinding,
+  type BindingEnv,
+} from './http-binding.js';
+export {
+  verifyMetaSignature,
+  verifyMatrixToken,
+  verifyTeamsJwt,
+  createBotFrameworkJwks,
+  resolveWebhookSecrets,
+  unconfiguredWebhookIsAllowed,
+  BOT_FRAMEWORK_ISSUER,
+  BOT_FRAMEWORK_OPENID_URL,
+  type WebhookVerdict,
+  type WebhookSecrets,
+  type JwksSource,
+} from './webhook-auth.js';

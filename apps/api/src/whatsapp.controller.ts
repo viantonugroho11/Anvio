@@ -16,7 +16,7 @@ import {
   resolveWebhookSecrets,
   unconfiguredWebhookIsAllowed,
   verifyMetaSignature,
-} from './webhook-auth.js';
+} from '@anvio/platform';
 
 // Outside AnvioAuthGuard: Meta posts here and cannot present a user token. It
 // authenticates by its own mechanism instead — `hub.verify_token` on the GET
