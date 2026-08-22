@@ -11,7 +11,11 @@ async function bootstrap() {
     enabled: process.env.ANVIO_OTEL_ENABLED === 'true' || !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
   });
 
-  const app = await NestFactory.create(AppModule);
+  // `rawBody` keeps the unparsed request bytes on `req.rawBody`. Meta signs the
+  // body it sent, and a re-serialised object differs from it on key order,
+  // unicode escaping, or whitespace — so `X-Hub-Signature-256` can only be
+  // checked against the original bytes (ADR-0021).
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const binding = resolveApiBinding(process.env);
 
   // Order matters twice over. Routes and middleware are registered during

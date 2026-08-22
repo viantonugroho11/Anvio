@@ -17,9 +17,7 @@ export class OverviewController {
     const tools = Object.entries(toolGateway.spec.tools);
     const enabledTools = tools.filter(([, cfg]) => cfg.enabled).length;
 
-    const activeSessions = sessions.filter(
-      (s) => s.status !== 'completed',
-    ).length;
+    const activeSessions = sessions.filter((s) => s.status !== 'completed').length;
 
     return {
       sessions: { total: sessions.length, active: activeSessions },
