@@ -49,6 +49,11 @@ workspace/state.db
 workspace/.gateway/
 workspace/worktrees/
 workspace/artifacts/
+# Encrypted credential pools and vendor-CLI OAuth tokens. Encrypted, but the
+# passphrase is the operator's and never the repo's — these must not be pushed.
+workspace/credentials/
+workspace/connections/
+workspace/souls/_cache/
 
 # graphify — commit only report + manifest + labels; regenerate the rest
 graphify-out/cache/
