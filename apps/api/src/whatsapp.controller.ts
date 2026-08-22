@@ -1,7 +1,10 @@
+import { Public } from './auth.guard.js';
 import { Controller, Get, Post, Query, Body, Res, HttpStatus } from '@nestjs/common';
 import type { Response } from 'express';
 import { AppService } from './app.service.js';
 
+// Public: Meta posts here and cannot present a user token; it verifies via hub.verify_token.
+@Public()
 @Controller('channels/whatsapp')
 export class WhatsAppController {
   constructor(private readonly appService: AppService) {}
