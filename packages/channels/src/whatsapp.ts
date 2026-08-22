@@ -4,6 +4,7 @@ import type {
   OutboundMessage,
   SessionStore,
 } from '@anvio/core';
+import { timingSafeEqual } from 'node:crypto';
 import { BaseChannelAdapter } from './base-channel-adapter.js';
 import { ChannelSessionBridge } from './channel-session-bridge.js';
 
@@ -153,16 +154,26 @@ export class WhatsAppChannel extends BaseChannelAdapter {
     });
   }
 
-  /** Meta webhook verification (GET). Returns challenge string or null. */
+  /**
+   * Meta webhook verification (GET). Returns the challenge string, or null.
+   *
+   * Fails closed on an unconfigured token. A plain `===` against an empty
+   * `verifyToken` would have matched an empty `hub.verify_token` and handed back
+   * the challenge — so removing the old `'anvio-verify'` default without this
+   * guard would have replaced a known-secret hole with a no-secret one.
+   */
   verifyWebhook(query: Record<string, string | undefined>): string | null {
-    if (
-      query['hub.mode'] === 'subscribe' &&
-      query['hub.verify_token'] === this.options.verifyToken &&
-      query['hub.challenge']
-    ) {
-      return query['hub.challenge'];
-    }
-    return null;
+    const expected = this.options.verifyToken;
+    const presented = query['hub.verify_token'];
+    if (!expected || !presented) return null;
+    if (query['hub.mode'] !== 'subscribe' || !query['hub.challenge']) return null;
+
+    const left = Buffer.from(expected, 'utf8');
+    const right = Buffer.from(presented, 'utf8');
+    // `timingSafeEqual` throws on a length mismatch, so length is checked first.
+    if (left.length !== right.length || !timingSafeEqual(left, right)) return null;
+
+    return query['hub.challenge'];
   }
 
   /** Process inbound webhook payload (POST). */
@@ -194,7 +205,11 @@ export class WhatsAppChannel extends BaseChannelAdapter {
       const { id } = msg.interactive.button_reply;
       const [action, requestId] = id.split(':');
       if (requestId && this.options.onApproval) {
-        const session = await this.options.sessionBridge.resolveOrCreate('whatsapp', threadId, userId);
+        const session = await this.options.sessionBridge.resolveOrCreate(
+          'whatsapp',
+          threadId,
+          userId,
+        );
         await this.options.onApproval(session.id, requestId, action === 'approve', userId);
       }
       return;

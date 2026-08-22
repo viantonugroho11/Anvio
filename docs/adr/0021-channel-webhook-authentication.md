@@ -78,10 +78,24 @@ All three controllers previously looked up their adapter first and answered 404 
 **Negative**
 
 - **Existing deployments break until configured.** A Teams or Matrix webhook that worked yesterday returns 401 today unless `TEAMS_APP_ID` / `MATRIX_AS_TOKEN` is set or the deployment declares itself insecure. That is the intended direction — the previous behaviour was the defect — but it is a breaking change and release notes must lead with it.
-- **`WHATSAPP_VERIFY_TOKEN` still defaults to `'anvio-verify'`** in `packages/channels`, a publicly-known value in a public repository. The POST signature check makes the handshake much less load-bearing, but a hardcoded default secret should not exist at all. Out of scope here — it lives in another package and removing the default is its own breaking change — and filed as issue #39 rather than left implicit.
+- ~~**`WHATSAPP_VERIFY_TOKEN` still defaults to `'anvio-verify'`** in `packages/channels`, a publicly-known value in a public repository.~~ **Closed — see the amendment below (issue #39).**
 - **No replay protection.** A captured, validly signed request can be replayed within the token's validity window (Teams) or indefinitely (Matrix, WhatsApp — neither carries a timestamp Anvio checks). Meta sends no nonce, so deduplication would have to key on message id in the channel layer.
 - **The Bot Framework JWKS is fetched at first use**, so the first Teams webhook after a restart pays two round-trips.
 - **Government and sovereign Bot Framework clouds use different issuers and metadata endpoints.** Only the public cloud is handled.
+
+## Amendment — the published default verify token (issue #39)
+
+`WHATSAPP_VERIFY_TOKEN` fell back to `'anvio-verify'` at two sites. Any deployment that never set the variable would complete Meta's webhook handshake for anyone who had read this repository — and it looked configured while doing so, which is the part that makes a default secret worse than no secret.
+
+The fallback is removed. Three things had to change together, and the second is the one that would have been easy to miss:
+
+1. **The default is gone** from `create-channels.ts` and `channel-health.ts`; an unset variable now yields an empty string.
+2. **`verifyWebhook` fails closed on an empty token.** The original comparison was a plain `===`, and `'' === ''` is true — so an empty configured token would have matched an empty presented `hub.verify_token` and handed back the challenge. Deleting the default without this guard would have swapped a known-secret hole for a no-secret one. A test pins exactly this case, and it fails against the old comparison.
+3. **The comparison is constant-time.** It is a secret comparison; `===` short-circuits on the first differing byte.
+
+Health reporting changed too, for a separate reason found while editing the same function: `probeWhatsApp` put the token's _value_ into the report's `details`, and `anvio channels status --json` prints that object. Terminal scrollback, CI logs, and pasted bug reports are all places that output goes. The field is now `verifyTokenConfigured: true` — whether one is set is the useful fact; its value is not. A missing token is also reported as `misconfigured`, so an operator learns it here rather than from Meta.
+
+**Breaking**, and deliberately so: a deployment relying on the default now fails its handshake. That deployment is, by definition, one whose handshake anyone could already complete.
 
 ## Cross-references
 

@@ -26,11 +26,7 @@ export class CliChannel implements ChannelAdapter {
     this.handler = handler;
   }
 
-  async handleInbound(
-    sessionId: string,
-    userId: string,
-    content: string,
-  ): Promise<void> {
+  async handleInbound(sessionId: string, userId: string, content: string): Promise<void> {
     if (!this.handler) return;
     await this.handler({ sessionId, userId, content, channel: 'cli' });
   }
@@ -45,10 +41,7 @@ export class CliChannel implements ChannelAdapter {
     }
   }
 
-  async sendProgress(
-    sessionId: string,
-    update: { phase: string; emoji?: string },
-  ): Promise<void> {
+  async sendProgress(sessionId: string, update: { phase: string; emoji?: string }): Promise<void> {
     const emoji = update.emoji ?? '🔄';
     this.sink.onProgress?.(sessionId, update.phase, emoji);
     process.stdout.write(`${emoji} ${update.phase}\n`);

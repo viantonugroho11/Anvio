@@ -40,8 +40,18 @@ export interface WhatsAppChannelConfig {
 
 export interface ChannelConfig {
   voice?: ChannelVoiceOptions;
-  telegram?: { enabled?: boolean; botToken?: string; defaultAgent?: string; voice?: ChannelVoiceOptions };
-  discord?: { enabled?: boolean; botToken?: string; defaultAgent?: string; voice?: ChannelVoiceOptions };
+  telegram?: {
+    enabled?: boolean;
+    botToken?: string;
+    defaultAgent?: string;
+    voice?: ChannelVoiceOptions;
+  };
+  discord?: {
+    enabled?: boolean;
+    botToken?: string;
+    defaultAgent?: string;
+    voice?: ChannelVoiceOptions;
+  };
   slack?: SlackChannelConfig;
   whatsapp?: WhatsAppChannelConfig;
   teams?: {
@@ -155,8 +165,7 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
   registerAdapter(hub, new CliChannel(), onInbound);
   registerAdapter(hub, new RestApiChannel(), onInbound);
 
-  const telegramToken =
-    options.channels?.telegram?.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
+  const telegramToken = options.channels?.telegram?.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
   if (options.channels?.telegram?.enabled && telegramToken) {
     registerAdapter(
       hub,
@@ -190,10 +199,8 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
     );
   }
 
-  const slackBotToken =
-    options.channels?.slack?.botToken ?? process.env.SLACK_BOT_TOKEN;
-  const slackAppToken =
-    options.channels?.slack?.appToken ?? process.env.SLACK_APP_TOKEN;
+  const slackBotToken = options.channels?.slack?.botToken ?? process.env.SLACK_BOT_TOKEN;
+  const slackAppToken = options.channels?.slack?.appToken ?? process.env.SLACK_APP_TOKEN;
   if (options.channels?.slack?.enabled && slackBotToken && slackAppToken) {
     registerAdapter(
       hub,
@@ -213,8 +220,11 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
     options.channels?.whatsapp?.accessToken ?? process.env.WHATSAPP_ACCESS_TOKEN;
   const waPhoneNumberId =
     options.channels?.whatsapp?.phoneNumberId ?? process.env.WHATSAPP_PHONE_NUMBER_ID;
+  // No fallback. `'anvio-verify'` used to sit here, which meant any deployment
+  // that never set the variable would complete Meta's handshake for anyone who
+  // had read this file — and it looked configured while doing so (issue #39).
   const waVerifyToken =
-    options.channels?.whatsapp?.verifyToken ?? process.env.WHATSAPP_VERIFY_TOKEN ?? 'anvio-verify';
+    options.channels?.whatsapp?.verifyToken ?? process.env.WHATSAPP_VERIFY_TOKEN ?? '';
 
   if (options.channels?.whatsapp?.enabled && waAccessToken && waPhoneNumberId) {
     whatsapp = new WhatsAppChannel({

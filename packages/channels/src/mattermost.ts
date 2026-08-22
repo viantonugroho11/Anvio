@@ -78,7 +78,8 @@ export class MattermostChannel extends BaseChannelAdapter {
   private async resolveChannelId(sessionId: string): Promise<string | null> {
     const session = await this.options.sessions.get(sessionId);
     if (!session) return null;
-    const meta = session.metadata?.mattermost as { channelId?: string; rootId?: string } | undefined;
+    const meta = session.metadata?.mattermost as
+      { channelId?: string; rootId?: string } | undefined;
     if (meta?.channelId) return meta.channelId;
     const threadId = session.channelThread?.threadId;
     if (!threadId) return null;
@@ -89,7 +90,8 @@ export class MattermostChannel extends BaseChannelAdapter {
   async sendMessage(sessionId: string, message: OutboundMessage): Promise<void> {
     const session = await this.options.sessions.get(sessionId);
     if (!session) return;
-    const meta = session.metadata?.mattermost as { channelId?: string; rootId?: string } | undefined;
+    const meta = session.metadata?.mattermost as
+      { channelId?: string; rootId?: string } | undefined;
     const channelId = meta?.channelId ?? (await this.resolveChannelId(sessionId));
     if (!channelId) return;
 

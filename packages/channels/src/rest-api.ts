@@ -27,11 +27,7 @@ export class RestApiChannel implements ChannelAdapter {
     return this.outbound.get(sessionId) ?? [];
   }
 
-  async handleInbound(
-    sessionId: string,
-    userId: string,
-    content: string,
-  ): Promise<void> {
+  async handleInbound(sessionId: string, userId: string, content: string): Promise<void> {
     if (!this.handler) return;
     await this.handler({
       sessionId,

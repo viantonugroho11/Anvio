@@ -82,7 +82,11 @@ async function probeTelegram(config?: ChannelConfig): Promise<ChannelHealthRepor
 
   const token = config?.telegram?.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
-    return report(channel, 'misconfigured', 'Missing TELEGRAM_BOT_TOKEN or spec.channels.telegram.botToken');
+    return report(
+      channel,
+      'misconfigured',
+      'Missing TELEGRAM_BOT_TOKEN or spec.channels.telegram.botToken',
+    );
   }
 
   try {
@@ -113,7 +117,11 @@ async function probeDiscord(config?: ChannelConfig): Promise<ChannelHealthReport
 
   const token = config?.discord?.botToken ?? process.env.DISCORD_BOT_TOKEN;
   if (!token) {
-    return report(channel, 'misconfigured', 'Missing DISCORD_BOT_TOKEN or spec.channels.discord.botToken');
+    return report(
+      channel,
+      'misconfigured',
+      'Missing DISCORD_BOT_TOKEN or spec.channels.discord.botToken',
+    );
   }
 
   try {
@@ -146,10 +154,18 @@ async function probeSlack(config?: ChannelConfig): Promise<ChannelHealthReport> 
   const appToken = config?.slack?.appToken ?? process.env.SLACK_APP_TOKEN;
 
   if (!botToken) {
-    return report(channel, 'misconfigured', 'Missing SLACK_BOT_TOKEN or spec.channels.slack.botToken');
+    return report(
+      channel,
+      'misconfigured',
+      'Missing SLACK_BOT_TOKEN or spec.channels.slack.botToken',
+    );
   }
   if (!appToken) {
-    return report(channel, 'misconfigured', 'Missing SLACK_APP_TOKEN (Socket Mode requires xapp- token)');
+    return report(
+      channel,
+      'misconfigured',
+      'Missing SLACK_APP_TOKEN (Socket Mode requires xapp- token)',
+    );
   }
 
   try {
@@ -170,10 +186,15 @@ async function probeSlack(config?: ChannelConfig): Promise<ChannelHealthReport> 
       if (!json.ok) throw new Error(json.error ?? 'auth.test failed');
       return json;
     });
-    return report(channel, 'healthy', `Connected as ${result.user ?? 'bot'} (${result.team ?? 'workspace'})`, {
-      latencyMs,
-      details: { user: result.user, team: result.team, socketMode: true },
-    });
+    return report(
+      channel,
+      'healthy',
+      `Connected as ${result.user ?? 'bot'} (${result.team ?? 'workspace'})`,
+      {
+        latencyMs,
+        details: { user: result.user, team: result.team, socketMode: true },
+      },
+    );
   } catch (error) {
     return report(channel, 'unreachable', error instanceof Error ? error.message : 'Probe failed');
   }
@@ -228,14 +249,18 @@ async function probeWhatsApp(config?: ChannelConfig): Promise<ChannelHealthRepor
 
   const accessToken = config?.whatsapp?.accessToken ?? process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = config?.whatsapp?.phoneNumberId ?? process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const verifyToken =
-    config?.whatsapp?.verifyToken ?? process.env.WHATSAPP_VERIFY_TOKEN ?? 'anvio-verify';
+  const verifyToken = config?.whatsapp?.verifyToken ?? process.env.WHATSAPP_VERIFY_TOKEN ?? '';
 
   if (!accessToken) {
     return report(channel, 'misconfigured', 'Missing WHATSAPP_ACCESS_TOKEN');
   }
   if (!phoneNumberId) {
     return report(channel, 'misconfigured', 'Missing WHATSAPP_PHONE_NUMBER_ID');
+  }
+  if (!verifyToken) {
+    // Reported rather than defaulted. Without it the GET handshake cannot
+    // succeed, and an operator should learn that here instead of from Meta.
+    return report(channel, 'misconfigured', 'Missing WHATSAPP_VERIFY_TOKEN');
   }
 
   try {
@@ -247,7 +272,11 @@ async function probeWhatsApp(config?: ChannelConfig): Promise<ChannelHealthRepor
         const err = await res.text();
         throw new Error(`${res.status} ${err}`);
       }
-      return res.json() as Promise<{ id?: string; display_phone_number?: string; verified_name?: string }>;
+      return res.json() as Promise<{
+        id?: string;
+        display_phone_number?: string;
+        verified_name?: string;
+      }>;
     });
 
     const phone = result.display_phone_number ?? phoneNumberId;
@@ -257,7 +286,11 @@ async function probeWhatsApp(config?: ChannelConfig): Promise<ChannelHealthRepor
         phoneNumberId: result.id ?? phoneNumberId,
         displayPhoneNumber: result.display_phone_number,
         verifiedName: result.verified_name,
-        verifyToken,
+        // The token itself is deliberately absent. `anvio channels status --json`
+        // prints this object, and that output lands in terminal scrollback, CI
+        // logs, and pasted bug reports. Whether one is configured is the useful
+        // fact; its value is not.
+        verifyTokenConfigured: true,
         webhookPath: '/api/channels/whatsapp/webhook',
       },
     });
@@ -271,9 +304,17 @@ function probeTeams(config?: ChannelConfig): ChannelHealthReport {
   const appId = config?.teams?.appId ?? process.env.TEAMS_APP_ID;
   const appPassword = config?.teams?.appPassword ?? process.env.TEAMS_APP_PASSWORD;
   if (appId && appPassword) {
-    return report(channel, 'degraded', 'Bot credentials set — webhook delivery requires serviceUrl + conversation');
+    return report(
+      channel,
+      'degraded',
+      'Bot credentials set — webhook delivery requires serviceUrl + conversation',
+    );
   }
-  return report(channel, 'healthy', 'In-memory adapter registered — configure TEAMS_* for live Bot Framework');
+  return report(
+    channel,
+    'healthy',
+    'In-memory adapter registered — configure TEAMS_* for live Bot Framework',
+  );
 }
 
 function probeMatrix(config?: ChannelConfig): ChannelHealthReport {
@@ -283,7 +324,11 @@ function probeMatrix(config?: ChannelConfig): ChannelHealthReport {
   if (token && homeserver) {
     return report(channel, 'degraded', 'Matrix credentials set — requires roomId for live send');
   }
-  return report(channel, 'healthy', 'In-memory adapter registered — configure MATRIX_* for live homeserver');
+  return report(
+    channel,
+    'healthy',
+    'In-memory adapter registered — configure MATRIX_* for live homeserver',
+  );
 }
 
 function probeEmail(config?: ChannelConfig): ChannelHealthReport {
@@ -293,9 +338,17 @@ function probeEmail(config?: ChannelConfig): ChannelHealthReport {
   }
   const smtpHost = config?.email?.smtpHost ?? process.env.EMAIL_SMTP_HOST;
   if (!smtpHost) {
-    return report(channel, 'misconfigured', 'Missing EMAIL_SMTP_HOST or spec.channels.email.smtpHost');
+    return report(
+      channel,
+      'misconfigured',
+      'Missing EMAIL_SMTP_HOST or spec.channels.email.smtpHost',
+    );
   }
-  return report(channel, 'degraded', 'SMTP configured — outbound queue mode until full IMAP/SMTP bridge');
+  return report(
+    channel,
+    'degraded',
+    'SMTP configured — outbound queue mode until full IMAP/SMTP bridge',
+  );
 }
 
 function probeSignal(config?: ChannelConfig): ChannelHealthReport {
@@ -305,7 +358,11 @@ function probeSignal(config?: ChannelConfig): ChannelHealthReport {
   }
   const cli = config?.signal?.signalCliPath ?? process.env.SIGNAL_CLI_PATH;
   if (!cli) {
-    return report(channel, 'misconfigured', 'Missing SIGNAL_CLI_PATH or spec.channels.signal.signalCliPath');
+    return report(
+      channel,
+      'misconfigured',
+      'Missing SIGNAL_CLI_PATH or spec.channels.signal.signalCliPath',
+    );
   }
   return report(channel, 'degraded', 'signal-cli path configured — bridge delivery deferred');
 }
