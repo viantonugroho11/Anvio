@@ -51,7 +51,7 @@ Nine merged changes ([#15](https://github.com/viantonugroho11/Anvio/pull/15), [#
 
 ### Known gaps
 
-Filed rather than quietly closed: [#24](https://github.com/viantonugroho11/Anvio/issues/24)–[#28](https://github.com/viantonugroho11/Anvio/issues/28) (remaining audit findings) and [#31](https://github.com/viantonugroho11/Anvio/issues/31) (Teams and Matrix webhooks accept unauthenticated posts — only WhatsApp verifies anything, and only on the GET handshake). The dashboard authenticates as one static server-side token, not as a user, and there is no boot smoke test for `apps/api` — both recorded in [ADR-0020](docs/adr/0020-provider-key-management-surface.md).
+Filed rather than quietly closed: [#24](https://github.com/viantonugroho11/Anvio/issues/24)–[#27](https://github.com/viantonugroho11/Anvio/issues/27) (remaining audit findings; [#28](https://github.com/viantonugroho11/Anvio/issues/28) closed on verification — the advisory count it carried was already stale) and [#31](https://github.com/viantonugroho11/Anvio/issues/31) (Teams and Matrix webhooks accept unauthenticated posts — only WhatsApp verifies anything, and only on the GET handshake). The dashboard authenticates as one static server-side token, not as a user, and there is no boot smoke test for `apps/api` — both recorded in [ADR-0020](docs/adr/0020-provider-key-management-surface.md).
 
 ### Tests
 
