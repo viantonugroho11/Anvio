@@ -14,7 +14,17 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const binding = resolveApiBinding(process.env);
 
-  // Read auth state before listening so an unsafe binding never accepts a request.
+  // Order matters twice over. Routes and middleware are registered during
+  // `init()`, so the prefix and CORS policy have to be set before it — and
+  // `AppService.platform` is assigned in `onModuleInit`, which only `init()`
+  // fires, so the safety check has to come after it. `listen()` would init on
+  // its own, but by then the port is open, and the check exists to decide
+  // whether to open it at all.
+  app.enableCors({ origin: binding.corsOrigin, credentials: true });
+  app.setGlobalPrefix('api');
+
+  await app.init();
+
   const appService = app.get(AppService);
   const authEnabled = appService.platform.auth.enabled;
   assertSafeBinding({
@@ -22,9 +32,6 @@ async function bootstrap() {
     authEnabled,
     allowInsecure: binding.allowInsecure,
   });
-
-  app.enableCors({ origin: binding.corsOrigin, credentials: true });
-  app.setGlobalPrefix('api');
 
   await app.listen(binding.port, binding.host);
 
