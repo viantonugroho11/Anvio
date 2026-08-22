@@ -58,9 +58,7 @@ export function aggregateTokenUsage(
   options: { sinceHours?: number; agentId?: string; channel?: string } = {},
 ): TokenUsageStats {
   const cutoff =
-    options.sinceHours != null
-      ? Date.now() - options.sinceHours * 60 * 60 * 1000
-      : undefined;
+    options.sinceHours != null ? Date.now() - options.sinceHours * 60 * 60 * 1000 : undefined;
 
   const filtered = records.filter((record) => {
     if (cutoff != null && Date.parse(record.ts) < cutoff) return false;

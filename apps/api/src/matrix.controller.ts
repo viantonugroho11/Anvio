@@ -7,7 +7,7 @@ import {
   resolveWebhookSecrets,
   unconfiguredWebhookIsAllowed,
   verifyMatrixToken,
-} from './webhook-auth.js';
+} from '@anvio/platform';
 
 // Outside AnvioAuthGuard: the homeserver posts here and cannot present a user
 // token. It authenticates with the application-service `as_token` instead

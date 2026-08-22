@@ -9,7 +9,7 @@ import {
   unconfiguredWebhookIsAllowed,
   verifyTeamsJwt,
   type JwksSource,
-} from './webhook-auth.js';
+} from '@anvio/platform';
 
 /**
  * Module-level so the key cache survives between requests. Microsoft's signing

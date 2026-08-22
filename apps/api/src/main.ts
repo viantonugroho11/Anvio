@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { initObservability, shutdownObservability } from '@anvio/observability';
 import { AppModule } from './app.module.js';
 import { AppService } from './app.service.js';
-import { assertSafeBinding, isLoopbackHost, resolveApiBinding } from './security.js';
+import { assertSafeBinding, isLoopbackHost, resolveApiBinding } from '@anvio/platform';
 
 async function bootstrap() {
   initObservability({

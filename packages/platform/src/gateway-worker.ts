@@ -133,7 +133,10 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                 },
               });
             } catch (err) {
-              console.error('[gateway] Worktree creation failed:', err instanceof Error ? err.message : err);
+              console.error(
+                '[gateway] Worktree creation failed:',
+                err instanceof Error ? err.message : err,
+              );
             }
           }
 
@@ -154,12 +157,16 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
 
           for await (const chunk of runtime.stream(session, agent, input)) {
             if (chunk.type === 'progress') {
-              await eventBus.publishCore(EventSubjects.AGENT_RUN_PROGRESS, 'anvio.agent.run.progress', {
-                sessionId,
-                phase: chunk.phase,
-                status: chunk.status,
-                channel,
-              });
+              await eventBus.publishCore(
+                EventSubjects.AGENT_RUN_PROGRESS,
+                'anvio.agent.run.progress',
+                {
+                  sessionId,
+                  phase: chunk.phase,
+                  status: chunk.status,
+                  channel,
+                },
+              );
             }
             if (chunk.type === 'chunk' && chunk.delta) {
               fullContent += chunk.delta;
@@ -185,17 +192,13 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                   agentRunCheckpoint: chunk.checkpoint,
                 },
               });
-              await eventBus.publish(
-                EventSubjects.APPROVAL_REQUESTED,
-                'anvio.approval.requested',
-                {
-                  sessionId,
-                  requestId: chunk.request.id,
-                  toolName: chunk.request.toolName,
-                  reason: chunk.request.reason,
-                  channel,
-                } satisfies ApprovalRequestedData,
-              );
+              await eventBus.publish(EventSubjects.APPROVAL_REQUESTED, 'anvio.approval.requested', {
+                sessionId,
+                requestId: chunk.request.id,
+                toolName: chunk.request.toolName,
+                reason: chunk.request.reason,
+                channel,
+              } satisfies ApprovalRequestedData);
               await channelHub.sendNotification(channel as ChannelType, sessionId, {
                 sessionId,
                 type: 'approval_required',

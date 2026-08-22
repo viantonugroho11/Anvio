@@ -1,16 +1,13 @@
 import http, { type ServerResponse } from 'node:http';
 import { URL } from 'node:url';
 import { WebSocketServer, WebSocket } from 'ws';
-import {
-  EventSubjects,
-  type AgentRunChunkData,
-  type AgentRunCompletedData,
-} from '@anvio/events';
+import { EventSubjects, type AgentRunChunkData, type AgentRunCompletedData } from '@anvio/events';
 import { WebChatChannel } from '@anvio/channels';
 import { initObservability, shutdownObservability } from '@anvio/observability';
 import { createPlatform } from './index.js';
 import { registerGatewayWorker } from './gateway-worker.js';
 import { handleGatewayHttp } from './gateway-http.js';
+import { assertSafeBinding, isLoopbackHost } from './http-binding.js';
 
 export interface UnifiedGatewayOptions {
   workspacePath?: string;
@@ -80,7 +77,11 @@ export async function startUnifiedGateway(
   );
 
   const port = options.port ?? parseInt(process.env.ANVIO_GATEWAY_PORT ?? '3001', 10);
-  const host = options.host ?? process.env.ANVIO_GATEWAY_HOST ?? '0.0.0.0';
+  // Loopback by default, matching `apps/api` since ADR-0018. This served
+  // `/api/*` on every interface while the other surface had already been pulled
+  // back, so the hardening was one `anvio gateway start` away from irrelevant
+  // (issue #42).
+  const host = options.host ?? process.env.ANVIO_GATEWAY_HOST ?? '127.0.0.1';
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
@@ -147,12 +148,26 @@ export async function startUnifiedGateway(
     });
   });
 
+  // Refuses to open the port at all when an unauthenticated surface would be
+  // reachable off loopback. Checked here rather than at the caller for the same
+  // reason as `apps/api`: it needs the resolved auth state, and it decides
+  // whether to listen.
+  assertSafeBinding({
+    host,
+    authEnabled: platform.auth.enabled,
+    allowInsecure: process.env.ANVIO_API_ALLOW_INSECURE === 'true',
+  });
+
   await new Promise<void>((resolve) => {
     server.listen(port, host, () => resolve());
   });
 
   const storage = platform.workspace.config.spec.storage.provider;
-  console.log(`Anvio unified gateway on http://${host}:${port}`);
+  const reach = isLoopbackHost(host) ? 'this machine only' : `reachable on ${host}`;
+  console.log(
+    `Anvio unified gateway on http://${host}:${port} — ${reach}, ` +
+      `auth ${platform.auth.enabled ? 'enabled' : 'disabled'}`,
+  );
   console.log(`  REST API   /api/*`);
   console.log(`  WebSocket  /ws?sessionId=<id>`);
   console.log(`  Health     /health`);

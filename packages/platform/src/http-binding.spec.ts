@@ -4,7 +4,7 @@ import {
   assertSafeBinding,
   isLoopbackHost,
   resolveApiBinding,
-} from './security.js';
+} from './http-binding.js';
 
 describe('isLoopbackHost', () => {
   it.each(['127.0.0.1', 'localhost', 'LOCALHOST', '::1', '[::1]', '127.1.2.3', '127.0.0.53'])(
