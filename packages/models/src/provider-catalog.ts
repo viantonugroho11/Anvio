@@ -105,17 +105,37 @@ export const OPENAI_COMPATIBLE_PROVIDER_SPECS: Record<string, OpenAICompatiblePr
   cohere: {
     id: 'cohere',
     // Cohere's own v2 API is not OpenAI-shaped — it serves `/v2/chat`, not
-    // `/v2/chat/completions`, so the previous base URL could never work through
-    // this adapter. Their OpenAI compatibility endpoint is the one that can.
-    // NOTE: not yet exercised against a live key — see ADR-0015.
+    // `/v2/chat/completions`, so the base URL before ADR-0015 could never work
+    // through this adapter. This one is their OpenAI compatibility endpoint, and
+    // Cohere's own docs show it configured exactly this way as an OpenAI client
+    // `base_url` — which appends `/chat/completions`, the path this adapter
+    // builds. Still unexercised against a live key (issue #24): the endpoint and
+    // model id match the vendor's published example, the response parsing does
+    // not yet have a receipt.
     baseUrl: 'https://api.cohere.ai/compatibility/v1',
-    defaultModel: 'command-r-plus-08-2024',
+    // `command-r-plus-08-2024` was a generation behind: the Command family is now
+    // led by Command A+, and a default nobody can call is the same failure as a
+    // wrong URL.
+    defaultModel: 'command-a-plus-05-2026',
     apiKeyEnv: 'COHERE_API_KEY',
   },
   huggingface: {
     id: 'huggingface',
-    baseUrl: 'https://api-inference.huggingface.co/v1',
-    defaultModel: 'meta-llama/Llama-3.2-3B-Instruct',
+    // `api-inference.huggingface.co` is the legacy serverless Inference API. The
+    // OpenAI-compatible surface lives on the Inference Providers router, which is
+    // a different host — so the previous entry pointed at something that does not
+    // serve this shape (issue #27).
+    //
+    // Moving hosts also dissolves the cold-start problem that issue rather than
+    // solving it: the 503-with-`estimated_time` contract belongs to the legacy
+    // serverless API, where an idle model had to be woken. The router dispatches
+    // to third-party inference providers that keep models warm, so there is no
+    // wake-up to wait through and nothing for the fallback chain to give up on.
+    baseUrl: 'https://router.huggingface.co/v1',
+    // Named in Hugging Face's own OpenAI-client example for this endpoint. The
+    // router serves whatever its providers host, so a default has to be a model
+    // the docs currently demonstrate rather than one that was once serverless.
+    defaultModel: 'deepseek-ai/DeepSeek-V3-0324',
     apiKeyEnv: 'HF_TOKEN',
   },
   ollama: {
@@ -142,7 +162,9 @@ export const MODEL_PROVIDER_IDS = [
 
 export type ModelProviderId = (typeof MODEL_PROVIDER_IDS)[number];
 
-export function isOpenAICompatibleProviderId(id: string): id is keyof typeof OPENAI_COMPATIBLE_PROVIDER_SPECS {
+export function isOpenAICompatibleProviderId(
+  id: string,
+): id is keyof typeof OPENAI_COMPATIBLE_PROVIDER_SPECS {
   return id in OPENAI_COMPATIBLE_PROVIDER_SPECS;
 }
 

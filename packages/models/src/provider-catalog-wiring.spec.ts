@@ -88,6 +88,35 @@ describe('catalog spec fields reach the adapter', () => {
     expect(lastCall().url).toBe('https://api.cohere.ai/compatibility/v1/chat/completions');
   });
 
+  it('points huggingface at the Inference Providers router', async () => {
+    // `api-inference.huggingface.co` is the legacy serverless Inference API and
+    // does not serve this shape. The OpenAI-compatible surface is a different
+    // host entirely, so the old entry was a 404 waiting for its first user.
+    const provider = createModelProvider({ provider: 'huggingface', apiKey: 'k' });
+    await provider.chat({ messages: [{ role: 'user', content: 'hi' }] });
+
+    const { url, body } = lastCall();
+    expect(url).toBe('https://router.huggingface.co/v1/chat/completions');
+    expect(body.model).toBe(OPENAI_COMPATIBLE_PROVIDER_SPECS.huggingface.defaultModel);
+  });
+
+  it('composes a usable request URL for every catalogued provider', async () => {
+    // Both entries fixed here failed the same way: a base URL that produced a
+    // path the vendor does not serve. Nothing checked the composed URL, so the
+    // error surfaced as a 404 on someone's first call rather than in CI.
+    for (const [id, spec] of Object.entries(OPENAI_COMPATIBLE_PROVIDER_SPECS)) {
+      expect(spec.defaultModel, `${id} has no default model`).toBeTruthy();
+      expect(spec.baseUrl, `${id} baseUrl has a trailing slash`).not.toMatch(/\/$/);
+
+      const composed = `${spec.baseUrl}${spec.path ?? '/chat/completions'}`;
+      // Throws on anything that is not an absolute URL, which is what the adapter
+      // hands to fetch verbatim.
+      const parsed = new URL(composed);
+      expect(['http:', 'https:']).toContain(parsed.protocol);
+      expect(composed, `${id} composed a doubled slash: ${composed}`).not.toMatch(/[^:]\/\/(?!$)/);
+    }
+  });
+
   it('reads OLLAMA_API_KEY even though the key is optional', async () => {
     process.env.OLLAMA_API_KEY = 'ollama-secret';
     const provider = createModelProvider({ provider: 'ollama' });

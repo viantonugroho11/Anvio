@@ -10,12 +10,12 @@ One 267-line adapter — `OpenAICompatibleProvider` — serves fifteen vendors. 
 
 The bet failed at the edges because `OpenAICompatibleProviderSpec` had six fields, and every one of them described **transport**: `baseUrl`, `defaultModel`, `apiKeyEnv`, `extraHeaders`, `optionalApiKey`, `id`. Nothing described **capability**. So the adapter assumed all fifteen vendors share one completions path, one attitude to function calling, and one output-token ceiling. Concretely, and verified in the codebase:
 
-| Vendor | What broke | Why the spec could not say otherwise |
-|---|---|---|
-| perplexity | Every tool-carrying turn sent a `tools` array its sonar models reject | `supportsNativeTools` existed on the *adapter* (`openai-compatible.provider.ts`) but no spec field and no caller ever set it, so all fifteen got `true` |
-| cohere | Could never work: the spec pointed at `https://api.cohere.com/v2` while the adapter hardcoded `/chat/completions`, producing a path Cohere does not serve | No `path` field, and the base URL named Cohere's own API rather than an OpenAI-shaped one |
-| moonshot | `moonshot-v1-8k` budgets 8k across prompt *and* completion, while the repo sends `max_tokens: 8192` | No output ceiling, and a ceiling expressed as a default would not have bound — see D2 |
-| ollama | `OLLAMA_API_KEY` was never read, so an authenticated or remote Ollama could not be given a key | `optionalApiKey: true` short-circuited the env lookup entirely, conflating "no key required" with "no key possible" |
+| Vendor     | What broke                                                                                                                                                | Why the spec could not say otherwise                                                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| perplexity | Every tool-carrying turn sent a `tools` array its sonar models reject                                                                                     | `supportsNativeTools` existed on the _adapter_ (`openai-compatible.provider.ts`) but no spec field and no caller ever set it, so all fifteen got `true` |
+| cohere     | Could never work: the spec pointed at `https://api.cohere.com/v2` while the adapter hardcoded `/chat/completions`, producing a path Cohere does not serve | No `path` field, and the base URL named Cohere's own API rather than an OpenAI-shaped one                                                               |
+| moonshot   | `moonshot-v1-8k` budgets 8k across prompt _and_ completion, while the repo sends `max_tokens: 8192`                                                       | No output ceiling, and a ceiling expressed as a default would not have bound — see D2                                                                   |
+| ollama     | `OLLAMA_API_KEY` was never read, so an authenticated or remote Ollama could not be given a key                                                            | `optionalApiKey: true` short-circuited the env lookup entirely, conflating "no key required" with "no key possible"                                     |
 
 A separate, larger defect sat on the Gemini side. `gemini.provider.ts` passed each tool's `inputSchema` to `functionDeclarations[].parameters` **verbatim**. Gemini accepts an OpenAPI subset, not JSON Schema. Two shapes this repo actually ships are rejected:
 
@@ -40,7 +40,7 @@ A fourth field, `maxTokensParam` (for hosts wanting `max_completion_tokens`), wa
 
 This distinction is the whole point. `packages/core/src/schemas/agent.schema.ts` defaults `maxTokens` to 8192 and `agent-md.ts` populates it for every agent, so a request arriving at the adapter essentially always carries an explicit value. A ceiling implemented as a default would be dead code.
 
-### D3 — `optionalApiKey` governs whether a key is *required*, not whether one is *looked up*
+### D3 — `optionalApiKey` governs whether a key is _required_, not whether one is _looked up_
 
 `createOpenAICompatibleFromSpec` now always consults the env var and uses `optionalApiKey` only to decide whether absence is an error.
 
@@ -51,11 +51,13 @@ This distinction is the whole point. `packages/core/src/schemas/agent.schema.ts`
 Two shapes need more than filtering:
 
 - A property that sanitises to an object with no properties — a freeform object — has no Gemini equivalent. It is **dropped**, and any `required` entry naming it is dropped with it. All six such properties in this repo are optional, so nothing required is lost.
-- A *top-level* schema that sanitises away returns `undefined`, and the caller omits `parameters` entirely. That is precisely how Gemini expresses a no-argument function.
+- A _top-level_ schema that sanitises away returns `undefined`, and the caller omits `parameters` entirely. That is precisely how Gemini expresses a no-argument function.
 
 ### D5 — Cohere points at the OpenAI compatibility endpoint, unverified
 
 `cohere.baseUrl` becomes `https://api.cohere.ai/compatibility/v1`. The previous value could not work through this adapter under any circumstances, so this is strictly an improvement — but **it has not been exercised against a live Cohere key**, and this ADR should not be read as claiming it works. It is a hypothesis with a better prior than the code it replaces. Dropping cohere from the catalog was the alternative; it is still the right move if the compatibility endpoint turns out not to match.
+
+**Amended (issues #24, #27):** the endpoint is now confirmed against Cohere's published documentation, and a second entry turned out to be pointing at the wrong host entirely — see the amendment below.
 
 ### D6 — Gemini stops claiming clean finishes
 
@@ -72,11 +74,37 @@ Two shapes need more than filtering:
 **Negative**
 
 - `toGeminiSchema` silently narrows what the model can see: a tool with a freeform-object parameter is offered to Gemini without it, and the model cannot pass that argument at all. This is strictly better than the request failing, but it is a capability difference between providers that nothing currently surfaces to the user.
-- The allowlist will drop keywords Gemini *does* support if the list falls behind the API. Failing closed was the deliberate trade; the failure mode is a lost constraint, not a rejected request.
-- `cohere` remains unverified (D5).
+- The allowlist will drop keywords Gemini _does_ support if the list falls behind the API. Failing closed was the deliberate trade; the failure mode is a lost constraint, not a rejected request.
+- ~~`cohere` remains unverified (D5).~~ **Partly closed — endpoint and model id are now documentation-verified; response parsing still has no live-key receipt. See the amendment below (issue #24).**
 
 ## Cross-references
 
 - ADR-0013: `packages/models` is the Model Gateway — this closes further D1 gaps.
 - ADR-0014: provider error classification — `providerRefusalError` is added there and consumed here.
 - ADR-0006: MCP architecture — the source of the arbitrary tool schemas that motivate D4's allowlist.
+
+## Amendment — two entries that had never been called (issues #24, #27)
+
+Both issues asked for the same thing: exercise the entry against a live key. Neither key is available here, so this amendment does the next thing that is actually verifiable — check each entry against the vendor's own current documentation — and is explicit about which claim rests on which evidence.
+
+### cohere — the URL was right, the model was a generation behind
+
+Cohere's documentation configures an OpenAI client with `base_url="https://api.cohere.ai/compatibility/v1"`, and that client appends `/chat/completions` — exactly the path this adapter builds. D5's hypothesis is confirmed at the level of the endpoint.
+
+What the same page showed was that `command-r-plus-08-2024` is stale: the Command family is now led by Command A+, and the docs' examples name `command-a-plus-05-2026`. **A default model nobody can call is the same failure as a wrong base URL** — the request is well-formed and still fails on first use — so it was worth fixing under the same issue.
+
+Precisely what remains unverified: whether the compatibility endpoint's _response_ parses cleanly through `OpenAICompatibleProvider`. The request side matches the vendor's published example; the response side has no receipt. That is a narrower gap than D5 recorded, and it is not closed.
+
+### huggingface — the entry named the wrong host
+
+`https://api-inference.huggingface.co/v1` is the **legacy serverless Inference API**. Hugging Face's OpenAI-compatible surface is the Inference Providers router at `https://router.huggingface.co/v1` — a different host. The old entry could not have worked; it was a 404 waiting for its first user, which is exactly the "advertises support that fails at first use" failure issue #24 named.
+
+**The cold-start problem in issue #27 dissolves rather than being solved.** The 503-with-`estimated_time` contract belongs to the legacy serverless API, where an idle model had to be woken on demand. The router dispatches to third-party inference providers that keep models warm — there is no wake-up to wait through, and so nothing for the fallback chain to prematurely give up on. No bounded-wait logic was added, because on the correct host there is nothing to wait for.
+
+The default model moved with the host, for the same reason as cohere: the router serves what its providers host, not what was once serverless.
+
+### The guard that would have caught both
+
+Both failures had one shape — a base URL composing to a path the vendor does not serve — and nothing checked the composed URL. A new test walks every catalogued provider and asserts the composed request URL parses as an absolute http(s) URL, carries no doubled slash, and that every entry has a non-empty default model. It names the offending provider on failure.
+
+That does not prove any endpoint is correct. It proves none of them is _malformed_, which is the part that can be known without a key — and it is the check whose absence let a wrong host sit in the catalog unnoticed.

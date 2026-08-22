@@ -754,8 +754,8 @@ This table is for the **`local` runtime** (direct API access). The **Auth** colu
 | Cerebras | API key only | `CEREBRAS_API_KEY` | `llama-3.3-70b` |
 | SambaNova | API key only | `SAMBANOVA_API_KEY` | `Meta-Llama-3.1-70B-Instruct` |
 | Perplexity | API key only | `PERPLEXITY_API_KEY` | `sonar-pro` |
-| Cohere | API key only | `COHERE_API_KEY` | `command-r-plus-08-2024` |
-| Hugging Face | API key only | `HF_TOKEN` | `meta-llama/Llama-3.2-3B-Instruct` |
+| Cohere | API key only | `COHERE_API_KEY` | `command-a-plus-05-2026` |
+| Hugging Face | API key only | `HF_TOKEN` | `deepseek-ai/DeepSeek-V3-0324` |
 | Ollama (local) | Local inference (no cloud OAuth) | `OLLAMA_BASE_URL` + `OLLAMA_ENABLED=true` | `llama3.2` |
 | Custom | API key only | `CUSTOM_API_KEY` + `baseUrl` in agent config | any OpenAI-compatible |
 
