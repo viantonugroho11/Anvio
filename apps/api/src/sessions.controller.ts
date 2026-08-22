@@ -1,4 +1,6 @@
-import { Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import type { AuthContext } from '@anvio/core';
+import { Auth } from './auth.guard.js';
 import type { ChannelType } from '@anvio/core';
 import { EventSubjects } from '@anvio/events';
 import { AppService } from './app.service.js';
@@ -7,20 +9,11 @@ import { AppService } from './app.service.js';
 export class SessionsController {
   constructor(private readonly appService: AppService) {}
 
-  private async resolveAuth(authHeader?: string) {
-    const { auth } = this.appService.platform;
-    if (!auth.enabled) return auth.getDefaultContext();
-    const token = authHeader?.replace('Bearer ', '');
-    const ctx = await auth.authenticate(token);
-    return ctx ?? auth.getDefaultContext();
-  }
-
   @Post()
   async create(
-    @Headers('authorization') authHeader: string | undefined,
+    @Auth() ctx: AuthContext,
     @Body() body: { agentName: string; channel?: string; detached?: boolean; channelThreadId?: string },
   ) {
-    const ctx = await this.resolveAuth(authHeader);
     const { workspace } = this.appService.platform;
 
     try {
@@ -56,8 +49,7 @@ export class SessionsController {
   }
 
   @Get()
-  async list(@Headers('authorization') authHeader: string | undefined) {
-    const ctx = await this.resolveAuth(authHeader);
+  async list(@Auth() ctx: AuthContext) {
     const sessions = await this.appService.platform.workspace.sessions.list();
     if (this.appService.platform.auth.enabled) {
       return sessions.filter((s) => s.userId === ctx.userId);
@@ -66,8 +58,7 @@ export class SessionsController {
   }
 
   @Get(':id')
-  async get(@Headers('authorization') authHeader: string | undefined, @Param('id') id: string) {
-    const ctx = await this.resolveAuth(authHeader);
+  async get(@Auth() ctx: AuthContext, @Param('id') id: string) {
     const session = await this.appService.platform.workspace.sessions.get(id);
     if (!session || (this.appService.platform.auth.enabled && session.userId !== ctx.userId)) {
       return { error: 'Not found' };
@@ -77,11 +68,10 @@ export class SessionsController {
 
   @Post(':id/messages')
   async sendMessage(
-    @Headers('authorization') authHeader: string | undefined,
+    @Auth() ctx: AuthContext,
     @Param('id') id: string,
     @Body() body: { content: string },
   ) {
-    const ctx = await this.resolveAuth(authHeader);
     const { workspace, eventBus } = this.appService.platform;
     const session = await workspace.sessions.get(id);
     if (!session || (this.appService.platform.auth.enabled && session.userId !== ctx.userId)) {

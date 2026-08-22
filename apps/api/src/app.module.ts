@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { AnvioAuthGuard } from './auth.guard.js';
 import { HealthController } from './health.controller.js';
 import { AgentsController } from './agents.controller.js';
 import { SessionsController } from './sessions.controller.js';
@@ -23,6 +25,10 @@ import { OverviewController } from './overview.controller.js';
     TeamsController,
     MatrixController,
   ],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Global: a new controller is guarded by default rather than by remembering to.
+    { provide: APP_GUARD, useClass: AnvioAuthGuard },
+  ],
 })
 export class AppModule {}

@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { initObservability, shutdownObservability } from '@anvio/observability';
 import { AppModule } from './app.module.js';
+import { AppService } from './app.service.js';
+import { assertSafeBinding, isLoopbackHost, resolveApiBinding } from './security.js';
 
 async function bootstrap() {
   initObservability({
@@ -10,12 +12,33 @@ async function bootstrap() {
   });
 
   const app = await NestFactory.create(AppModule);
-  app.enableCors();
+  const binding = resolveApiBinding(process.env);
+
+  // Read auth state before listening so an unsafe binding never accepts a request.
+  const appService = app.get(AppService);
+  const authEnabled = appService.platform.auth.enabled;
+  assertSafeBinding({
+    host: binding.host,
+    authEnabled,
+    allowInsecure: binding.allowInsecure,
+  });
+
+  app.enableCors({ origin: binding.corsOrigin, credentials: true });
   app.setGlobalPrefix('api');
 
-  const port = parseInt(process.env.API_PORT ?? '3000', 10);
-  await app.listen(port, process.env.API_HOST ?? '0.0.0.0');
-  console.log(`API listening on port ${port} (auth optional — see workspace/anvio.yaml)`);
+  await app.listen(binding.port, binding.host);
+
+  const reach = isLoopbackHost(binding.host) ? 'this machine only' : `reachable on ${binding.host}`;
+  console.log(
+    `API listening on ${binding.host}:${binding.port} — ${reach}, ` +
+      `auth ${authEnabled ? 'enabled' : 'disabled'}`,
+  );
+  if (!authEnabled && !isLoopbackHost(binding.host)) {
+    console.warn(
+      'WARNING: serving an unauthenticated API beyond loopback because ' +
+        'ANVIO_API_ALLOW_INSECURE=true. Anything that can reach this host can spend model credits.',
+    );
+  }
 
   const shutdown = async () => {
     await app.close();

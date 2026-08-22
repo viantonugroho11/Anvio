@@ -1,8 +1,11 @@
+import { Public } from './auth.guard.js';
 import { Controller, Post, Body, Res, HttpStatus } from '@nestjs/common';
 import type { Response } from 'express';
 import { AppService } from './app.service.js';
 import { TeamsChannel } from '@anvio/channels';
 
+// Public: Microsoft posts here and cannot present a user token.
+@Public()
 @Controller('channels/teams')
 export class TeamsController {
   constructor(private readonly appService: AppService) {}
