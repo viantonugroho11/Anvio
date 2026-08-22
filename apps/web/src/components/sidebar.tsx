@@ -3,13 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/cn';
-import {
-  LayoutDashboard,
-  MessageSquare,
-  Bot,
-  Wrench,
-  BarChart3,
-} from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Bot, Wrench, BarChart3, KeyRound } from 'lucide-react';
 
 const nav = [
   { href: '/', label: 'Overview', icon: LayoutDashboard },
@@ -17,6 +11,7 @@ const nav = [
   { href: '/agents', label: 'Agents', icon: Bot },
   { href: '/tools', label: 'Tools', icon: Wrench },
   { href: '/metrics', label: 'Metrics', icon: BarChart3 },
+  { href: '/settings/providers', label: 'Providers', icon: KeyRound },
 ];
 
 export function Sidebar() {
