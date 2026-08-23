@@ -7,9 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.0.0] - 2026-08-23
+
 **Provider audit — the vendor AI SDKs (`packages/models`), end to end, and a surface for the keys they need.**
 
-Nine merged changes ([#15](https://github.com/viantonugroho11/Anvio/pull/15), [#16](https://github.com/viantonugroho11/Anvio/pull/16), [#17](https://github.com/viantonugroho11/Anvio/pull/17), [#18](https://github.com/viantonugroho11/Anvio/pull/18), [#19](https://github.com/viantonugroho11/Anvio/pull/19), [#29](https://github.com/viantonugroho11/Anvio/pull/29), [#30](https://github.com/viantonugroho11/Anvio/pull/30), [#32](https://github.com/viantonugroho11/Anvio/pull/32), [#34](https://github.com/viantonugroho11/Anvio/pull/34)) and seven ADRs ([ADR-0014](docs/adr/0014-provider-error-classification.md)–[ADR-0020](docs/adr/0020-provider-key-management-surface.md)). The theme: the provider layer looked finished and was not. Streams swallowed mid-flight failures, every provider hand-rolled its own error mapping, `ModelRouter` was never on the request path, and the only way to give Anvio a key was an environment variable or a secret in argv.
+A major version because five things that worked yesterday need an operator's attention today. Every one of them is a place where the previous behaviour was the defect: an open port, an unverified webhook, a published secret. Nothing here is a rename for its own sake.
+
+### ⚠️ Breaking changes
+
+Read this section before upgrading. Each item names what changes and what to do about it.
+
+1. **`anvio gateway start` binds `127.0.0.1` and refuses an insecure binding.** It used to default to `0.0.0.0` with no check, which made ADR-0018's hardening of `apps/api` one command away from irrelevant. To keep a reachable gateway, set `ANVIO_GATEWAY_HOST=0.0.0.0` **and** either enable auth or set `ANVIO_API_ALLOW_INSECURE=true`. Without one of those the process exits at startup rather than opening the port. ([#44](https://github.com/viantonugroho11/Anvio/pull/44), ADR-0022)
+
+2. **Teams and Matrix webhooks return 401 until configured.** They previously accepted anything from anyone. Set `TEAMS_APP_ID` for Bot Framework token validation and `MATRIX_AS_TOKEN` for the application-service token — the latter is a _new_ variable, deliberately not `MATRIX_ACCESS_TOKEN`, which is the token Anvio presents when calling out. `ANVIO_API_ALLOW_INSECURE=true` opts out. ([#40](https://github.com/viantonugroho11/Anvio/pull/40), ADR-0021)
+
+3. **`WHATSAPP_VERIFY_TOKEN` has no default.** It used to fall back to `'anvio-verify'`, a value published in this repository, so an unconfigured deployment could be handshaken by anyone who had read the source. Set it to the same string you enter in Meta's webhook configuration. Also set `WHATSAPP_APP_SECRET` — POSTs are now signature-checked, not just the one-time GET. ([#41](https://github.com/viantonugroho11/Anvio/pull/41), ADR-0021)
+
+4. **Credential pools written under the old default passphrase cannot be read — this is data loss.** `apps/cli` defaulted the encryption passphrase to `'local-dev-passphrase'`; the salt is stored beside the ciphertext, so anyone who could read `workspace/credentials/encrypted/*.enc.json` could decrypt it with a published value. `ANVIO_CREDENTIALS_PASSPHRASE` is now required, and existing pools must be re-added with `anvio credentials add`. The data at risk is API keys that still exist at the vendor and can be re-pasted; the protection they had was nil. ([#32](https://github.com/viantonugroho11/Anvio/pull/32), ADR-0019)
+
+5. **`estimateTokenCostUsd` takes `provider` as its first argument.** Exported from `packages/platform`, so any out-of-tree caller breaks. Deliberate: the old signature could not look up a descriptor and silently returned `undefined`. ([#18](https://github.com/viantonugroho11/Anvio/pull/18), ADR-0016)
+
+Seventeen merged pull requests — [#15](https://github.com/viantonugroho11/Anvio/pull/15) through [#44](https://github.com/viantonugroho11/Anvio/pull/44) — and nine ADRs, [ADR-0014](docs/adr/0014-provider-error-classification.md) through [ADR-0022](docs/adr/0022-one-transport-security-module.md). The theme: the provider layer looked finished and was not. Streams swallowed mid-flight failures, every provider hand-rolled its own error mapping, `ModelRouter` was never on the request path, and the only way to give Anvio a key was an environment variable or a secret in argv.
 
 ### Fixed
 
@@ -57,11 +77,18 @@ Nine merged changes ([#15](https://github.com/viantonugroho11/Anvio/pull/15), [#
 
 ### Known gaps
 
-Filed rather than quietly closed: [#24](https://github.com/viantonugroho11/Anvio/issues/24) and [#27](https://github.com/viantonugroho11/Anvio/issues/27) — two provider-catalog entries that have never been exercised against a live key and [#31](https://github.com/viantonugroho11/Anvio/issues/31) (Teams and Matrix webhooks accept unauthenticated posts — only WhatsApp verifies anything, and only on the GET handshake). The dashboard authenticates as one static server-side token, not as a user, and there is no boot smoke test for `apps/api` — both recorded in [ADR-0020](docs/adr/0020-provider-key-management-surface.md).
+One issue is still open, and only because it needs something this repository cannot supply: [#24](https://github.com/viantonugroho11/Anvio/issues/24) — Cohere's compatibility endpoint is confirmed live (a wrong key returns a structured 401 from it, so the host serves that path and the adapter parses their error body), but nobody has yet watched a _success_ response parse. `apps/cli/scripts/verify-cohere.ts` settles it in one call for anyone holding a key.
+
+Carried forward, recorded rather than fixed:
+
+- **No boot smoke test** for either `apps/api` or the gateway. Both were started and probed by hand for this release; ADR-0020 and ADR-0022 both say that is not a substitute.
+- **The dashboard authenticates as one static server-side token**, not as a user. Fine for one operator on one machine; not multi-user ([ADR-0020](docs/adr/0020-provider-key-management-surface.md)).
+- **The gateway and `apps/api` still have separate routing tables.** ADR-0022 removed the duplicated security _logic_; a new route added to one still does not appear in the other.
+- **No webhook replay protection.** A captured, validly signed request can be replayed inside the token's window ([ADR-0021](docs/adr/0021-channel-webhook-authentication.md)).
 
 ### Tests
 
-- 478 total, up from 349.
+- **520 total**, up from 349 at the start of the audit — 96 files, all green.
 - **Model ids in shipped config are guarded** ([#37](https://github.com/viantonugroho11/Anvio/pull/37)). `configs/agents/architect.yaml` and `workspace/agents/architect.md` restate ids as literals — YAML and Markdown cannot import a constant — and neither existing guard read them, which is exactly where the malformed `claude-haiku-3-5-20241022` hid. A new spec checks every `model:` value in tracked files under `configs/` and `workspace/` against `KNOWN_MODEL_IDS` and `RETIRED_ANTHROPIC_MODEL_IDS`. Scope is `git ls-files` rather than an exclude list, because `workspace/` also holds gitignored runtime data free to name whatever the operator actually ran. Closes [#26](https://github.com/viantonugroho11/Anvio/issues/26).
 
 ---
@@ -890,7 +917,12 @@ Filed rather than quietly closed: [#24](https://github.com/viantonugroho11/Anvio
 
 4. GitHub Actions **Release** workflow validates the build and publishes a GitHub Release with notes extracted from this file.
 
-[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/viantonugroho11/Anvio/compare/v1.27.0...v2.0.0
+[1.27.0]: https://github.com/viantonugroho11/Anvio/compare/v1.26.0...v1.27.0
+[1.26.0]: https://github.com/viantonugroho11/Anvio/compare/v1.25.1...v1.26.0
+[1.25.1]: https://github.com/viantonugroho11/Anvio/compare/v1.25.0...v1.25.1
+[1.25.0]: https://github.com/viantonugroho11/Anvio/compare/v1.3.0...v1.25.0
 [1.3.0]: https://github.com/viantonugroho11/Anvio/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/viantonugroho11/Anvio/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/viantonugroho11/Anvio/compare/v1.0.0...v1.1.0
