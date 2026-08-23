@@ -65,7 +65,10 @@ One difference is unavoidable: the gateway has no body parser, so it reads the r
 
 - **The surface still exists twice.** This ADR removes the duplicated _logic_, not the duplicated _routing table_. Adding a route to `apps/api` still does not add it to the gateway, and a future route can still be added to one and forgotten in the other. Mounting the Nest app inside the gateway would close that for good, at the cost of a much larger diff and a Nest boot in the gateway — a deliberate deferral, not an oversight.
 - **`anvio gateway start` on `0.0.0.0` is now a breaking change** for anyone who relied on the old default. Release notes must lead with it: the fix is `ANVIO_GATEWAY_HOST=0.0.0.0` plus either real auth or `ANVIO_API_ALLOW_INSECURE=true`.
-- **Still no boot smoke test in CI.** The gateway was started and probed by hand for this change, exactly as ADR-0020 described doing for `apps/api`, and exactly as ADR-0020 said was not a substitute for a test. The gap is now two surfaces wide.
+- ~~**Still no boot smoke test in CI.**~~ **Closed** — `tests/integration/boot.integration.spec.ts` covers both surfaces: `apps/api` from its built `dist`, and the gateway in-process. Removing the `assertSafeBinding` call turns the binding test red.
+
+  One thing that cost a detour and is worth recording: **booting the Nest app in-process under vitest does not reproduce the app that ships.** vitest transpiles with esbuild, which does not emit `emitDecoratorMetadata`, so Nest cannot resolve `Reflector` from `AnvioAuthGuard`'s constructor, injects `undefined`, and every guarded route 500s. The shipped build is compiled by `tsc` and is fine. The first version of this test failed for that reason and for no other — a boot test compiled differently from the binary is testing a different program, so `apps/api` is spawned as a child process against `dist` instead. The gateway has no decorators and boots in-process.
+
 - `packages/platform` gains two modules that are not composition-root work. Defensible while there are two consumers; a third would argue for their own package.
 
 ## Cross-references

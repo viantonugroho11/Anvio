@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tests
+
+- **Boot smoke tests for both HTTP surfaces** ([#46](https://github.com/viantonugroho11/Anvio/pull/46)). ADR-0020 and ADR-0022 both recorded this as an open gap, and it is the gap that mattered: three defects this cycle — two that stopped `apps/api` starting at all, one that left a webhook answering `404 channel not enabled` to an unauthenticated caller — were every one found by running the thing, while the unit suite stayed green. `tests/integration/boot.integration.spec.ts` boots `apps/api` from its built `dist` as a child process and the gateway in-process, then asserts routes answer under the `/api` prefix and that unverified webhooks are refused. Verified against the original defects: reintroducing the `setGlobalPrefix` ordering bug turns three tests red, and removing the gateway's `assertSafeBinding` call turns another red.
+
+  `apps/api` is spawned rather than imported for a reason worth knowing: **booting the Nest app in-process under vitest does not reproduce the app that ships.** vitest transpiles with esbuild, which does not emit `emitDecoratorMetadata`, so Nest cannot resolve `Reflector` from `AnvioAuthGuard`'s constructor, injects `undefined`, and every guarded route 500s. The first version of this test failed for that reason alone.
+
 ---
 
 ## [2.0.0] - 2026-08-23
