@@ -43,6 +43,8 @@ The ordering is now: configure prefix and CORS → `init()` → read auth state 
 
 A smoke test that boots the app and asserts one route answers would have caught both. There isn't one; that is a real gap this ADR does not close.
 
+**Since closed.** `tests/integration/boot.integration.spec.ts` does exactly that. Verified against the original defect: moving `setGlobalPrefix('api')` back after `await app.init()` and rebuilding turns three tests red — the prefixed route, the unprefixed route, and the webhook rejection.
+
 ## Two things found while verifying
 
 - **`workspace/credentials/` was not in `.gitignore`.** Encrypted pools and `workspace/connections/` OAuth tokens could have been committed. Both are ignored now. Encryption is not a reason to publish ciphertext whose passphrase belongs to the operator.
@@ -60,7 +62,7 @@ A smoke test that boots the app and asserts one route answers would have caught 
 
 - **The dashboard still cannot authenticate as a user.** `ANVIO_API_TOKEN` is a single static server-side token, not a login. With auth enabled every dashboard request is that one identity. Fine for one operator on one machine; not multi-user.
 - **There is no delete or disable in the UI.** A leaked key can be superseded by adding a new credential, not revoked from here. Compounded by issue #33: a credential replaced under the same id keeps serving the old client until restart.
-- **No boot smoke test**, per above.
+- ~~**No boot smoke test**, per above.~~ **Closed** — `tests/integration/boot.integration.spec.ts` boots `apps/api` from its built `dist` and asserts a route answers under the `/api` prefix. Reintroducing the ordering bug turns three of its tests red.
 - The dashboard layout is a fixed 224px sidebar with `ml-56` content and no responsive handling, so it is unusable below roughly 700px. Pre-existing and untouched here.
 
 ## Cross-references
