@@ -2210,18 +2210,28 @@ async function cmdGateway(sub: string[]) {
         /* not running */
       }
 
-      const repoRoot = findRepoRoot(process.cwd());
-      if (!repoRoot) {
-        console.error('Cannot locate gateway binary. Use: anvio gateway start --foreground');
+      // Re-spawn ourselves in --foreground mode instead of hunting for a
+      // separate gateway binary. The old code required a monorepo layout
+      // (apps/gateway/dist/main.js under repo root) so `anvio gateway start`
+      // installed via scripts/install.sh always exited 1 with "Cannot locate
+      // gateway binary" (issue #50). Using argv[1] works in every install
+      // layout: monorepo, tarball, npm global, homebrew.
+      const cliEntry = process.argv[1];
+      if (!cliEntry) {
+        console.error('Cannot determine CLI entry point for daemonization.');
         process.exit(1);
       }
-      const gatewayBin = path.join(repoRoot, 'apps/gateway/dist/main.js');
-      const child = spawn(process.execPath, [gatewayBin], {
+      const logDir = path.join(wsPath, 'logs');
+      await fs.mkdir(logDir, { recursive: true });
+      const logPath = path.join(logDir, 'gateway.log');
+      const out = await fs.open(logPath, 'a');
+      const child = spawn(process.execPath, [cliEntry, 'gateway', 'start', '--foreground'], {
         detached: true,
-        stdio: 'ignore',
+        stdio: ['ignore', out.fd, out.fd],
         env: { ...process.env, ANVIO_WORKSPACE: wsPath },
       });
       child.unref();
+      await out.close();
       if (child.pid) {
         await fs.writeFile(pidFile, String(child.pid), 'utf-8');
         console.log(`Gateway started (pid ${child.pid}) on port ${port}`);
