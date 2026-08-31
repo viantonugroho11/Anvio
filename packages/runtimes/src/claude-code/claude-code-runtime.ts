@@ -64,6 +64,17 @@ function extractAssistantText(message: SDKMessage): string | null {
     .join('');
 }
 
+/**
+ * The Claude Agent SDK reads a leading `/` as its own CLI slash-command
+ * (`/help`, `/model`, `/clear`, …) and returns an empty result — every
+ * `/foo` prompt from a channel came back with no content (issue #54(b)).
+ * Prefix with a zero-width space so the SDK treats the same text as user
+ * input. Invisible in the transcript.
+ */
+function escapeSdkSlashPrompt(text: string): string {
+  return text.startsWith('/') ? `​${text}` : text;
+}
+
 export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
   readonly runtimeId = 'claude-code' as const;
   private readonly options: ClaudeCodeRuntimeOptions;
@@ -146,7 +157,7 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
     let sessionId = request.session.id;
 
     for await (const message of this.runQuery({
-      prompt: request.input.content,
+      prompt: escapeSdkSlashPrompt(request.input.content),
       options: this.buildQueryOptions(request, oauthToken),
     })) {
       if (message.type === 'result') {
@@ -183,7 +194,7 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
       let usage: TokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
       for await (const message of this.runQuery({
-        prompt: request.input.content,
+        prompt: escapeSdkSlashPrompt(request.input.content),
         options: this.buildQueryOptions(request, oauthToken),
       })) {
         const delta = extractStreamDelta(message);

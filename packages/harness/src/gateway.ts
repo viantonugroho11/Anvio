@@ -80,6 +80,7 @@ export class HarnessGateway implements HarnessGatewayPort {
     }
 
     if (isUserBlocked(this.policy, envelope.channel, envelope.userId)) {
+      debugDrop(envelope, 'blocked_user');
       return { decision: 'drop', reason: 'blocked_user', envelope };
     }
 
@@ -97,6 +98,7 @@ export class HarnessGateway implements HarnessGatewayPort {
       isDm,
     );
     if (!allowed) {
+      debugDrop(envelope, 'restricted_zone', { trustTier, dmPolicy: profile.dmPolicy, isDm });
       return { decision: 'drop', reason: 'restricted_zone', envelope };
     }
 
@@ -114,6 +116,10 @@ export class HarnessGateway implements HarnessGatewayPort {
     });
 
     if (!engaged && profile.engageOn !== 'always') {
+      debugDrop(envelope, 'not_engaged', {
+        engageOn: profile.engageOn,
+        mentionedBot: envelope.mentionedBot,
+      });
       return { decision: 'disengage', reason: 'not_engaged', envelope };
     }
 
@@ -278,4 +284,24 @@ export class HarnessGateway implements HarnessGatewayPort {
 
 export function createHarnessGateway(options: HarnessGatewayOptions): HarnessGateway {
   return new HarnessGateway(options);
+}
+
+/**
+ * Emit a single line for a dropped inbound. Silent drops behind a "healthy"
+ * channel status were the worst possible failure mode on the Telegram path
+ * (issues #51 and #52) — every user who hit them assumed the token, the
+ * network, or the bot config was wrong and lost hours before finding the
+ * decision inside this gate. Gated by ANVIO_HARNESS_DEBUG to keep the
+ * default log quiet.
+ */
+function debugDrop(
+  envelope: InboundEnvelope,
+  reason: string,
+  extra?: Record<string, unknown>,
+): void {
+  if (!process.env.ANVIO_HARNESS_DEBUG) return;
+  const detail = extra ? ` ${JSON.stringify(extra)}` : '';
+  console.warn(
+    `[harness] drop ${reason} channel=${envelope.channel} thread=${envelope.threadId} user=${envelope.userId}${detail}`,
+  );
 }

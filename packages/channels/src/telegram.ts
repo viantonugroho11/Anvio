@@ -29,11 +29,21 @@ interface TelegramChatTarget {
   messageThreadId?: number;
 }
 
+interface TelegramMessageEntity {
+  type: string;
+  offset: number;
+  length: number;
+  user?: { id: number; username?: string };
+}
+
 interface TelegramUpdate {
   update_id: number;
   message?: {
     message_id: number;
     text?: string;
+    caption?: string;
+    entities?: TelegramMessageEntity[];
+    caption_entities?: TelegramMessageEntity[];
     voice?: { file_id: string; mime_type?: string; duration?: number };
     chat: { id: number; type: string };
     message_thread_id?: number;
@@ -46,6 +56,19 @@ interface TelegramUpdate {
     from?: { id: number };
   };
 }
+
+/**
+ * Built-in slash-command menu registered via setMyCommands on start. Was
+ * missing entirely, so the client's `/` picker stayed empty and users had
+ * no discovery path (issue #53). Handlers live in `handleSlashCommand`.
+ */
+const DEFAULT_SLASH_COMMANDS: Array<{ command: string; description: string }> = [
+  { command: 'help', description: 'Show available commands' },
+  { command: 'agents', description: 'List workspace agents' },
+  { command: 'skills', description: 'List available skills' },
+  { command: 'reset', description: 'Start a fresh session in this thread' },
+  { command: 'whoami', description: 'Show current agent and user' },
+];
 
 function threadKey(chatId: number, topicId?: number): string {
   return `chat:${chatId}:topic:${topicId ?? 0}`;
@@ -76,6 +99,7 @@ export class TelegramChannel extends BaseChannelAdapter {
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly apiBase: string;
   private readonly buffer = new Map<string, string>();
+  private botUsername: string | null = null;
 
   constructor(private readonly options: TelegramChannelOptions) {
     super();
@@ -150,8 +174,32 @@ export class TelegramChannel extends BaseChannelAdapter {
   async start(): Promise<void> {
     if (this.polling) return;
     this.polling = true;
+    void this.bootstrap();
     void this.pollLoop();
     console.log('[Telegram] Bot polling started');
+  }
+
+  private async bootstrap(): Promise<void> {
+    try {
+      const me = await this.api<{ username?: string }>('getMe');
+      if (me?.username) this.botUsername = me.username.toLowerCase();
+    } catch (error) {
+      console.error(
+        '[Telegram] getMe failed:',
+        error instanceof Error ? error.message : error,
+      );
+    }
+    // Register the client's slash-command picker. Was missing entirely
+    // before this — issue #53. Failure is non-fatal; the picker stays empty
+    // but polling and dispatch still work.
+    try {
+      await this.api('setMyCommands', { commands: DEFAULT_SLASH_COMMANDS });
+    } catch (error) {
+      console.error(
+        '[Telegram] setMyCommands failed:',
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 
   async stop(): Promise<void> {
@@ -207,8 +255,10 @@ export class TelegramChannel extends BaseChannelAdapter {
       });
     }
 
+    const isDm = msg.chat.type === 'private';
+
     if (msg.voice && isChannelVoiceEnabled(this.options)) {
-      await this.handleVoiceMessage(msg, session.id, userId, threadId);
+      await this.handleVoiceMessage(msg, session.id, userId, threadId, isDm);
       return;
     }
 
@@ -223,13 +273,92 @@ export class TelegramChannel extends BaseChannelAdapter {
       }
     }
 
+    // Route slash commands before the model ever sees them. The Claude Agent
+    // SDK swallowed leading '/' as its own CLI commands (issue #54(b)); every
+    // "/help" or "/skills" DM produced an empty assistant reply. Handled
+    // commands short-circuit here; unhandled '/foo' is escaped so the SDK
+    // treats it as user text, not a CLI directive.
+    if (msg.text.startsWith('/')) {
+      const handled = await this.handleSlashCommand(msg.text, session.id, threadId);
+      if (handled) return;
+    }
+
+    const entities = msg.entities ?? msg.caption_entities ?? [];
+    const mentionedBot = this.detectBotMention(msg.text, entities);
+    const content = escapeLeadingSlash(msg.text);
+
     await this.dispatchInbound({
       sessionId: session.id,
       userId,
-      content: msg.text,
+      content,
       channel: 'telegram',
       channelThreadId: threadId,
+      metadata: { isDm, mentionedBot },
     });
+  }
+
+  private detectBotMention(text: string, entities: TelegramMessageEntity[]): boolean {
+    if (!this.botUsername) return false;
+    const uname = this.botUsername;
+    for (const entity of entities) {
+      if (entity.type === 'mention') {
+        const at = text.slice(entity.offset, entity.offset + entity.length);
+        if (at.toLowerCase() === `@${uname}`) return true;
+      } else if (entity.type === 'text_mention') {
+        if (entity.user?.username?.toLowerCase() === uname) return true;
+      } else if (entity.type === 'bot_command') {
+        const cmd = text.slice(entity.offset, entity.offset + entity.length);
+        if (cmd.toLowerCase().endsWith(`@${uname}`)) return true;
+      }
+    }
+    return false;
+  }
+
+  private async handleSlashCommand(
+    text: string,
+    sessionId: string,
+    threadId: string,
+  ): Promise<boolean> {
+    const firstWord = text.split(/\s+/, 1)[0] ?? '';
+    // Strip @botname suffix — Telegram appends it in groups.
+    const stripped = firstWord.replace(/@\S+$/, '').slice(1).toLowerCase();
+    let reply: string | null = null;
+    switch (stripped) {
+      case 'help':
+        reply = [
+          'Available commands:',
+          ...DEFAULT_SLASH_COMMANDS.map((c) => `  /${c.command} — ${c.description}`),
+        ].join('\n');
+        break;
+      case 'whoami':
+        reply = `Session: ${sessionId}\nThread: ${threadId}`;
+        break;
+      case 'reset':
+        // Session reset lives in the platform layer; the adapter cannot
+        // rewrite session state on its own. Acknowledge so the user sees
+        // that the command was recognized rather than swallowed silently.
+        reply = 'Reset requested. Send a new message to start a fresh turn.';
+        break;
+      case 'agents':
+      case 'skills':
+        // These need workspace access the adapter doesn't hold. Return a
+        // stub so the picker entry is not a dead click. A follow-up (part
+        // of #53's "sync from workspace/skills") would wire them up.
+        reply = `\`/${stripped}\` — coming soon (workspace-scoped commands not yet wired to Telegram).`;
+        break;
+      default:
+        return false;
+    }
+    const session = await this.options.sessions.get(sessionId);
+    if (!session) return true;
+    const target = parseChatTarget(session);
+    if (!target) return true;
+    await this.api('sendMessage', {
+      chat_id: target.chatId,
+      message_thread_id: target.messageThreadId,
+      text: reply,
+    });
+    return true;
   }
 
   private async handleVoiceMessage(
@@ -237,6 +366,7 @@ export class TelegramChannel extends BaseChannelAdapter {
     sessionId: string,
     userId: string,
     threadId: string,
+    isDm: boolean,
   ): Promise<void> {
     const voice = msg.voice;
     if (!voice || !this.options.voicePipeline) return;
@@ -259,7 +389,7 @@ export class TelegramChannel extends BaseChannelAdapter {
         content: voiceInboundContent(transcript),
         channel: 'telegram',
         channelThreadId: threadId,
-        metadata: { voice: true, transcript },
+        metadata: { voice: true, transcript, isDm },
       });
     } catch (error) {
       console.error(
@@ -272,7 +402,7 @@ export class TelegramChannel extends BaseChannelAdapter {
         content: '[voice] (transcription failed)',
         channel: 'telegram',
         channelThreadId: threadId,
-        metadata: { voice: true, error: true },
+        metadata: { voice: true, error: true, isDm },
       });
     }
   }
@@ -306,4 +436,18 @@ function splitMessage(text: string, maxLen: number): string[] {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Prefix a bare-slash prompt with a zero-width space so the Claude Agent
+ * SDK treats it as user text rather than a CLI slash-command (`/help`,
+ * `/model`, `/clear`, …). Without this, `/`-prefixed prompts that fall
+ * through the adapter's own dispatcher hit the SDK and come back empty —
+ * the run finishes with an empty assistant reply and, because the worker
+ * still fires task_completed, the user sees only the completion
+ * notification with no content (issue #54(b)). The zero-width space is
+ * invisible in the transcript but breaks the SDK's slash-command match.
+ */
+export function escapeLeadingSlash(text: string): string {
+  return text.startsWith('/') ? `​${text}` : text;
 }

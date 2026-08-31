@@ -14,6 +14,24 @@ import { finalizeAgentRun } from './agent-run.js';
 import { loadAgent, storedSessionToRuntime } from './session-runtime.js';
 import type { PlatformContext } from './platform-context.js';
 
+/**
+ * Channels where the user is watching messages arrive in real time — the
+ * reply itself is the completion signal. Non-chat surfaces (email, sms,
+ * webhook) still get the explicit task_completed notification, because
+ * there is no streaming bubble for the user to correlate with the run.
+ */
+const CHAT_CHANNELS: ReadonlySet<string> = new Set([
+  'telegram',
+  'discord',
+  'slack',
+  'whatsapp',
+  'web-chat',
+  'cli',
+  'matrix',
+  'teams',
+  'mattermost',
+]);
+
 /** Agent run consumer — Hermes GatewayRunner agent dispatch equivalent. */
 export async function registerGatewayWorker(platform: PlatformContext): Promise<void> {
   const { runtime, eventBus, workspace, channelHub, inbox, harness, mcpFirstCallGate } = platform;
@@ -238,12 +256,19 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                   `[gateway] Harness strict: session ${sessionId} completed without anvio_channel__reply`,
                 );
               }
-              await channelHub.sendNotification(channel as ChannelType, sessionId, {
-                sessionId,
-                type: 'task_completed',
-                title: 'Task Completed',
-                body: `Agent ${agentId} finished.`,
-              });
+              // task_completed used to fire unconditionally, so every chat
+              // reply was followed by a second "Task Completed / Agent X
+              // finished." bubble (issue #54(a)). For chat channels the
+              // user already saw the reply arrive; the notification is only
+              // meaningful for non-streaming surfaces (email/sms/webhook).
+              if (!CHAT_CHANNELS.has(channel)) {
+                await channelHub.sendNotification(channel as ChannelType, sessionId, {
+                  sessionId,
+                  type: 'task_completed',
+                  title: 'Task Completed',
+                  body: `Agent ${agentId} finished.`,
+                });
+              }
               await eventBus.publish(EventSubjects.MEMORY_STORED, 'anvio.memory.stored', {
                 sessionId,
                 userId,

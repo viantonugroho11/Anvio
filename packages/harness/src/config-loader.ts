@@ -35,7 +35,13 @@ spec:
       dmPolicy: manager_only
     - name: telegram-like
       channels: [telegram]
-      engageOn: mention
+      # 'mention' broke the out-of-the-box DM case: private chats have no
+      # other participant, so the flag stays false and every DM was
+      # silently dropped by the engagement gate (issue #51). The adapter
+      # now sets metadata.mentionedBot for real @-mentions in groups, but
+      # the shipped default is 'always' — a bot that only replies when
+      # summoned is the more surprising behavior on Telegram.
+      engageOn: always
       disengageOn: never
       dmPolicy: anyone
     - name: discord-like
