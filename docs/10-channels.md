@@ -346,8 +346,26 @@ Built-in commands, generated from workspace content at platform boot:
 | `/automations` | automation/cron engine |
 | `/reset` | clears `messages` + `metadata.agentRunCheckpoint` on current session |
 | `/drafts`, `/draft <slug>`, `/promote <slug> [--force]`, `/discard <slug>`, `/capture` | learning-loop draft lifecycle (v2.1.1) |
+| `/personas`, `/persona <slug>` | `workspace/personas/*.md` |
+| `/workflows`, `/workflow <slug>` | `WorkflowRegistry` |
+| `/blueprints`, `/blueprint <slug>` | `BlueprintCatalogRegistry` |
+| `/kanban` | `KanbanEngine.listBoards()` |
+| `/tools` | `ToolGateway.listTools()` |
+| `/hooks` | `workspace/hooks/hooks.yaml` |
+| `/session <id>` | one session's full status + last three turns |
+| `/skill <slug>` | one skill's frontmatter + instructions (2KB cap) |
+| `/status`, `/history [n]` | current session status, last N turns |
+| `/stop`, `/detach`, `/checkpoint [label]` | session control |
+| `/providers`, `/provider <slug>` | list model providers, override for this session (v2.2.0) |
+| `/model <id>`, `/runtime <slug>`, `/routing` | per-thread model/runtime override + effective config |
+| `/version`, `/settings` | Anvio version + effective session config |
+| `/thumbsup`, `/thumbsdown [reason]` | write feedback to `workspace/memory/feedback/` |
 
 `SlashCommandRegistry` also exposes `register(command)` so late-bound subsystems (goal engine, automation, workflow executor) can attach commands after the registry has been handed to channel adapters.
+
+### Per-thread runtime / provider / model overrides (v2.2.0)
+
+`/provider deepseek`, `/model deepseek-chat`, `/runtime claude-code` write to `session.metadata.providerOverride` / `modelOverride` / `runtimeOverride`. `RuntimeRoutingAgentRuntime` calls `applySessionOverrides(agent, session)` before dispatch — the overrides fold into the agent's `spec.model` / `spec.runtime.provider` for this session only. Original agent definition is untouched, and thread B does not see thread A's override.
 
 The Telegram adapter also syncs its `setMyCommands` picker from
 `registry.list()` at start(), so the native `/` dropdown reflects the

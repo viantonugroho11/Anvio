@@ -9,6 +9,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] - 2026-09-01
+
+**Complete the slash-command surface — introspection, session control, per-thread overrides.**
+
+Minor version because the operator surface grows. Every workspace noun the CLI covers is now reachable from `/` on every chat adapter, session state is inspectable and controllable in-chat, and the model provider / model id / runtime for a single conversation can be flipped without editing a YAML file.
+
+See [ADR-0024](docs/adr/0024-complete-slash-command-surface.md) for the shape and what was deliberately deferred to ADR-0025 (full `/new`, `/edit`, `/rm` mutation surface + `/resume` / `/branch` session forking).
+
+### Added — per-thread overrides (the headline)
+
+- **`/provider <slug>`, `/model <id>`, `/runtime <slug>`** — set the model provider, model id, or runtime for **this session only**. Writes to `session.metadata.providerOverride` / `modelOverride` / `runtimeOverride`.
+- **`/routing`** — dump the effective `{provider, model, runtime}` after overrides are applied.
+- **`/providers`** — list known model providers with the active override marked.
+- **Wiring:** `RuntimeRoutingAgentRuntime.run`/`stream` call `applySessionOverrides(agent, session)` before dispatch. The overrides fold into the agent's `spec.model` / `spec.runtime.provider` on a shallow-cloned agent; the original definition is untouched and thread B never sees thread A's override.
+
+### Added — introspection
+
+- **`/personas`, `/persona <slug>`** — from `workspace/personas/*.md` via `PersonaService`.
+- **`/workflows`, `/workflow <slug>`** — from `WorkflowRegistry`; `/workflow` renders the node list.
+- **`/blueprints`, `/blueprint <slug>`** — from `BlueprintCatalogRegistry`.
+- **`/kanban`** — boards + column labels via `KanbanEngine.listBoards()`.
+- **`/tools`** — `ToolGateway.listTools()`.
+- **`/hooks`** — `workspace/hooks/hooks.yaml` entries via new `HookEngine.list()`.
+- **`/skill <slug>`** — pair with existing `/skills`; frontmatter + first ~1.8KB of instructions.
+- **`/session <id>`** — pair with existing `/sessions`; agent, channel, status, and last three turns.
+
+### Added — session control
+
+- **`/status`** — active agent, message count, pending approval, override state.
+- **`/history [n]`** — last N turns of this session (default 10, capped at 50).
+- **`/stop`** — publish `AGENT_RUN_STOP_REQUESTED` for the current run.
+- **`/detach`** — flip `session.detached = true` so the run continues in the background.
+- **`/checkpoint [label]`** — persist `session.metadata.agentRunCheckpoint` with an optional human label.
+
+### Added — debug + feedback
+
+- **`/version`** — Anvio version, workspace name, Node version.
+- **`/settings`** — effective config for the current session (runtime default, events, storage, soul, status, detached).
+- **`/thumbsup`, `/thumbsdown [reason]`** — append to `workspace/memory/feedback/<sessionId>.jsonl` tagged by turn timestamp.
+
+### Changed
+
+- **`HookEngine.list()`** — new public method returning the loaded hook registry.
+- **`SlashCommandRegistry.register(command)`** — port doc'd `register()` from v2.1.2 is now heavily used.
+
+### Deferred to ADR-0025
+
+- Uniform `/new`, `/edit`, `/rm` mutation surface across every primitive (agent/persona/soul/skill/workflow/goal/blueprint/automation/hook/mcp/knowledge). The `/edit` flow needs a specialist-agent-scoped rewrite + approver gate + `_trash/` restore path — larger than a router expansion.
+- `/resume`, `/branch` — need `parent_session_id` chain design.
+- `/batch`, `/worktree`, `/connections`, `/setup-token`, `/providers add|remove|test`.
+- `/audit`, `/memory`, `/knowledge`, `/artifacts`, `/harness` — read-shaped but need more subsystem surface work; queued as v2.2.1.
+
+### Tests
+
+- **`packages/platform/src/session-overrides.spec.ts`** — 5 tests covering no-op passthrough, provider override, model override, runtime override, and non-string metadata being ignored. 562 total (+5).
+
+---
+
 ## [2.1.2] - 2026-08-31
 
 **Slash-command coverage for the rest of the workspace.** v2.1.0 shipped the router and v2.1.1 completed the learning-loop lifecycle; this fills in the remaining workspace nouns so `/` on a chat channel reaches every subsystem the CLI already covers, matching the surface of comparable bots (Hermes, openclaw).

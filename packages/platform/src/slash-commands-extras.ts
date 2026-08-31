@@ -1,40 +1,127 @@
-// Late-bound slash commands that need subsystems constructed after the
-// initial SlashCommandRegistry is handed to the channel hub. Registered
-// from createPlatform once every dependency exists; the registry's
-// `register()` method takes them one by one.
+// Late-bound slash commands (ADR-0024).
 //
-// Kept lean on purpose — commands here must be reliably available on
-// every workspace. Anything that needs a workspace file that might not
-// exist (kanban board, workflow definition) gets a stub reply rather
-// than a hard error, so the picker entry is never a dead click.
+// Registered after createPlatform's wiring completes so subsystems that
+// are built late — automation, workflow registry, blueprint catalog,
+// kanban engine, tool gateway, hook engine, event bus — can each surface
+// a `/foo` on every chat channel via the same registry the platform
+// already handed to createChannelHub.
+//
+// Handlers stay narrow: read-only introspection, session-scoped control
+// (status/history/stop/detach/checkpoint), per-thread runtime/provider/
+// model overrides, and lightweight debug. Full mutation (`/new`, `/edit`,
+// `/rm`) is deferred to ADR-0025.
 
-import type { SlashCommandRegistry } from '@anvio/core';
+import path from 'node:path';
+import fs from 'node:fs/promises';
+import type {
+  AgentDefinition,
+  ChannelHubPort,
+  ModelProviderId,
+  SlashCommandRegistry,
+} from '@anvio/core';
+import type { AgentRuntimeOverride } from './session-overrides.js';
 import type { AutomationEngine } from '@anvio/automation';
+import type { HookEngine } from '@anvio/hooks';
+import type { ToolGateway } from '@anvio/tools';
+import type { WorkflowRegistry } from '@anvio/workflows';
+import type { KanbanEngine } from '@anvio/core';
 import type { Workspace } from '@anvio/workspace';
+import type { BlueprintCatalogRegistry } from '@anvio/blueprints';
+import type { PersonaService } from '@anvio/personas';
+import type { EventBusLike } from '@anvio/events';
+import { EventSubjects } from '@anvio/events';
 import { probeAllChannels, summarizeChannelHealth } from '@anvio/channels';
 
 export interface ExtrasOptions {
   registry: SlashCommandRegistry;
   workspace: Workspace;
+  channelHub: ChannelHubPort;
   automation: AutomationEngine;
+  hooks: HookEngine;
+  toolGateway: ToolGateway;
+  workflowRegistry: WorkflowRegistry;
+  blueprintCatalog: BlueprintCatalogRegistry;
+  kanban: KanbanEngine;
+  personas: PersonaService;
+  eventBus: EventBusLike;
+  version?: string;
 }
 
+const VALID_RUNTIMES: AgentRuntimeOverride[] = [
+  'local',
+  'cursor',
+  'claude-code',
+  'codex',
+  'antigravity',
+];
+
+const KNOWN_PROVIDERS: ModelProviderId[] = [
+  'anthropic',
+  'openai',
+  'deepseek',
+  'openrouter',
+  'gemini',
+  'perplexity',
+  'cohere',
+  'huggingface',
+  'together',
+  'groq',
+  'fireworks',
+  'mistral',
+  'xai',
+  'nebius',
+  'novita',
+  'lambda',
+  'moonshot',
+  'zhipu',
+  'custom',
+] as unknown as ModelProviderId[];
+
 export function registerPlatformExtras(opts: ExtrasOptions): void {
-  const { registry } = opts;
+  const { registry, workspace, eventBus } = opts;
+
+  // ---------------- Introspection (read) ----------------
 
   registry.register({
     name: 'sessions',
     description: 'List recent sessions',
     handler: async () => {
-      const sessions = await opts.workspace.sessions.list();
+      const sessions = await workspace.sessions.list();
       if (sessions.length === 0) return { swallow: true, reply: 'No sessions.' };
-      const lines = sessions
-        .slice(-10)
-        .map(
-          (s) =>
-            `  ${s.id.slice(0, 12)} · ${s.agentName} · ${s.channel} · ${s.status} · ${s.messages.length} msgs`,
-        );
-      return { swallow: true, reply: `Sessions (last ${lines.length}):\n${lines.join('\n')}` };
+      return {
+        swallow: true,
+        reply: sessions
+          .slice(-10)
+          .map(
+            (s) =>
+              `  ${s.id.slice(0, 12)} · ${s.agentName} · ${s.channel} · ${s.status} · ${s.messages.length} msgs`,
+          )
+          .join('\n'),
+      };
+    },
+  });
+
+  registry.register({
+    name: 'session',
+    description: 'Show one session: /session <id>',
+    handler: async (ctx) => {
+      const target = ctx.argsList[0] ?? ctx.sessionId;
+      const s = await workspace.sessions.get(target);
+      if (!s) return { swallow: true, reply: `Session not found: ${target}` };
+      const last = s.messages.slice(-3);
+      return {
+        swallow: true,
+        reply: [
+          `session ${s.id}`,
+          `agent: ${s.agentName} · channel: ${s.channel} · status: ${s.status}`,
+          `messages: ${s.messages.length}`,
+          last.length
+            ? `last:\n${last.map((m) => `  ${m.role}: ${m.content.slice(0, 200)}`).join('\n')}`
+            : undefined,
+        ]
+          .filter((line): line is string => Boolean(line))
+          .join('\n'),
+      };
     },
   });
 
@@ -43,10 +130,8 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
     description: 'Channel adapter health',
     handler: async () => {
       try {
-        const report = await probeAllChannels(opts.workspace.config.spec.channels ?? {});
+        const report = await probeAllChannels(workspace.config.spec.channels ?? {});
         const summary = summarizeChannelHealth(report);
-        // summarizeChannelHealth returns { healthy, degraded, disabled, misconfigured, unreachable }
-        // — render as a short line rather than raw JSON.
         return {
           swallow: true,
           reply: [
@@ -60,7 +145,7 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
       } catch (error) {
         return {
           swallow: true,
-          reply: `Channel probe failed: ${error instanceof Error ? error.message : String(error)}`,
+          reply: `Channel probe failed: ${errMsg(error)}`,
         };
       }
     },
@@ -83,4 +168,443 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
       };
     },
   });
+
+  registry.register({
+    name: 'personas',
+    description: 'List workspace personas',
+    handler: async () => {
+      const slugs = await workspace.loader.listPersonas();
+      if (slugs.length === 0) return { swallow: true, reply: 'No personas.' };
+      return { swallow: true, reply: slugs.map((s) => `  ${s}`).join('\n') };
+    },
+  });
+
+  registry.register({
+    name: 'persona',
+    description: 'Show a persona: /persona <slug>',
+    handler: async (ctx) => {
+      const slug = ctx.argsList[0];
+      if (!slug) return { swallow: true, reply: 'Usage: /persona <slug>' };
+      try {
+        const p = await opts.personas.getBySlug(slug);
+        return {
+          swallow: true,
+          reply: [
+            `${slug} — ${p.name ?? slug}`,
+            p.description ? p.description : undefined,
+          ]
+            .filter((line): line is string => Boolean(line))
+            .join('\n'),
+        };
+      } catch (error) {
+        return { swallow: true, reply: `Persona load failed: ${errMsg(error)}` };
+      }
+    },
+  });
+
+  registry.register({
+    name: 'workflows',
+    description: 'List workflow definitions',
+    handler: async () => {
+      const items = await opts.workflowRegistry.listAll();
+      if (items.length === 0) return { swallow: true, reply: 'No workflows.' };
+      return {
+        swallow: true,
+        reply: items.map((i) => `  ${i.slug} [${i.source}]`).join('\n'),
+      };
+    },
+  });
+
+  registry.register({
+    name: 'workflow',
+    description: 'Show a workflow: /workflow <slug>',
+    handler: async (ctx) => {
+      const slug = ctx.argsList[0];
+      if (!slug) return { swallow: true, reply: 'Usage: /workflow <slug>' };
+      try {
+        const def = await opts.workflowRegistry.load(slug);
+        const nodes = def.spec.nodes ?? [];
+        return {
+          swallow: true,
+          reply: [
+            `${slug} — ${def.spec.description ?? ''}`,
+            nodes.length
+              ? `nodes:\n${nodes.map((n: { id: string }) => `  - ${n.id}`).join('\n')}`
+              : 'nodes: (none)',
+          ].join('\n'),
+        };
+      } catch (error) {
+        return { swallow: true, reply: `Workflow load failed: ${errMsg(error)}` };
+      }
+    },
+  });
+
+  registry.register({
+    name: 'blueprints',
+    description: 'List blueprint scaffolds',
+    handler: async () => {
+      const items = await opts.blueprintCatalog.listAll();
+      if (items.length === 0) return { swallow: true, reply: 'No blueprints.' };
+      return {
+        swallow: true,
+        reply: items.map((i) => `  ${i.slug} [${i.source}]`).join('\n'),
+      };
+    },
+  });
+
+  registry.register({
+    name: 'blueprint',
+    description: 'Show a blueprint: /blueprint <slug>',
+    handler: async (ctx) => {
+      const slug = ctx.argsList[0];
+      if (!slug) return { swallow: true, reply: 'Usage: /blueprint <slug>' };
+      try {
+        const def = await opts.blueprintCatalog.load(slug);
+        return {
+          swallow: true,
+          reply: [
+            `${slug}`,
+            def.spec.description ? def.spec.description : undefined,
+          ]
+            .filter((line): line is string => Boolean(line))
+            .join('\n'),
+        };
+      } catch (error) {
+        return { swallow: true, reply: `Blueprint load failed: ${errMsg(error)}` };
+      }
+    },
+  });
+
+  registry.register({
+    name: 'kanban',
+    description: 'List kanban boards',
+    handler: async () => {
+      try {
+        const boards = await opts.kanban.listBoards();
+        if (boards.length === 0) return { swallow: true, reply: 'No kanban boards.' };
+        return {
+          swallow: true,
+          reply: boards
+            .map((b) => `  ${b.metadata.slug} — ${b.spec.columns.join('|')}`)
+            .join('\n'),
+        };
+      } catch (error) {
+        return { swallow: true, reply: `Kanban read failed: ${errMsg(error)}` };
+      }
+    },
+  });
+
+  registry.register({
+    name: 'tools',
+    description: 'List built-in tools available to agents',
+    handler: async () => {
+      const names = opts.toolGateway.listTools();
+      if (names.length === 0) return { swallow: true, reply: 'No tools registered.' };
+      return { swallow: true, reply: names.map((n) => `  ${n}`).join('\n') };
+    },
+  });
+
+  registry.register({
+    name: 'hooks',
+    description: 'List event hooks',
+    handler: async () => {
+      const items = opts.hooks.list();
+      if (items.length === 0) return { swallow: true, reply: 'No hooks configured.' };
+      return {
+        swallow: true,
+        reply: items
+          .map((h) => `  ${h.event} → [${h.handlers.map((x) => x.type).join(', ')}]`)
+          .join('\n'),
+      };
+    },
+  });
+
+  registry.register({
+    name: 'skill',
+    description: 'Show a skill: /skill <slug>',
+    handler: async (ctx) => {
+      const slug = ctx.argsList[0];
+      if (!slug) return { swallow: true, reply: 'Usage: /skill <slug>' };
+      try {
+        const s = await workspace.loader.loadSkill(slug) as {
+          spec: { name?: string; description?: string; instructions?: string };
+        };
+        const instructions = (s.spec.instructions ?? '').slice(0, 1800);
+        return {
+          swallow: true,
+          reply: [
+            `${slug} — ${s.spec.name ?? ''}`,
+            s.spec.description,
+            instructions ? '\n' + instructions : undefined,
+          ]
+            .filter((line): line is string => Boolean(line))
+            .join('\n'),
+        };
+      } catch (error) {
+        return { swallow: true, reply: `Skill not found: ${slug} (${errMsg(error)})` };
+      }
+    },
+  });
+
+  // ---------------- Session control ----------------
+
+  registry.register({
+    name: 'status',
+    description: 'Show status of the current session',
+    handler: async (ctx) => {
+      const s = await workspace.sessions.get(ctx.sessionId);
+      if (!s) return { swallow: true, reply: 'No session.' };
+      const meta = (s.metadata ?? {}) as Record<string, unknown>;
+      const override =
+        meta.providerOverride || meta.modelOverride || meta.runtimeOverride
+          ? `overrides: provider=${meta.providerOverride ?? '-'} model=${meta.modelOverride ?? '-'} runtime=${meta.runtimeOverride ?? '-'}`
+          : 'overrides: (none)';
+      return {
+        swallow: true,
+        reply: [
+          `session ${s.id}`,
+          `agent: ${s.agentName} · status: ${s.status} · messages: ${s.messages.length}`,
+          s.pendingApproval ? `pending approval: ${s.pendingApproval.toolName}` : 'no pending approval',
+          override,
+        ].join('\n'),
+      };
+    },
+  });
+
+  registry.register({
+    name: 'history',
+    description: 'Show last N turns: /history [n]',
+    handler: async (ctx) => {
+      const n = Math.min(50, Math.max(1, parseInt(ctx.argsList[0] ?? '10', 10) || 10));
+      const s = await workspace.sessions.get(ctx.sessionId);
+      if (!s) return { swallow: true, reply: 'No session.' };
+      const tail = s.messages.slice(-n);
+      if (tail.length === 0) return { swallow: true, reply: 'No history.' };
+      return {
+        swallow: true,
+        reply: tail
+          .map((m) => `${m.role}: ${m.content.slice(0, 300)}`)
+          .join('\n---\n'),
+      };
+    },
+  });
+
+  registry.register({
+    name: 'stop',
+    description: 'Request stop of the current run',
+    handler: async (ctx) => {
+      await eventBus.publish(EventSubjects.AGENT_RUN_STOP_REQUESTED, 'anvio.agent.run.stop_requested', {
+        sessionId: ctx.sessionId,
+      });
+      return { swallow: true, reply: 'Stop requested.' };
+    },
+  });
+
+  registry.register({
+    name: 'detach',
+    description: 'Flip this session to background/detached',
+    handler: async (ctx) => {
+      const s = await workspace.sessions.get(ctx.sessionId);
+      if (!s) return { swallow: true, reply: 'No session.' };
+      await workspace.sessions.update(ctx.sessionId, { detached: true });
+      return { swallow: true, reply: 'Session detached. Runs continue in the background.' };
+    },
+  });
+
+  registry.register({
+    name: 'checkpoint',
+    description: 'Save a labeled checkpoint of this session: /checkpoint [label]',
+    handler: async (ctx) => {
+      const label = ctx.argsList.join(' ').trim() || `manual-${new Date().toISOString().slice(0, 19)}`;
+      const s = await workspace.sessions.get(ctx.sessionId);
+      if (!s) return { swallow: true, reply: 'No session.' };
+      const nextMeta = {
+        ...(s.metadata ?? {}),
+        checkpointLabel: label,
+        agentRunCheckpoint: {
+          label,
+          savedAt: new Date().toISOString(),
+          messages: s.messages.length,
+        },
+      };
+      await workspace.sessions.update(ctx.sessionId, { metadata: nextMeta });
+      return { swallow: true, reply: `Checkpoint saved: ${label}` };
+    },
+  });
+
+  // ---------------- Per-thread overrides (the ADR's headline) ----------------
+
+  registry.register({
+    name: 'providers',
+    description: 'List known model providers',
+    handler: async (ctx) => {
+      const s = await workspace.sessions.get(ctx.sessionId);
+      const active = (s?.metadata?.providerOverride as string | undefined) ?? 'agent-default';
+      return {
+        swallow: true,
+        reply: [
+          `active for this session: ${active}`,
+          '',
+          ...KNOWN_PROVIDERS.map((p) => `  ${p}`),
+        ].join('\n'),
+      };
+    },
+  });
+
+  registry.register({
+    name: 'provider',
+    description: 'Set model provider for THIS session: /provider <slug>',
+    handler: async (ctx) => {
+      const slug = ctx.argsList[0];
+      if (!slug) return { swallow: true, reply: 'Usage: /provider <slug>' };
+      if (!KNOWN_PROVIDERS.includes(slug as ModelProviderId)) {
+        return {
+          swallow: true,
+          reply: `Unknown provider: ${slug}. /providers to list.`,
+        };
+      }
+      await patchSessionMeta(workspace, ctx.sessionId, { providerOverride: slug });
+      return { swallow: true, reply: `Provider set to ${slug} for this session.` };
+    },
+  });
+
+  registry.register({
+    name: 'model',
+    description: 'Set model id for THIS session: /model <id>',
+    handler: async (ctx) => {
+      const id = ctx.argsList[0];
+      if (!id) return { swallow: true, reply: 'Usage: /model <id>' };
+      await patchSessionMeta(workspace, ctx.sessionId, { modelOverride: id });
+      return { swallow: true, reply: `Model set to ${id} for this session.` };
+    },
+  });
+
+  registry.register({
+    name: 'runtime',
+    description: 'Set runtime for THIS session: /runtime <local|claude-code|cursor|codex|antigravity>',
+    handler: async (ctx) => {
+      const slug = ctx.argsList[0];
+      if (!slug) return { swallow: true, reply: 'Usage: /runtime <slug>' };
+      if (!VALID_RUNTIMES.includes(slug as AgentRuntimeOverride)) {
+        return {
+          swallow: true,
+          reply: `Unknown runtime: ${slug}. Valid: ${VALID_RUNTIMES.join(', ')}.`,
+        };
+      }
+      await patchSessionMeta(workspace, ctx.sessionId, { runtimeOverride: slug });
+      return { swallow: true, reply: `Runtime set to ${slug} for this session.` };
+    },
+  });
+
+  registry.register({
+    name: 'routing',
+    description: 'Show effective provider/model/runtime for this session',
+    handler: async (ctx) => {
+      const s = await workspace.sessions.get(ctx.sessionId);
+      if (!s) return { swallow: true, reply: 'No session.' };
+      let agent: AgentDefinition | undefined;
+      try {
+        agent = (await workspace.loader.loadAgent(s.agentName)) as AgentDefinition;
+      } catch {
+        agent = undefined;
+      }
+      const meta = (s.metadata ?? {}) as Record<string, unknown>;
+      const provider = meta.providerOverride ?? agent?.spec.model.provider ?? '-';
+      const model = meta.modelOverride ?? agent?.spec.model.model ?? '-';
+      const runtime = meta.runtimeOverride ?? agent?.spec.runtime?.provider ?? 'local';
+      return {
+        swallow: true,
+        reply: [
+          `agent: ${s.agentName}`,
+          `provider: ${provider}${meta.providerOverride ? ' (override)' : ''}`,
+          `model: ${model}${meta.modelOverride ? ' (override)' : ''}`,
+          `runtime: ${runtime}${meta.runtimeOverride ? ' (override)' : ''}`,
+        ].join('\n'),
+      };
+    },
+  });
+
+  // ---------------- Debug + feedback ----------------
+
+  registry.register({
+    name: 'version',
+    description: 'Anvio + workspace + node version',
+    handler: async () => {
+      return {
+        swallow: true,
+        reply: [
+          `anvio: ${opts.version ?? 'unknown'}`,
+          `workspace: ${path.basename(workspace.rootDir ?? '.')}`,
+          `node: ${process.version}`,
+        ].join('\n'),
+      };
+    },
+  });
+
+  registry.register({
+    name: 'settings',
+    description: 'Effective config for the current session',
+    handler: async (ctx) => {
+      const s = await workspace.sessions.get(ctx.sessionId);
+      const spec = workspace.config.spec;
+      return {
+        swallow: true,
+        reply: [
+          `runtime.default: ${spec.runtime?.default ?? 'local'}`,
+          `events.provider: ${spec.events?.provider ?? 'in-process'}`,
+          `storage.provider: ${spec.storage?.provider ?? 'filesystem'}`,
+          `defaultSoul: ${spec.defaultSoul ?? '-'}`,
+          `session.status: ${s?.status ?? '-'}`,
+          `session.detached: ${s?.detached ?? false}`,
+        ].join('\n'),
+      };
+    },
+  });
+
+  const feedbackHandler = (kind: 'up' | 'down') => async (ctx: { sessionId: string; argsRaw: string }) => {
+    const reason = ctx.argsRaw.trim();
+    const line =
+      JSON.stringify({
+        sessionId: ctx.sessionId,
+        vote: kind,
+        reason: reason || undefined,
+        at: new Date().toISOString(),
+      }) + '\n';
+    try {
+      const dir = path.join(workspace.rootDir ?? '.', 'memory', 'feedback');
+      await fs.mkdir(dir, { recursive: true });
+      await fs.appendFile(path.join(dir, `${ctx.sessionId}.jsonl`), line, 'utf-8');
+      return { swallow: true, reply: kind === 'up' ? '👍 recorded' : '👎 recorded' };
+    } catch (error) {
+      return { swallow: true, reply: `Feedback write failed: ${errMsg(error)}` };
+    }
+  };
+
+  registry.register({
+    name: 'thumbsup',
+    description: 'Record positive feedback for this session',
+    handler: feedbackHandler('up'),
+  });
+
+  registry.register({
+    name: 'thumbsdown',
+    description: 'Record negative feedback: /thumbsdown [reason]',
+    handler: feedbackHandler('down'),
+  });
+}
+
+async function patchSessionMeta(
+  workspace: Workspace,
+  sessionId: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const s = await workspace.sessions.get(sessionId);
+  if (!s) return;
+  await workspace.sessions.update(sessionId, {
+    metadata: { ...(s.metadata ?? {}), ...patch },
+  });
+}
+
+function errMsg(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

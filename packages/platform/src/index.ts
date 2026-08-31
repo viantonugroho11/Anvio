@@ -580,14 +580,22 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   await hookEngine.start();
   await automationEngine.start();
 
-  // Late-bound slash commands (ADR-0023) — automation, sessions, channels.
-  // Also assign the goal-engine closure now that sharedGoalEngine exists,
-  // so /goals + /goal find a live engine at dispatch time.
+  // Late-bound slash commands (ADR-0023 + ADR-0024) — every workspace
+  // noun the CLI covers is now reachable from `/`. Goal engine also gets
+  // its closure assigned now that sharedGoalEngine exists.
   sharedGoalEngineRef = sharedGoalEngine;
   registerPlatformExtras({
     registry: slashCommands,
     workspace,
+    channelHub,
     automation: automationEngine,
+    hooks: hookEngine,
+    toolGateway,
+    workflowRegistry,
+    blueprintCatalog: catalog,
+    kanban: kanbanEngine,
+    personas: personaService,
+    eventBus,
   });
 
   toolGateway.mergeContext({

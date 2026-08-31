@@ -31,6 +31,11 @@ export class HookEngine {
     private readonly eventBus: EventBusLike,
   ) {}
 
+  /** Registered hooks after `load()`. Empty until start()/load() has run. */
+  list() {
+    return this.registry.spec.hooks;
+  }
+
   async load(): Promise<void> {
     const registryPath = path.join(this.workspaceRoot, 'hooks/hooks.yaml');
     try {

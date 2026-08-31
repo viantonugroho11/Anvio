@@ -10,6 +10,7 @@ import type {
 import type { DefaultAgentRuntime } from '@anvio/agents';
 import type { RuntimeFactory } from '@anvio/runtimes';
 import { runWithRuntimeFallback, streamWithRuntimeFallback } from '@anvio/runtimes';
+import { applySessionOverrides } from './session-overrides.js';
 
 /** Routes agent runs through runtime fallback chain (A→B→C) with auth failure failover. */
 export class RuntimeRoutingAgentRuntime implements AgentRuntime {
@@ -24,10 +25,14 @@ export class RuntimeRoutingAgentRuntime implements AgentRuntime {
   }
 
   async run(session: Session, agent: AgentDefinition, input: UserInput): Promise<AgentResult> {
+    // Fold per-thread /runtime, /provider, /model overrides (ADR-0024)
+    // into the agent before the fallback chain resolves. Original agent
+    // definition is untouched — the override lives for this call only.
+    const effective = applySessionOverrides(agent, session);
     const result = await runWithRuntimeFallback(
       this.factory,
-      agent,
-      { session, agent, input },
+      effective,
+      { session, agent: effective, input },
       this.defaultRuntime,
     );
 
@@ -40,10 +45,11 @@ export class RuntimeRoutingAgentRuntime implements AgentRuntime {
   }
 
   async *stream(session: Session, agent: AgentDefinition, input: UserInput) {
+    const effective = applySessionOverrides(agent, session);
     yield* streamWithRuntimeFallback(
       this.factory,
-      agent,
-      { session, agent, input },
+      effective,
+      { session, agent: effective, input },
       this.defaultRuntime,
     );
   }
