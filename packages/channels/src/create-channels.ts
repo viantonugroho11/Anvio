@@ -498,7 +498,7 @@ function createInboundHandler(
     // invisible in the transcript. Belt-and-suspenders alongside the
     // runtime-side escape in ClaudeCodeRuntime.
     const publishedContent = message.content.startsWith('/')
-      ? `​${message.content}`
+      ? `\u200b${message.content}`
       : message.content;
     await eventBus.publish(EventSubjects.AGENT_RUN_REQUESTED, 'anvio.agent.run.requested', {
       sessionId: message.sessionId,

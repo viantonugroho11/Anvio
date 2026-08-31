@@ -72,7 +72,7 @@ function extractAssistantText(message: SDKMessage): string | null {
  * input. Invisible in the transcript.
  */
 function escapeSdkSlashPrompt(text: string): string {
-  return text.startsWith('/') ? `​${text}` : text;
+  return text.startsWith('/') ? `\u200b${text}` : text;
 }
 
 export class ClaudeCodeRuntimeProvider implements RuntimeProvider {

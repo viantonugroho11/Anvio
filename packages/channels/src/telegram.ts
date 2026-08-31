@@ -418,7 +418,7 @@ function sleep(ms: number): Promise<void> {
  * invisible in the transcript but breaks the SDK's slash-command match.
  */
 export function escapeLeadingSlash(text: string): string {
-  return text.startsWith('/') ? `​${text}` : text;
+  return text.startsWith('/') ? `\u200b${text}` : text;
 }
 
 /**
