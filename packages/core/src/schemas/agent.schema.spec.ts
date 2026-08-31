@@ -22,4 +22,35 @@ describe('agent.schema', () => {
     expect(agent.metadata.name).toBe('architect');
     expect(agent.spec.model.provider).toBe('anthropic');
   });
+
+  it('rejects claude-code runtime paired with a non-Anthropic spec.model when runtime.model is absent', () => {
+    const build = () =>
+      parseAgentDefinition({
+        apiVersion: 'anvio.io/v1',
+        kind: 'Agent',
+        metadata: { name: 'techlead' },
+        spec: {
+          description: 'Tech lead',
+          persona: 'architect',
+          model: { provider: 'deepseek', model: 'deepseek-chat', apiKeyEnv: 'DEEPSEEK_API_KEY' },
+          runtime: { provider: 'claude-code', fallbacks: ['local'] },
+        },
+      });
+    expect(build).toThrow(/runtime\.model/);
+  });
+
+  it('accepts claude-code runtime with runtime.model set alongside a non-Anthropic spec.model', () => {
+    const agent = parseAgentDefinition({
+      apiVersion: 'anvio.io/v1',
+      kind: 'Agent',
+      metadata: { name: 'techlead' },
+      spec: {
+        description: 'Tech lead',
+        persona: 'architect',
+        model: { provider: 'deepseek', model: 'deepseek-chat', apiKeyEnv: 'DEEPSEEK_API_KEY' },
+        runtime: { provider: 'claude-code', model: 'sonnet', fallbacks: ['local'] },
+      },
+    });
+    expect(agent.spec.runtime?.model).toBe('sonnet');
+  });
 });

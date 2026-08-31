@@ -119,9 +119,19 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
   }
 
   private buildQueryOptions(request: RuntimeRequest, oauthToken: string): Options {
+    // Prefer the runtime-scoped model. Falling through to `spec.model.model`
+    // used to be the only path, which conflated the vendor's model id with
+    // the local fallback's model provider config (issue #49). When both are
+    // absent, the SDK picks its own default.
+    const model =
+      this.options.model ??
+      request.agent.spec.runtime?.model ??
+      (request.agent.spec.model.provider === 'anthropic'
+        ? request.agent.spec.model.model
+        : undefined);
     return {
       cwd: this.options.cwd ?? process.cwd(),
-      model: this.options.model ?? request.agent.spec.model.model,
+      model,
       permissionMode: this.options.permissionMode ?? 'default',
       includePartialMessages: true,
       env: buildClaudeCodeAgentEnv(oauthToken),

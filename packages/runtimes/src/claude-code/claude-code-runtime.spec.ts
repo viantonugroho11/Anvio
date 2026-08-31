@@ -109,4 +109,88 @@ describe('ClaudeCodeRuntimeProvider', () => {
     }
     expect(chunks.join('')).toContain('Hi');
   });
+
+  it('passes spec.runtime.model to the SDK instead of spec.model.model', async () => {
+    let captured: unknown = undefined;
+    const provider = new ClaudeCodeRuntimeProvider({
+      oauthToken: 'sk-ant-oat01-test',
+      queryImpl: ({ options }) => {
+        captured = options?.model;
+        return (async function* (): AsyncIterable<
+          import('@anthropic-ai/claude-agent-sdk').SDKMessage
+        > {
+          yield {
+            type: 'result',
+            subtype: 'success',
+            result: 'ok',
+            session_id: 'sdk',
+            usage: { input_tokens: 0, output_tokens: 0 },
+            duration_ms: 1,
+            duration_api_ms: 1,
+            is_error: false,
+            num_turns: 1,
+            stop_reason: 'end_turn',
+            total_cost_usd: 0,
+            modelUsage: {},
+            permission_denials: [],
+            errors: [],
+            uuid: '00000000-0000-4000-8000-000000000010',
+          } as never;
+        })();
+      },
+    });
+
+    const request = mockRequest();
+    // deepseek in spec.model, sonnet under runtime.model — vendor gets sonnet.
+    request.agent.spec.model = {
+      provider: 'deepseek',
+      model: 'deepseek-chat',
+      maxTokens: 8192,
+      apiKeyEnv: 'DEEPSEEK_API_KEY',
+    };
+    request.agent.spec.runtime = { provider: 'claude-code', model: 'sonnet' };
+    await provider.run(request);
+    expect(captured).toBe('sonnet');
+  });
+
+  it('does not forward a non-Anthropic spec.model.model when runtime.model is absent', async () => {
+    let captured: unknown = 'unset';
+    const provider = new ClaudeCodeRuntimeProvider({
+      oauthToken: 'sk-ant-oat01-test',
+      queryImpl: ({ options }) => {
+        captured = options?.model;
+        return (async function* (): AsyncIterable<
+          import('@anthropic-ai/claude-agent-sdk').SDKMessage
+        > {
+          yield {
+            type: 'result',
+            subtype: 'success',
+            result: 'ok',
+            session_id: 'sdk',
+            usage: { input_tokens: 0, output_tokens: 0 },
+            duration_ms: 1,
+            duration_api_ms: 1,
+            is_error: false,
+            num_turns: 1,
+            stop_reason: 'end_turn',
+            total_cost_usd: 0,
+            modelUsage: {},
+            permission_denials: [],
+            errors: [],
+            uuid: '00000000-0000-4000-8000-000000000011',
+          } as never;
+        })();
+      },
+    });
+
+    const request = mockRequest();
+    request.agent.spec.model = {
+      provider: 'deepseek',
+      model: 'deepseek-chat',
+      maxTokens: 8192,
+      apiKeyEnv: 'DEEPSEEK_API_KEY',
+    };
+    await provider.run(request);
+    expect(captured).toBeUndefined();
+  });
 });
