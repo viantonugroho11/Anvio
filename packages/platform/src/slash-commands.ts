@@ -166,20 +166,88 @@ export function createSlashCommandRegistry(
     });
 
     register({
-      name: 'promote',
-      description: 'Promote a skill draft to workspace/skills: /promote <slug>',
+      name: 'draft',
+      description: 'Show a draft: /draft <slug>',
       handler: async (ctx) => {
         const slug = ctx.argsList[0];
-        if (!slug) return { swallow: true, reply: 'Usage: /promote <slug>' };
+        if (!slug) return { swallow: true, reply: 'Usage: /draft <slug>' };
+        const draft = await learning.getDraft(slug);
+        if (!draft) return { swallow: true, reply: `Draft not found: ${slug}` };
+        // Cap the body — chat surfaces choke on multi-KB blocks and the
+        // reviewer usually just wants the frontmatter to decide.
+        const preview = draft.content.length > 2000
+          ? `${draft.content.slice(0, 2000)}\n… (truncated, ${draft.content.length - 2000} more chars)`
+          : draft.content;
+        return { swallow: true, reply: preview };
+      },
+    });
+
+    register({
+      name: 'discard',
+      description: 'Soft-delete a skill draft: /discard <slug>',
+      handler: async (ctx) => {
+        const slug = ctx.argsList[0];
+        if (!slug) return { swallow: true, reply: 'Usage: /discard <slug>' };
+        const result = await learning.discardDraft(slug);
+        return {
+          swallow: true,
+          reply: result
+            ? `Discarded → ${result.path}`
+            : `Draft not found: ${slug}`,
+        };
+      },
+    });
+
+    register({
+      name: 'promote',
+      description: 'Promote a skill draft to workspace/skills: /promote <slug> [--force]',
+      handler: async (ctx) => {
+        const slug = ctx.argsList[0];
+        if (!slug) return { swallow: true, reply: 'Usage: /promote <slug> [--force]' };
+        const force = ctx.argsList.includes('--force');
         try {
-          const dest = await learning.promoteDraft(slug, options.workspacePath);
-          return { swallow: true, reply: `Promoted → ${dest}` };
+          const result = await learning.promoteDraft(slug, options.workspacePath, { force });
+          if (result.diff) {
+            return {
+              swallow: true,
+              reply: [
+                `Refusing to overwrite ${result.path} — re-run with --force to apply.`,
+                '',
+                result.diff,
+              ].join('\n'),
+            };
+          }
+          const verb = result.alreadyExisted ? 'Overwrote' : 'Promoted';
+          return { swallow: true, reply: `${verb} → ${result.path}` };
         } catch (error) {
           return {
             swallow: true,
             reply: `Promote failed: ${error instanceof Error ? error.message : String(error)}`,
           };
         }
+      },
+    });
+
+    register({
+      name: 'capture',
+      description: 'Force-extract a skill from this session (bypasses the auto-gate)',
+      handler: async (ctx) => {
+        const stored = await options.sessions.get(ctx.sessionId);
+        if (!stored) return { swallow: true, reply: 'No session to capture from.' };
+        const draft = await learning.captureFromSession({
+          sessionId: stored.id,
+          userId: stored.userId,
+          agentId: stored.agentName,
+          messages: stored.messages,
+          channel: stored.channel,
+          force: true,
+        });
+        return {
+          swallow: true,
+          reply: draft
+            ? `Captured draft: ${draft.slug}\n  ${draft.path}\nUse /promote ${draft.slug} to save.`
+            : 'Nothing to capture — the session is too short.',
+        };
       },
     });
   }

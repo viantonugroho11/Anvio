@@ -18,6 +18,14 @@ export const soulRelationshipMemorySchema = z.object({
 export const soulEvolutionSchema = z.object({
   allowAutoUpdate: z.boolean().default(true),
   requireApproval: z.boolean().default(false),
+  /**
+   * When to auto-draft skills from finished sessions (issue #56 (f)).
+   *   - `always` — draft whenever `SkillEvolutionSummarizer.shouldCreate` returns true (previous behavior)
+   *   - `mention` — only draft when the session contained an explicit `/capture` marker
+   *   - `manual`  — never draft automatically; only `anvio learning promote-session --force` / `/capture` produce drafts
+   * `allowAutoUpdate: false` still wins — a soul with evolution off never drafts, regardless of this field.
+   */
+  captureOn: z.enum(['always', 'mention', 'manual']).default('always'),
 });
 
 export const soulSpecSchema = z.object({

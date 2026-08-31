@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.1] - 2026-08-31
+
+**Skill-promotion surface, completed.** v2.1.0 shipped the router and the pieces of [#56](https://github.com/viantonugroho11/Anvio/issues/56) that fit inside a minor version; this closes the rest.
+
+### Added
+
+- **`/draft <slug>`, `/discard <slug>`, `/capture`** slash commands. `/draft` renders the frontmatter + body (truncated at 2KB for chat surfaces), `/discard` soft-deletes to `workspace/skills/_drafts/_discarded/` so an accidental discard is recoverable, `/capture` force-extracts a draft from the current session bypassing `SkillEvolutionSummarizer.shouldCreate`.
+- **Post-run channel notification** when a session produces a draft. The bot announces `📝 Skill draft captured: <slug>` with `/draft`, `/promote`, and `/discard` prefilled — no CLI trip required. Chat channels only (`telegram`, `discord`, `slack`, `whatsapp`, `web-chat`, `cli`, `matrix`, `teams`, `mattermost`).
+- **`soul.spec.evolution.captureOn`** — `always` (default, matches prior behavior) / `mention` (only when session contains `/capture`) / `manual` (never auto-draft; only `--force` / `/capture` produce drafts). `allowAutoUpdate: false` still wins.
+- **`anvio learning promote-session <sid> [--force]`** — force-extract a draft from a specific session id, bypassing the auto-gate. `--force` also skips the "shouldCreate=false" refusal from the LLM.
+- **`anvio learning capture --messages <path> --agent <slug>`** — extract a skill from an offline transcript (`[{ role, content }, …]` JSON) without a running Anvio session.
+- **`anvio learning drafts prune [--older-than 7d]`** — housekeeping for `_drafts/` (accepts `s`/`m`/`h`/`d` suffix; default 7d).
+- **`anvio learning draft <slug>`, `anvio learning discard <slug>`** and matching `anvio skill …` aliases so every draft-lifecycle verb is reachable from both nouns.
+
+### Changed
+
+- **Diff-mode promotion.** `SkillEvolutionWriter.promoteDraft` now returns `{ path, alreadyExisted, diff? }`. When the target skill already exists and its content would change, the write is refused and `diff` carries the change so the caller can surface it. `--force` (CLI) / `--force` arg (slash command) applies. Backward-incompatible signature but only surfaced through platform + CLI wrappers, which are updated together.
+- **`SkillEvolutionSummarizer.fromSession(input, { force })`** — the force path bypasses the 40-char / assistant-required gate and the LLM's `shouldCreate=false` refusal, so `/capture` on a short session still produces something.
+
+### Fixed
+
+- **Force-captured drafts get the `captured` tag** so a reviewer can filter for "human explicitly asked for this" versus the auto path.
+
+### Tests
+
+- New `packages/learning/src/skill-evolution.spec.ts` — 6 tests covering lineage frontmatter, slug shape, soft-delete, `getDraft`, `pruneDrafts` with backdated mtime, and diff-mode promotion refuse-then-force. 555 total (+6).
+
+---
+
 ## [2.1.0] - 2026-08-31
 
 **Cross-channel slash commands + skill-promotion lineage.**

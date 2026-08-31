@@ -50,6 +50,24 @@ import { storedSessionToRuntime } from './session-runtime.js';
 import { RuntimeRoutingAgentRuntime } from './runtime-routing-agent-runtime.js';
 import { createSlashCommandRegistry } from './slash-commands.js';
 
+/**
+ * Channels that show a picker where /promote and /discard mean something.
+ * Kept in sync with CHAT_CHANNELS in gateway-worker.ts — one list per
+ * concern (task_completed suppression vs draft-prompt eligibility), but
+ * currently the same set.
+ */
+const CHAT_CHANNELS_FOR_DRAFT_PROMPT: ReadonlySet<string> = new Set([
+  'telegram',
+  'discord',
+  'slack',
+  'whatsapp',
+  'web-chat',
+  'cli',
+  'matrix',
+  'teams',
+  'mattermost',
+]);
+
 export type { PlatformContext } from './platform-context.js';
 
 export interface PlatformOptions {
@@ -725,7 +743,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         soul = undefined;
       }
     }
-    await learningEngine.onSessionCompleted({
+    const learningResult = await learningEngine.onSessionCompleted({
       sessionId: stored.id,
       userId: stored.userId,
       agentId: stored.agentName,
@@ -733,6 +751,29 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       soul,
       channel: stored.channel,
     });
+
+    // Prompt the user in-channel when the learning loop produced a draft
+    // (issue #56 (b)). Right now the draft lands silently on disk and the
+    // user only finds it if they think to run `anvio learning drafts`.
+    // Chat channels only — non-chat surfaces already got a task_completed
+    // notification and don't have a picker to /promote from.
+    if (learningResult.skillDraft && CHAT_CHANNELS_FOR_DRAFT_PROMPT.has(stored.channel)) {
+      try {
+        await channelHub.sendMessage(stored.channel as ChannelType, stored.id, {
+          sessionId: stored.id,
+          type: 'done',
+          content: [
+            `📝 Skill draft captured: \`${learningResult.skillDraft.slug}\``,
+            '',
+            `View: /draft ${learningResult.skillDraft.slug}`,
+            `Save: /promote ${learningResult.skillDraft.slug}`,
+            `Drop: /discard ${learningResult.skillDraft.slug}`,
+          ].join('\n'),
+        });
+      } catch {
+        // Non-fatal — the draft is on disk regardless.
+      }
+    }
   });
 
   let shutdownPromise: Promise<void> | null = null;

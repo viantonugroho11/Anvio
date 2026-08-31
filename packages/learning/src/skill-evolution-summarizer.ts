@@ -45,14 +45,24 @@ export class SkillEvolutionSummarizer {
     private readonly model?: string,
   ) {}
 
-  async fromSession(input: {
-    sessionId: string;
-    agentId: string;
-    messages: ChatMessage[];
-  }): Promise<SkillEvolutionProposal | null> {
+  async fromSession(
+    input: {
+      sessionId: string;
+      agentId: string;
+      messages: ChatMessage[];
+    },
+    options: { force?: boolean } = {},
+  ): Promise<SkillEvolutionProposal | null> {
     const lastUser = [...input.messages].reverse().find((m) => m.role === 'user');
     const lastAssistant = [...input.messages].reverse().find((m) => m.role === 'assistant');
-    if (!lastUser || !lastAssistant || lastUser.content.length < 40) {
+    // The 40-char / assistant-present gate protects the auto path from
+    // trivial DMs. The force path (issue #56 (e)) bypasses it — the human
+    // explicitly asked for a draft, and the rule-based fallback below
+    // still produces something usable even for short sessions.
+    if (!options.force && (!lastUser || !lastAssistant || lastUser.content.length < 40)) {
+      return null;
+    }
+    if (options.force && !lastUser) {
       return null;
     }
 
@@ -66,16 +76,19 @@ export class SkillEvolutionSummarizer {
         'Conversation excerpt:',
         excerpt,
       ].join('\n'),
+      force: options.force,
     });
     if (llm === null) return null;
     if (llm) return llm;
 
     return {
-      topic: lastUser.content.slice(0, 80).replace(/\s+/g, ' ').trim(),
-      instructions: `Apply this learned pattern when handling similar requests:\n${lastAssistant.content.slice(0, 500)}`,
+      topic: lastUser!.content.slice(0, 80).replace(/\s+/g, ' ').trim(),
+      instructions: `Apply this learned pattern when handling similar requests:\n${(lastAssistant?.content ?? lastUser!.content).slice(0, 500)}`,
       description: `Learned from session ${input.sessionId}`,
-      sourceExcerpt: lastUser.content.slice(0, 300),
-      tags: ['draft', 'learning-loop'],
+      sourceExcerpt: lastUser!.content.slice(0, 300),
+      tags: options.force
+        ? ['draft', 'learning-loop', 'captured']
+        : ['draft', 'learning-loop'],
     };
   }
 
@@ -113,6 +126,7 @@ export class SkillEvolutionSummarizer {
   private async summarizeWithLlm(input: {
     systemPrompt: string;
     userContent: string;
+    force?: boolean;
   }): Promise<SkillEvolutionProposal | null | undefined> {
     if (!isUsableModelProvider(this.modelProvider)) return undefined;
 
@@ -126,17 +140,25 @@ export class SkillEvolutionSummarizer {
       });
 
       const parsed = parseLlmJson<LlmSkillProposal>(response.content);
-      if (parsed?.shouldCreate === false) return null;
-      if (!parsed?.shouldCreate || !parsed.topic || !parsed.instructions) {
+      // Force path (issue #56 (e)): ignore shouldCreate=false so the human
+      // asking for a capture always gets one when the model can extract
+      // *some* topic + instructions.
+      if (!input.force && parsed?.shouldCreate === false) return null;
+      if (!input.force && (!parsed?.shouldCreate || !parsed.topic || !parsed.instructions)) {
+        return undefined;
+      }
+      if (input.force && (!parsed?.topic || !parsed?.instructions)) {
         return undefined;
       }
 
+      const topic = parsed!.topic!.trim();
+      const instructions = parsed!.instructions!.trim();
       return {
-        topic: parsed.topic.trim(),
-        instructions: parsed.instructions.trim(),
-        description: parsed.description?.trim() ?? parsed.topic.trim(),
+        topic,
+        instructions,
+        description: parsed!.description?.trim() ?? topic,
         sourceExcerpt: input.userContent.slice(0, 300),
-        tags: parsed.tags?.length ? parsed.tags : ['draft', 'learning-loop'],
+        tags: parsed!.tags?.length ? parsed!.tags : ['draft', 'learning-loop'],
       };
     } catch {
       return undefined;

@@ -60,6 +60,14 @@ export class LearningEngine {
         skipped: 'soul evolution disabled',
       };
     }
+    // captureOn governs *automatic* drafting (issue #56 (f)). `always` is
+    // the previous behavior. `mention` only drafts when the session
+    // contains a `/capture` marker. `manual` never drafts here — only the
+    // explicit captureFromSession path produces a draft.
+    const captureOn = evolution?.captureOn ?? 'always';
+    const mentionedCapture = hasCaptureMention(input.messages);
+    const shouldAutoDraft =
+      captureOn === 'always' || (captureOn === 'mention' && mentionedCapture);
 
     const memoryNudge = await this.nudge.nudgeFromSession(
       input.sessionId,
@@ -74,11 +82,13 @@ export class LearningEngine {
     );
 
     let skillDraft: SessionLearningResult['skillDraft'];
-    const proposal = await this.skillSummarizer.fromSession({
-      sessionId: input.sessionId,
-      agentId: input.agentId,
-      messages: input.messages,
-    });
+    const proposal = shouldAutoDraft
+      ? await this.skillSummarizer.fromSession({
+          sessionId: input.sessionId,
+          agentId: input.agentId,
+          messages: input.messages,
+        })
+      : null;
 
     if (proposal) {
       const draftInput: SkillDraftInput = {
@@ -123,8 +133,8 @@ export class LearningEngine {
     if (!draft) return {};
 
     if (evolution?.requireApproval === false || evolution?.requireApproval === undefined) {
-      const promotedPath = await this.promoteDraft(draft.slug, this.workspaceRoot);
-      return { draft, promotedPath };
+      const result = await this.promoteDraft(draft.slug, this.workspaceRoot);
+      return { draft, promotedPath: result.path };
     }
 
     return { draft };
@@ -157,8 +167,87 @@ export class LearningEngine {
     return this.skillWriter.listDrafts();
   }
 
-  promoteDraft(slug: string, workspaceRoot: string): Promise<string> {
-    return this.skillWriter.promoteDraft(slug, `${workspaceRoot}/skills`);
+  getDraft(slug: string) {
+    return this.skillWriter.getDraft(slug);
+  }
+
+  discardDraft(slug: string) {
+    return this.skillWriter.discardDraft(slug);
+  }
+
+  pruneDrafts(olderThanMs: number) {
+    return this.skillWriter.pruneDrafts(olderThanMs);
+  }
+
+  /**
+   * Promote a draft to workspace/skills. Returns { path, alreadyExisted,
+   * diff? }. When the target already exists and differs, the write is
+   * refused unless `force: true` and `diff` carries the change so the
+   * caller can render it (issue #56 (nice-to-have)).
+   */
+  promoteDraft(
+    slug: string,
+    workspaceRoot: string,
+    options: { force?: boolean } = {},
+  ): Promise<{ path: string; alreadyExisted: boolean; diff?: string }> {
+    return this.skillWriter.promoteDraft(slug, `${workspaceRoot}/skills`, options);
+  }
+
+  /**
+   * Force-extract a draft from a specific session, bypassing
+   * `SkillEvolutionSummarizer.shouldCreate`. This is the "human wanted it
+   * regardless" path from issue #56 (e) — surfaced as
+   * `anvio learning promote-session <sid> --force` and the `/capture`
+   * slash command. Returns null when the LLM cannot even scrape a topic.
+   */
+  async captureFromSession(input: {
+    sessionId: string;
+    userId: string;
+    agentId: string;
+    messages: ChatMessage[];
+    channel?: string;
+    force?: boolean;
+  }): Promise<{ path: string; slug: string } | null> {
+    const proposal = await this.skillSummarizer.fromSession(
+      { sessionId: input.sessionId, agentId: input.agentId, messages: input.messages },
+      { force: input.force ?? true },
+    );
+    if (!proposal) return null;
+    const draft = await this.skillWriter.proposeDraft({
+      slug: input.agentId.replace(/[^a-z0-9-]/gi, '-'),
+      sessionId: input.sessionId,
+      agentId: input.agentId,
+      topic: proposal.topic,
+      instructions: proposal.instructions,
+      sourceExcerpt: proposal.sourceExcerpt,
+      description: proposal.description,
+      tags: proposal.tags,
+      sourceChannel: input.channel,
+      sourceUserId: input.userId,
+      sourceMessages: input.messages.length,
+    });
+    return { path: draft.path, slug: draft.definition.metadata.slug };
+  }
+
+  /**
+   * Extract a draft from an offline transcript that never ran inside
+   * Anvio (issue #56 nice-to-have). Same shape as captureFromSession
+   * with a synthetic session id so lineage still resolves.
+   */
+  async captureFromTranscript(input: {
+    agentId: string;
+    messages: ChatMessage[];
+    sourceExcerpt?: string;
+    sessionId?: string;
+  }): Promise<{ path: string; slug: string } | null> {
+    const sessionId = input.sessionId ?? `offline-${Date.now()}`;
+    return this.captureFromSession({
+      sessionId,
+      userId: 'offline',
+      agentId: input.agentId,
+      messages: input.messages,
+      force: true,
+    });
   }
 
   async summarizeStaleSessions(
@@ -167,6 +256,15 @@ export class LearningEngine {
     const job = new SessionSummaryJob(this.memory, this.summarizerOptions);
     return job.summarizeStaleSessions(sessions);
   }
+}
+
+/**
+ * True when any message body contains a `/capture` marker (whitespace-
+ * separated). Used by the `captureOn: mention` gate — the user asked for
+ * this session to be extracted, don't second-guess.
+ */
+export function hasCaptureMention(messages: ChatMessage[]): boolean {
+  return messages.some((m) => /(^|\s)\/capture(\s|$)/i.test(m.content ?? ''));
 }
 
 export { SkillEvolutionWriter } from './skill-evolution.js';

@@ -172,7 +172,45 @@ Or from any channel with the shared slash-command router (v2.1.0, ADR-0023):
 
 ```
 /drafts               # list pending drafts
-/promote <slug>       # promote a draft
+/draft <slug>         # show a draft's frontmatter + body
+/promote <slug>       # promote a draft (add --force to overwrite)
+/discard <slug>       # soft-delete (moves to _drafts/_discarded/)
+/capture              # force-extract a draft from the current session
 ```
+
+When the learning loop produces a draft during a chat session, the bot now announces it in the channel with the `/draft`, `/promote`, and `/discard` commands prefilled — no CLI trip required.
+
+### Force capture and offline transcripts
+
+`SkillEvolutionSummarizer.shouldCreate` returning `false` used to drop the session silently. `--force` on the CLI and `/capture` in chat bypass that gate:
+
+```bash
+anvio learning promote-session <sid> --force
+anvio learning capture --messages transcript.json --agent tech-lead
+```
+
+The transcript is an array of `{ role, content }` — paste from Slack, an issue thread, or a saved conversation and extract a skill without a running Anvio session.
+
+### Capture-on modes
+
+`soul.spec.evolution.captureOn` governs the auto-draft path:
+
+| Mode | Behavior |
+|---|---|
+| `always` (default) | Draft whenever `SkillEvolutionSummarizer.shouldCreate` returns true (previous behavior) |
+| `mention` | Only draft when the session contains a `/capture` marker |
+| `manual` | Never draft automatically; only `--force` / `/capture` produce drafts |
+
+`allowAutoUpdate: false` still wins — a soul with evolution off never drafts, regardless of `captureOn`.
+
+### Draft housekeeping
+
+```bash
+anvio learning drafts prune --older-than 7d      # or 24h / 60m / 3600s
+```
+
+### Diff-mode promotion
+
+When the promoted skill would overwrite an existing file with different content, `promote` refuses and prints the diff. Re-run with `--force` to apply.
 
 See `docs/adr/0023-workspace-slash-commands.md` for the cross-channel router shape.

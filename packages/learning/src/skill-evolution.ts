@@ -79,7 +79,85 @@ export class SkillEvolutionWriter {
     }
   }
 
-  async promoteDraft(slug: string, targetDir: string): Promise<string> {
+  /**
+   * Read a single draft by slug (with or without extension). Returns the
+   * raw file contents so the caller can render frontmatter and body as it
+   * likes — a chat surface prints markdown, the CLI pipes to less.
+   */
+  async getDraft(slug: string): Promise<{ path: string; content: string } | null> {
+    for (const name of this.candidates(slug)) {
+      const p = path.join(this.draftsDir, name);
+      try {
+        const content = await fs.readFile(p, 'utf-8');
+        return { path: p, content };
+      } catch {
+        /* try next */
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Soft-delete: move the draft to `_drafts/_discarded/` rather than
+   * unlinking, so an accidental `/discard` is recoverable. The subfolder
+   * is excluded from `listDrafts()` by extension filter — no additional
+   * bookkeeping required.
+   */
+  async discardDraft(slug: string): Promise<{ path: string } | null> {
+    for (const name of this.candidates(slug)) {
+      const src = path.join(this.draftsDir, name);
+      try {
+        await fs.access(src);
+        const trash = path.join(this.draftsDir, '_discarded');
+        await fs.mkdir(trash, { recursive: true });
+        const dest = path.join(trash, name);
+        await fs.rename(src, dest);
+        return { path: dest };
+      } catch {
+        /* try next */
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Remove drafts older than `olderThanMs`. Called by
+   * `anvio learning drafts prune`. Returns the removed file paths so a
+   * caller can echo them.
+   */
+  async pruneDrafts(olderThanMs: number, now: number = Date.now()): Promise<string[]> {
+    const removed: string[] = [];
+    let entries: string[];
+    try {
+      entries = await fs.readdir(this.draftsDir);
+    } catch {
+      return removed;
+    }
+    for (const name of entries) {
+      if (!name.endsWith('.md') && !name.endsWith('.yaml') && !name.endsWith('.yml')) continue;
+      const filePath = path.join(this.draftsDir, name);
+      try {
+        const stat = await fs.stat(filePath);
+        if (now - stat.mtimeMs > olderThanMs) {
+          await fs.unlink(filePath);
+          removed.push(filePath);
+        }
+      } catch {
+        /* skip */
+      }
+    }
+    return removed;
+  }
+
+  private candidates(slug: string): string[] {
+    return [slug, `${slug}.md`, `${slug}.yaml`, `${slug}.yml`];
+  }
+
+  async promoteDraft(
+    slug: string,
+    targetDir: string,
+    options: { force?: boolean } = {},
+  ): Promise<{ path: string; alreadyExisted: boolean; diff?: string }> {
     const candidates = [
       slug,
       `${slug}.md`,
@@ -101,19 +179,55 @@ export class SkillEvolutionWriter {
         const dest = path.join(targetDir, `${base}.md`);
         await fs.mkdir(targetDir, { recursive: true });
         const raw = await fs.readFile(src, 'utf-8');
-        if (name.endsWith('.md')) {
-          await fs.writeFile(dest, raw, 'utf-8');
-        } else {
-          const def = parseSkillDefinition(parseYaml(raw));
-          await fs.writeFile(dest, renderSkillMd(def), 'utf-8');
+        const rendered = name.endsWith('.md')
+          ? raw
+          : renderSkillMd(parseSkillDefinition(parseYaml(raw)));
+
+        // Diff-mode guard: refuse to overwrite an existing skill unless
+        // the caller passed `force: true`. Return the diff so the caller
+        // can surface it (issue #56, nice-to-have).
+        let existingContent: string | null = null;
+        try {
+          existingContent = await fs.readFile(dest, 'utf-8');
+        } catch {
+          existingContent = null;
         }
-        return dest;
+        if (existingContent !== null && existingContent !== rendered && !options.force) {
+          return {
+            path: dest,
+            alreadyExisted: true,
+            diff: unifiedDiff(existingContent, rendered),
+          };
+        }
+        await fs.writeFile(dest, rendered, 'utf-8');
+        return { path: dest, alreadyExisted: existingContent !== null };
       } catch {
         // try next candidate
       }
     }
     throw new Error(`Draft not found: ${slug}`);
   }
+}
+
+/**
+ * Small line-oriented diff for the "existing skill would change" case in
+ * promoteDraft. Not a full unified-diff implementation — no hunk context,
+ * no color — just enough for a chat surface or terminal to show the
+ * reviewer what would change before they re-run with --force.
+ */
+function unifiedDiff(before: string, after: string): string {
+  const beforeLines = before.split('\n');
+  const afterLines = after.split('\n');
+  const lines: string[] = [];
+  const max = Math.max(beforeLines.length, afterLines.length);
+  for (let i = 0; i < max; i++) {
+    const a = beforeLines[i];
+    const b = afterLines[i];
+    if (a === b) continue;
+    if (a !== undefined) lines.push(`- ${a}`);
+    if (b !== undefined) lines.push(`+ ${b}`);
+  }
+  return lines.join('\n');
 }
 
 function renderSkillMd(definition: SkillDefinition, lineage?: DraftLineage): string {

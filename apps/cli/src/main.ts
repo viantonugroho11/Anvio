@@ -669,7 +669,7 @@ async function cmdSoul(sub: string[]) {
           longTermGoals: [],
           behavioralTendencies: [],
           relationshipMemory: { provider: 'filesystem', path: 'relationship' },
-          evolution: { allowAutoUpdate: true, requireApproval: false },
+          evolution: { allowAutoUpdate: true, requireApproval: false, captureOn: 'always' },
         },
       };
 
@@ -1962,14 +1962,19 @@ async function cmdSkill(sub: string[]) {
       break;
     }
     case 'drafts':
+    case 'draft':
+    case 'discard':
     case 'promote':
+    case 'promote-session':
+    case 'capture':
       // Alias into cmdLearning so users find the learning-loop surface
-      // where they look for it (#56 (a)). `anvio learning drafts/promote`
-      // still works.
+      // where they look for it (#56 (a)). `anvio learning …` still works.
       await cmdLearning([action, ...sub.slice(1)]);
       break;
     default:
-      console.error('Usage: anvio skill catalog|install|validate|upgrade|test|drafts|promote');
+      console.error(
+        'Usage: anvio skill catalog|install|validate|upgrade|test|drafts|draft|discard|promote|promote-session|capture',
+      );
       process.exit(1);
   }
 }
@@ -2048,18 +2053,117 @@ async function cmdLearning(sub: string[]) {
 
   switch (action) {
     case 'drafts': {
+      if (sub[1] === 'prune') {
+        const olderIdx = sub.indexOf('--older-than');
+        const spec = olderIdx >= 0 ? sub[olderIdx + 1] ?? '' : '7d';
+        const ms = parseDurationMs(spec);
+        if (ms == null) {
+          console.error('Usage: anvio learning drafts prune [--older-than 7d|24h|60m]');
+          process.exit(1);
+        }
+        const removed = await engine.pruneDrafts(ms);
+        console.log(removed.length ? `Pruned:\n${removed.join('\n')}` : 'Nothing to prune.');
+        break;
+      }
       const drafts = await engine.listDrafts();
       console.log(drafts.length ? drafts.join('\n') : 'No skill drafts in workspace/skills/_drafts/');
+      break;
+    }
+    case 'draft': {
+      const slug = sub[1];
+      if (!slug) {
+        console.error('Usage: anvio learning draft <slug>');
+        process.exit(1);
+      }
+      const draft = await engine.getDraft(slug);
+      if (!draft) {
+        console.error(`Draft not found: ${slug}`);
+        process.exit(1);
+      }
+      console.log(draft.content);
+      break;
+    }
+    case 'discard': {
+      const slug = sub[1];
+      if (!slug) {
+        console.error('Usage: anvio learning discard <slug>');
+        process.exit(1);
+      }
+      const result = await engine.discardDraft(slug);
+      if (!result) {
+        console.error(`Draft not found: ${slug}`);
+        process.exit(1);
+      }
+      console.log(`Discarded → ${result.path}`);
       break;
     }
     case 'promote': {
       const slug = sub[1];
       if (!slug) {
-        console.error('Usage: anvio learning promote <draft-slug>');
+        console.error('Usage: anvio learning promote <draft-slug> [--force]');
         process.exit(1);
       }
-      const dest = await engine.promoteDraft(slug, wsPath);
-      console.log(`Promoted to ${dest}`);
+      const force = sub.includes('--force');
+      const result = await engine.promoteDraft(slug, wsPath, { force });
+      if (result.diff) {
+        console.log(`Refusing to overwrite ${result.path} — re-run with --force to apply.`);
+        console.log('');
+        console.log(result.diff);
+        process.exit(1);
+      }
+      const verb = result.alreadyExisted ? 'Overwrote' : 'Promoted';
+      console.log(`${verb} to ${result.path}`);
+      break;
+    }
+    case 'promote-session': {
+      const sid = sub[1];
+      if (!sid) {
+        console.error('Usage: anvio learning promote-session <sessionId> [--force]');
+        process.exit(1);
+      }
+      const force = sub.includes('--force');
+      const stored = await workspace.sessions.get(sid);
+      if (!stored) {
+        console.error(`Session not found: ${sid}`);
+        process.exit(1);
+      }
+      const draft = await engine.captureFromSession({
+        sessionId: stored.id,
+        userId: stored.userId,
+        agentId: stored.agentName,
+        messages: stored.messages,
+        channel: stored.channel,
+        force,
+      });
+      if (!draft) {
+        console.error('Nothing to capture — the session is too short.');
+        process.exit(1);
+      }
+      console.log(`Captured draft: ${draft.slug}\n  ${draft.path}`);
+      break;
+    }
+    case 'capture': {
+      const msgsIdx = sub.indexOf('--messages');
+      const agentIdx = sub.indexOf('--agent');
+      const agentId = agentIdx >= 0 ? sub[agentIdx + 1] : undefined;
+      const messagesPath = msgsIdx >= 0 ? sub[msgsIdx + 1] : undefined;
+      if (!messagesPath || !agentId) {
+        console.error(
+          'Usage: anvio learning capture --messages <path.json> --agent <slug>',
+        );
+        process.exit(1);
+      }
+      const raw = await fs.readFile(path.resolve(messagesPath), 'utf-8');
+      const messages = JSON.parse(raw) as Array<{ role: string; content: string }>;
+      const draft = await engine.captureFromTranscript({
+        agentId,
+        messages: messages as never,
+      });
+      if (!draft) {
+        console.error('Nothing to capture from the supplied transcript.');
+        process.exit(1);
+      }
+      console.log(`Captured draft: ${draft.slug}\n  ${draft.path}`);
       break;
     }
     case 'summarize-sessions': {
@@ -2076,9 +2180,30 @@ async function cmdLearning(sub: string[]) {
       break;
     }
     default:
-      console.error('Usage: anvio learning drafts|promote|summarize-sessions');
+      console.error(
+        'Usage: anvio learning drafts [prune]|draft <slug>|discard <slug>|promote <slug> [--force]|promote-session <sid> [--force]|capture --messages <path> --agent <slug>|summarize-sessions',
+      );
       process.exit(1);
   }
+}
+
+/**
+ * Parse durations like `7d`, `24h`, `60m`, `3600s` into milliseconds.
+ * Returns null when the input doesn't match, so the CLI can print usage
+ * rather than pruning against `NaN`.
+ */
+function parseDurationMs(spec: string): number | null {
+  const match = /^(\d+)([smhd])$/.exec(spec);
+  if (!match) return null;
+  const n = Number(match[1]);
+  const unit = match[2];
+  switch (unit) {
+    case 's': return n * 1000;
+    case 'm': return n * 60_000;
+    case 'h': return n * 3_600_000;
+    case 'd': return n * 86_400_000;
+  }
+  return null;
 }
 
 async function cmdWorkflow(sub: string[]) {
