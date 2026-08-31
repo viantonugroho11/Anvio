@@ -54,6 +54,15 @@ export type { PlatformContext } from './platform-context.js';
 export interface PlatformOptions {
   workspacePath?: string;
   anthropicApiKey?: string;
+  /**
+   * When false, channel adapters are registered (so outbound sendMessage
+   * still works) but no inbound polling / listener is started. Set false
+   * for short-lived callers like `anvio run` — a second poller would race
+   * the gateway for the same Telegram updates and silently drop them
+   * (issue #48). Defaults to true for backward compatibility with the
+   * gateway/worker/api entrypoints, which do want inbound.
+   */
+  startChannels?: boolean;
 }
 
 export async function createPlatform(options: PlatformOptions = {}): Promise<PlatformContext> {
@@ -399,7 +408,10 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     spec.runtime.default,
   );
 
-  await channelHub.startAll();
+  const startChannels = options.startChannels ?? true;
+  if (startChannels) {
+    await channelHub.startAll();
+  }
 
   const catalog = createCatalogRegistry(workspacePath, repoRoot);
   const workflowRegistry = createWorkflowRegistry(workspacePath, repoRoot);
@@ -707,6 +719,24 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     });
   });
 
+  let shutdownPromise: Promise<void> | null = null;
+  const shutdown = () => {
+    if (shutdownPromise) return shutdownPromise;
+    shutdownPromise = (async () => {
+      const attempts: Array<Promise<unknown>> = [
+        channelHub.stopAll(),
+        Promise.resolve(automationEngine.stop()),
+        hookEngine.stop(),
+      ];
+      const bus = eventBus as EventBusLikeWithClose;
+      if (typeof bus.close === 'function') {
+        attempts.push(bus.close());
+      }
+      await Promise.allSettled(attempts);
+    })();
+    return shutdownPromise;
+  };
+
   return {
     workspace,
     auth,
@@ -726,7 +756,12 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     learningEngine,
     toolGateway,
     mcpFirstCallGate,
+    shutdown,
   };
+}
+
+interface EventBusLikeWithClose {
+  close?: () => Promise<void>;
 }
 
 function createMockModelProvider(): ModelProvider {

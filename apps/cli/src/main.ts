@@ -283,7 +283,33 @@ async function cmdAgents(sub: string[]) {
 
 async function getPlatform() {
   const wsPath = resolveWorkspacePath();
-  return createPlatform({ workspacePath: wsPath });
+  // One-shot CLI commands must not start inbound channel pollers — a
+  // long-poll against Telegram from `anvio run` races the gateway for the
+  // same getUpdates and silently drops messages (issue #48). The gateway
+  // and worker entrypoints opt back in via their own createPlatform calls.
+  const platform = await createPlatform({ workspacePath: wsPath, startChannels: false });
+  registerShutdownOnExit(platform.shutdown);
+  return platform;
+}
+
+let shutdownRegistered = false;
+function registerShutdownOnExit(shutdown: () => Promise<void>): void {
+  if (shutdownRegistered) return;
+  shutdownRegistered = true;
+  const run = () => {
+    void shutdown().catch(() => {
+      /* ignore */
+    });
+  };
+  process.on('beforeExit', run);
+  process.on('SIGINT', () => {
+    run();
+    process.exit(130);
+  });
+  process.on('SIGTERM', () => {
+    run();
+    process.exit(143);
+  });
 }
 
 async function cmdRun(sub: string[]) {

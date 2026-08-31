@@ -37,4 +37,15 @@ export interface PlatformContext {
   learningEngine: LearningEngine;
   toolGateway: ToolGateway;
   mcpFirstCallGate: McpFirstCallGate;
+  /**
+   * Tear down every background task started by createPlatform — channel
+   * pollers, cron/automation timers, hook watchers, event-bus connections.
+   * Short-lived callers (`anvio run`, `anvio chat`) must call this before
+   * exit; otherwise a stale Telegram poller keeps running and quietly eats
+   * inbound updates that were meant for the gateway (issue #48).
+   *
+   * Safe to call more than once. Errors from individual subsystems are
+   * swallowed so a broken adapter cannot block teardown of the rest.
+   */
+  shutdown: () => Promise<void>;
 }
