@@ -17,6 +17,9 @@ import type {
   StoredSession,
 } from '@anvio/core';
 import type { LearningEngine } from '@anvio/learning';
+import type { GoalEngine } from '@anvio/core';
+import type { SoulService } from '@anvio/souls';
+import type { IntegrationRegistry, McpBridge } from '@anvio/integrations';
 
 export interface SlashCommandFactoryOptions {
   loader: ConfigLoader;
@@ -24,6 +27,16 @@ export interface SlashCommandFactoryOptions {
   defaultAgent: string;
   learningEngine?: LearningEngine;
   workspacePath: string;
+  soulService?: SoulService;
+  /**
+   * Getter (not the engine itself) because platform's goal engine is
+   * constructed after the slash-command registry — the workflow executor
+   * and the goal engine reference each other in a cycle. The getter is
+   * invoked at command-dispatch time, well after wiring.
+   */
+  goalEngine?: () => GoalEngine | undefined;
+  mcpBridge?: McpBridge;
+  integrationRegistry?: IntegrationRegistry;
 }
 
 /**
@@ -39,15 +52,21 @@ export function createSlashCommandRegistry(
     commands.set(cmd.name.toLowerCase(), cmd);
   };
 
+  const helpHandler: SlashCommand['handler'] = async () => ({
+    swallow: true,
+    reply: [...commands.values()].map((c) => `/${c.name} — ${c.description}`).join('\n'),
+  });
   register({
     name: 'help',
     description: 'Show available commands',
-    handler: async () => ({
-      swallow: true,
-      reply: [...commands.values()]
-        .map((c) => `/${c.name} — ${c.description}`)
-        .join('\n'),
-    }),
+    handler: helpHandler,
+  });
+  // Openclaw/Hermes call this /commands. Register both so the picker
+  // shows either name depending on the user's muscle memory.
+  register({
+    name: 'commands',
+    description: 'Show available commands (alias for /help)',
+    handler: helpHandler,
   });
 
   register({
@@ -147,6 +166,147 @@ export function createSlashCommandRegistry(
       updateSession: { reset: true },
     }),
   });
+
+  if (options.soulService) {
+    const souls = options.soulService;
+    register({
+      name: 'souls',
+      description: 'List souls in this workspace',
+      handler: async () => {
+        const slugs = await souls.list();
+        if (slugs.length === 0) {
+          return { swallow: true, reply: 'No souls in workspace.' };
+        }
+        const lines = await Promise.all(
+          slugs.map(async (slug) => {
+            try {
+              const soul = await souls.get(slug);
+              return `  ${slug} — ${soul.spec.name}`;
+            } catch {
+              return `  ${slug}`;
+            }
+          }),
+        );
+        return { swallow: true, reply: lines.join('\n') };
+      },
+    });
+    register({
+      name: 'soul',
+      description: 'Show a soul: /soul <slug>',
+      handler: async (ctx) => {
+        const slug = ctx.argsList[0];
+        if (!slug) return { swallow: true, reply: 'Usage: /soul <slug>' };
+        try {
+          const soul = await souls.get(slug);
+          const evolution = soul.spec.evolution;
+          const identity = soul.spec.identity;
+          return {
+            swallow: true,
+            reply: [
+              `${slug} — ${soul.spec.name}`,
+              identity?.role ? `role: ${identity.role}` : undefined,
+              identity?.description ? `description: ${identity.description}` : undefined,
+              soul.spec.values.length
+                ? `values: ${soul.spec.values.join(', ')}`
+                : undefined,
+              `evolution: allowAutoUpdate=${evolution.allowAutoUpdate} captureOn=${evolution.captureOn}`,
+            ]
+              .filter((line): line is string => Boolean(line))
+              .join('\n'),
+          };
+        } catch (error) {
+          return {
+            swallow: true,
+            reply: `Soul not found: ${slug} (${error instanceof Error ? error.message : String(error)})`,
+          };
+        }
+      },
+    });
+  }
+
+  if (options.goalEngine) {
+    const goalEngineRef = options.goalEngine;
+    register({
+      name: 'goals',
+      description: 'List goals: /goals [--status active|completed|paused]',
+      handler: async (ctx) => {
+        const engine = goalEngineRef();
+        if (!engine) {
+          return { swallow: true, reply: 'Goal engine not available.' };
+        }
+        const statusIdx = ctx.argsList.indexOf('--status');
+        const status =
+          statusIdx >= 0 ? (ctx.argsList[statusIdx + 1] as 'active' | 'completed' | 'paused' | undefined) : undefined;
+        const items = await engine.list(status);
+        if (items.length === 0) {
+          return { swallow: true, reply: 'No goals.' };
+        }
+        const lines = items.map(
+          (g: { metadata: { slug: string }; spec: { status: string; priority: string; title: string; progress: { percent: number } } }) =>
+            `  ${g.metadata.slug} [${g.spec.status}] ${g.spec.priority} — ${g.spec.title} (${g.spec.progress.percent}%)`,
+        );
+        return { swallow: true, reply: lines.join('\n') };
+      },
+    });
+    register({
+      name: 'goal',
+      description: 'Show a goal: /goal <slug>',
+      handler: async (ctx) => {
+        const slug = ctx.argsList[0];
+        if (!slug) return { swallow: true, reply: 'Usage: /goal <slug>' };
+        const engine = goalEngineRef();
+        if (!engine) return { swallow: true, reply: 'Goal engine not available.' };
+        const goal = await engine.get(slug);
+        if (!goal) return { swallow: true, reply: `Goal not found: ${slug}` };
+        return {
+          swallow: true,
+          reply: [
+            `${slug} — ${goal.spec.title}`,
+            `status: ${goal.spec.status} · priority: ${goal.spec.priority}`,
+            `progress: ${goal.spec.progress.percent}%`,
+            goal.spec.description ? `description: ${goal.spec.description}` : undefined,
+          ]
+            .filter((line): line is string => Boolean(line))
+            .join('\n'),
+        };
+      },
+    });
+  }
+
+  if (options.integrationRegistry) {
+    const integrations = options.integrationRegistry;
+    const bridge = options.mcpBridge;
+    register({
+      name: 'mcp',
+      description: 'MCP servers: /mcp [list|health]',
+      handler: async (ctx) => {
+        const sub = ctx.argsList[0] ?? 'list';
+        if (sub === 'list' || sub === undefined) {
+          const entries = await integrations.list();
+          if (entries.length === 0) {
+            return { swallow: true, reply: 'No MCP servers configured.' };
+          }
+          return {
+            swallow: true,
+            reply: entries
+              .map(
+                (e) =>
+                  `  ${e.id} [${e.enabled ? 'enabled' : 'disabled'}] ${e.server.command}`,
+              )
+              .join('\n'),
+          };
+        }
+        if (sub === 'health') {
+          if (!bridge) {
+            return { swallow: true, reply: 'MCP bridge not available.' };
+          }
+          const report = await bridge.getHealthReport();
+          return { swallow: true, reply: JSON.stringify(report, null, 2) };
+        }
+        return { swallow: true, reply: 'Usage: /mcp [list|health]' };
+      },
+    });
+  }
 
   if (options.learningEngine) {
     const learning = options.learningEngine;
@@ -255,6 +415,9 @@ export function createSlashCommandRegistry(
   return {
     list(): SlashCommand[] {
       return [...commands.values()];
+    },
+    register(cmd: SlashCommand): void {
+      commands.set(cmd.name.toLowerCase(), cmd);
     },
     async dispatch(input, ctx): Promise<SlashCommandResult | null> {
       if (!input.startsWith('/')) return null;

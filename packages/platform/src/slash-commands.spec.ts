@@ -153,6 +153,34 @@ describe('SlashCommandRegistry', () => {
     expect(r?.swallow).toBe(true);
   });
 
+  it('/commands is an alias for /help', async () => {
+    const reg = createSlashCommandRegistry({
+      loader: fakeLoader(['a']),
+      sessions: fakeSessions(),
+      defaultAgent: 'a',
+      workspacePath: '/tmp',
+    });
+    const help = await reg.dispatch('/help', baseCtx);
+    const cmds = await reg.dispatch('/commands', baseCtx);
+    expect(cmds?.reply).toBe(help?.reply);
+  });
+
+  it('registry exposes register() so late deps can attach commands', async () => {
+    const reg = createSlashCommandRegistry({
+      loader: fakeLoader(['a']),
+      sessions: fakeSessions(),
+      defaultAgent: 'a',
+      workspacePath: '/tmp',
+    });
+    reg.register({
+      name: 'extra',
+      description: 'late-added',
+      handler: async () => ({ swallow: true, reply: 'here' }),
+    });
+    const result = await reg.dispatch('/extra', baseCtx);
+    expect(result?.reply).toBe('here');
+  });
+
   it('non-slash input dispatches to null', async () => {
     const reg = createSlashCommandRegistry({
       loader: fakeLoader(['a']),

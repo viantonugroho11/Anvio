@@ -333,14 +333,21 @@ Built-in commands, generated from workspace content at platform boot:
 
 | Command | Source |
 |---|---|
-| `/help` | registry itself |
+| `/help`, `/commands` | registry itself (Hermes/openclaw naming parity) |
 | `/whoami` | active session + agent |
 | `/agents` | `workspace/agents/*.md` |
 | `/agent <slug>` | validates against catalog, updates session `agentName` |
 | `/skills` | `workspace/skills/*.md` |
+| `/souls`, `/soul <slug>` | `workspace/souls/*.md` (via SoulService) |
+| `/goals [--status active\|completed\|paused]`, `/goal <slug>` | goal engine |
+| `/mcp [list\|health]` | MCP integration registry + bridge |
+| `/sessions` | recent sessions from the session store |
+| `/channels` | live channel adapter health probe |
+| `/automations` | automation/cron engine |
 | `/reset` | clears `messages` + `metadata.agentRunCheckpoint` on current session |
-| `/drafts` | `workspace/skills/_drafts/` (via LearningEngine) |
-| `/promote <slug>` | promotes a draft to `workspace/skills/` |
+| `/drafts`, `/draft <slug>`, `/promote <slug> [--force]`, `/discard <slug>`, `/capture` | learning-loop draft lifecycle (v2.1.1) |
+
+`SlashCommandRegistry` also exposes `register(command)` so late-bound subsystems (goal engine, automation, workflow executor) can attach commands after the registry has been handed to channel adapters.
 
 The Telegram adapter also syncs its `setMyCommands` picker from
 `registry.list()` at start(), so the native `/` dropdown reflects the

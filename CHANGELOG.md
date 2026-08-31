@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.2] - 2026-08-31
+
+**Slash-command coverage for the rest of the workspace.** v2.1.0 shipped the router and v2.1.1 completed the learning-loop lifecycle; this fills in the remaining workspace nouns so `/` on a chat channel reaches every subsystem the CLI already covers, matching the surface of comparable bots (Hermes, openclaw).
+
+### Added
+
+- **`/commands`** — alias for `/help` so the picker responds to whichever name the user's muscle memory picks (Hermes/openclaw parity).
+- **`/souls`, `/soul <slug>`** — list souls and show one from `workspace/souls/*.md`. `/soul` renders name, role, description, values, and the evolution config (allowAutoUpdate + captureOn).
+- **`/goals [--status active|completed|paused]`, `/goal <slug>`** — list and inspect goals. Goal engine is resolved through a getter so the registry's early binding tolerates the goal-engine ↔ workflow-executor construction cycle.
+- **`/mcp [list|health]`** — list configured MCP servers or dump the bridge's health report. Backed by the integration registry that was already loaded during boot.
+- **`/sessions`** — recent 10 sessions from the session store (id / agent / channel / status / message count).
+- **`/channels`** — live channel adapter health probe rendered as a one-line summary.
+- **`/automations`** — cron/automation engine's registered jobs with slug + enable state + trigger type.
+- **`SlashCommandRegistry.register(command)`** — the port now guarantees late registration. Splitting out `slash-commands-extras.ts` in the platform lets subsystems constructed after the initial registry (automation, sessions, channels) attach commands without a second registry factory.
+
+### Docs
+
+- `docs/10-channels.md` — Slash commands table expanded with every new command and the register() note.
+
+### Tests
+
+- `packages/platform/src/slash-commands.spec.ts` grows by 2 tests: `/commands` matches `/help`, and `register()` late attach dispatches correctly. 555 total (unchanged headline — three tests replaced two).
+
+---
+
 ## [2.1.1] - 2026-08-31
 
 **Skill-promotion surface, completed.** v2.1.0 shipped the router and the pieces of [#56](https://github.com/viantonugroho11/Anvio/issues/56) that fit inside a minor version; this closes the rest.

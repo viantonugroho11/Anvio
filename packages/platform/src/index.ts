@@ -49,6 +49,7 @@ import type { PlatformContext } from './platform-context.js';
 import { storedSessionToRuntime } from './session-runtime.js';
 import { RuntimeRoutingAgentRuntime } from './runtime-routing-agent-runtime.js';
 import { createSlashCommandRegistry } from './slash-commands.js';
+import { registerPlatformExtras } from './slash-commands-extras.js';
 
 /**
  * Channels that show a picker where /promote and /discard mean something.
@@ -173,16 +174,32 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         : undefined,
   });
 
+  // MCP registry needs to exist before the slash-command registry, because
+  // /mcp reads from it. Loading the config here is idempotent — the later
+  // call at the tool-gateway wiring will hit the already-loaded value.
+  const integrationRegistry = createIntegrationRegistry(workspace.storage);
+  const mcpConfig = await integrationRegistry.load();
+  const mcpBridge = createMcpBridge(integrationRegistry);
+
   // Slash-command registry — ADR-0023. Composed from the workspace loader
   // (agents + skills) and the learning engine's draft list, plus the
   // built-ins. Passed to createChannelHub so every adapter shares one
   // dispatcher rather than each hand-rolling its own.
+  //
+  // Goal engine is a closure getter because it is constructed further
+  // down (workflow executor + goal engine reference each other in a
+  // cycle). The registry only reads it at dispatch time.
+  let sharedGoalEngineRef: import('@anvio/core').GoalEngine | undefined;
   const slashCommands = createSlashCommandRegistry({
     loader: workspace.loader,
     sessions: workspace.sessions,
     defaultAgent,
     learningEngine,
     workspacePath,
+    soulService,
+    mcpBridge,
+    integrationRegistry,
+    goalEngine: () => sharedGoalEngineRef,
   });
 
   const { whatsapp } = createChannelHub({
@@ -310,9 +327,6 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     });
   });
 
-  const integrationRegistry = createIntegrationRegistry(workspace.storage);
-  const mcpConfig = await integrationRegistry.load();
-  const mcpBridge = createMcpBridge(integrationRegistry);
   const enabledMcpServers = (await integrationRegistry.listEnabled()).map((entry) => ({
     id: entry.id,
     allowedTools: entry.server.allowedTools,
@@ -565,6 +579,16 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   const hookEngine = createHookEngine(workspacePath, eventBus);
   await hookEngine.start();
   await automationEngine.start();
+
+  // Late-bound slash commands (ADR-0023) — automation, sessions, channels.
+  // Also assign the goal-engine closure now that sharedGoalEngine exists,
+  // so /goals + /goal find a live engine at dispatch time.
+  sharedGoalEngineRef = sharedGoalEngine;
+  registerPlatformExtras({
+    registry: slashCommands,
+    workspace,
+    automation: automationEngine,
+  });
 
   toolGateway.mergeContext({
     delegateTask: async ({ agent, task, context }) => {

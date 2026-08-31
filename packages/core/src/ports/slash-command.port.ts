@@ -56,4 +56,10 @@ export interface SlashCommandRegistry {
    * so downstream SDKs do not treat it as a CLI command, then forward).
    */
   dispatch(input: string, ctx: SlashCommandContext): Promise<SlashCommandResult | null>;
+  /**
+   * Late registration. Useful when subsystems (goal engine, automation,
+   * workflow executor) become available after the registry has been
+   * handed to channel adapters. Overwrites a same-name command.
+   */
+  register(command: SlashCommand): void;
 }
