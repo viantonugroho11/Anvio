@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import {
+  expandEnvDeep,
   parseAgentDefinition,
   parsePersonaDefinition,
   parseSkillDefinition,
@@ -81,7 +82,7 @@ export class Workspace {
     const configPath = path.join(rootDir, 'anvio.yaml');
     let config: WorkspaceDefinition;
     try {
-      const raw = parseYaml(await fs.readFile(configPath, 'utf-8'));
+      const raw = expandEnvDeep(parseYaml(await fs.readFile(configPath, 'utf-8')));
       config = parseWorkspaceDefinition(raw);
     } catch {
       config = parseWorkspaceDefinition({
@@ -417,7 +418,7 @@ export class WorkspaceConfigLoader implements ConfigLoader {
   private async readYaml(...candidates: string[]): Promise<unknown> {
     for (const key of candidates) {
       const raw = await this.storage.read(key);
-      if (raw) return parseYaml(raw);
+      if (raw) return expandEnvDeep(parseYaml(raw));
     }
     throw new Error(`Config not found: ${candidates.join(' or ')}`);
   }

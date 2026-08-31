@@ -1,5 +1,5 @@
 import type { McpConfig, McpServerSpec } from '@anvio/core';
-import { parseMcpConfig } from '@anvio/core';
+import { expandEnvDeep, parseMcpConfig } from '@anvio/core';
 import type { FilesystemStorageProvider } from '@anvio/storage';
 import { parse as parseYaml } from 'yaml';
 
@@ -25,7 +25,7 @@ export class IntegrationRegistry {
       };
       return this.config;
     }
-    this.config = parseMcpConfig(parseYaml(raw));
+    this.config = parseMcpConfig(expandEnvDeep(parseYaml(raw)));
     return this.config;
   }
 
