@@ -48,6 +48,7 @@ import { createTokenUsageAudit } from './token-usage-audit.js';
 import type { PlatformContext } from './platform-context.js';
 import { storedSessionToRuntime } from './session-runtime.js';
 import { RuntimeRoutingAgentRuntime } from './runtime-routing-agent-runtime.js';
+import { createSlashCommandRegistry } from './slash-commands.js';
 
 export type { PlatformContext } from './platform-context.js';
 
@@ -146,6 +147,26 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     },
   });
 
+  const learningModelProvider = modelProviders.getOptional('anthropic') ?? modelProviders.first();
+  const learningEngine = new LearningEngine(memoryProvider, workspacePath, {
+    modelProvider:
+      learningModelProvider && learningModelProvider.providerId !== 'mock'
+        ? learningModelProvider
+        : undefined,
+  });
+
+  // Slash-command registry — ADR-0023. Composed from the workspace loader
+  // (agents + skills) and the learning engine's draft list, plus the
+  // built-ins. Passed to createChannelHub so every adapter shares one
+  // dispatcher rather than each hand-rolling its own.
+  const slashCommands = createSlashCommandRegistry({
+    loader: workspace.loader,
+    sessions: workspace.sessions,
+    defaultAgent,
+    learningEngine,
+    workspacePath,
+  });
+
   const { whatsapp } = createChannelHub({
     hub: channelHub,
     sessions: workspace.sessions,
@@ -154,6 +175,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     defaultUserId: spec.defaultUserId,
     channels: spec.channels,
     harness,
+    slashCommands,
     onApproval: async (sessionId, requestId, approved, userId) => {
       const stored = await workspace.sessions.get(sessionId);
       const pendingToolName = stored?.pendingApproval?.toolName;
@@ -174,13 +196,6 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     },
   });
 
-  const learningModelProvider = modelProviders.getOptional('anthropic') ?? modelProviders.first();
-  const learningEngine = new LearningEngine(memoryProvider, workspacePath, {
-    modelProvider:
-      learningModelProvider && learningModelProvider.providerId !== 'mock'
-        ? learningModelProvider
-        : undefined,
-  });
   slidingWindowSummarizer = new SessionSummarizer(memoryProvider, {
     modelProvider:
       learningModelProvider && learningModelProvider.providerId !== 'mock'
@@ -716,6 +731,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       agentId: stored.agentName,
       messages: stored.messages,
       soul,
+      channel: stored.channel,
     });
   });
 
@@ -756,6 +772,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     learningEngine,
     toolGateway,
     mcpFirstCallGate,
+    slashCommands,
     shutdown,
   };
 }
@@ -788,6 +805,7 @@ function createMockModelProvider(): ModelProvider {
   };
 }
 
+export { createSlashCommandRegistry, applySlashUpdate } from './slash-commands.js';
 export { loadAgent, storedSessionToRuntime } from './session-runtime.js';
 export { registerGatewayWorker } from './gateway-worker.js';
 export {

@@ -18,6 +18,8 @@ export interface SessionLearningInput {
   agentId: string;
   messages: ChatMessage[];
   soul?: SoulDefinition;
+  /** Chat channel the session ran on. Recorded in draft frontmatter (#56). */
+  channel?: string;
 }
 
 export interface SessionLearningResult {
@@ -88,6 +90,9 @@ export class LearningEngine {
         sourceExcerpt: proposal.sourceExcerpt,
         description: proposal.description,
         tags: proposal.tags,
+        sourceChannel: input.channel,
+        sourceUserId: input.userId,
+        sourceMessages: input.messages.length,
       };
       const draft = await this.skillWriter.proposeDraft(draftInput);
       skillDraft = { path: draft.path, slug: draft.definition.metadata.slug };

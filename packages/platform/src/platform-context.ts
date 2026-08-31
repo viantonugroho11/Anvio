@@ -1,4 +1,4 @@
-import type { AgentRuntime } from '@anvio/core';
+import type { AgentRuntime, SlashCommandRegistry } from '@anvio/core';
 import type { RuntimeFactory } from '@anvio/runtimes';
 import type { CredentialPoolManager } from '@anvio/core';
 import type { AuthProvider, AgentInbox, ChannelHubPort, ModelProvider } from '@anvio/core';
@@ -37,6 +37,13 @@ export interface PlatformContext {
   learningEngine: LearningEngine;
   toolGateway: ToolGateway;
   mcpFirstCallGate: McpFirstCallGate;
+  /**
+   * Cross-channel slash-command router — see ADR-0023. Every adapter with
+   * slash-prefixed traffic dispatches through this before the harness
+   * gate. The registry is composed at platform-boot from workspace agents
+   * and skills plus built-in commands (`/help`, `/whoami`, `/reset`, …).
+   */
+  slashCommands: SlashCommandRegistry;
   /**
    * Tear down every background task started by createPlatform — channel
    * pollers, cron/automation timers, hook watchers, event-bus connections.

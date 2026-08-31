@@ -1,4 +1,11 @@
-import type { ChannelAdapter, ChannelType, InboundMessage, SessionStore } from '@anvio/core';
+import type {
+  ChannelAdapter,
+  ChannelType,
+  InboundMessage,
+  SessionStore,
+  SlashCommandRegistry,
+  StoredSession,
+} from '@anvio/core';
 import type { HarnessGatewayPort } from '@anvio/core';
 import type { EventBusLike } from '@anvio/events';
 import { EventSubjects } from '@anvio/events';
@@ -126,6 +133,17 @@ export interface CreateChannelHubOptions {
   ) => Promise<void>;
   harness?: HarnessGatewayPort;
   hub?: ChannelHub;
+  /**
+   * Cross-channel slash-command router (ADR-0023). When present, inbound
+   * messages starting with `/` are dispatched here BEFORE the harness
+   * gate. A `swallow: true` result short-circuits — no AGENT_RUN_REQUESTED
+   * is published — and its `reply` is sent back on the same channel.
+   * Adapters that also have a native picker (Telegram setMyCommands,
+   * Discord Application Commands, etc.) additionally read `registry.list()`
+   * to sync their client-side menu. Optional so tests and legacy callers
+   * remain unaffected.
+   */
+  slashCommands?: SlashCommandRegistry;
 }
 
 export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBundle {
@@ -142,6 +160,8 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
     options.sessions,
     options.defaultAgent,
     options.harness,
+    options.slashCommands,
+    hub,
   );
   const onApproval =
     options.onApproval ??
@@ -177,6 +197,7 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
         voice: mergeVoiceOptions(options.channels, options.channels.telegram.voice),
         voicePipeline,
         onApproval,
+        slashCommands: options.slashCommands,
       }),
       onInbound,
     );
@@ -409,8 +430,52 @@ function createInboundHandler(
   sessions: SessionStore,
   defaultAgent: string,
   harness?: HarnessGatewayPort,
+  slashCommands?: SlashCommandRegistry,
+  hub?: ChannelHub,
 ): (message: InboundMessage) => Promise<void> {
   return async (message) => {
+    // Slash-command router — ADR-0023. Runs BEFORE the harness gate so
+    // that a `/help` DM on a workspace whose default profile would drop
+    // it as `restricted_zone` still gets an answer. Fall-through slashes
+    // (unknown command) continue to the model; adapters may escape the
+    // leading `/` first so downstream SDKs do not treat it as a CLI
+    // slash-command (see issue #54).
+    if (slashCommands && message.content.startsWith('/')) {
+      const result = await slashCommands.dispatch(message.content, {
+        channel: message.channel,
+        sessionId: message.sessionId,
+        userId: message.userId,
+        threadId: message.channelThreadId ?? message.sessionId,
+        isDm: message.metadata?.isDm === true,
+        argsRaw: '',
+        argsList: [],
+      });
+      if (result) {
+        if (result.updateSession) {
+          const patch: Partial<StoredSession> = {};
+          if (result.updateSession.agentName) {
+            patch.agentName = result.updateSession.agentName;
+          }
+          if (result.updateSession.reset) {
+            patch.messages = [];
+            const stored = await sessions.get(message.sessionId);
+            patch.metadata = { ...stored?.metadata, agentRunCheckpoint: undefined };
+          }
+          if (Object.keys(patch).length > 0) {
+            await sessions.update(message.sessionId, patch);
+          }
+        }
+        if (result.reply && hub) {
+          await hub.sendMessage(message.channel as ChannelType, message.sessionId, {
+            sessionId: message.sessionId,
+            type: 'done',
+            content: result.reply,
+          });
+        }
+        if (result.swallow) return;
+      }
+    }
+
     if (harness?.enabled) {
       const gate = await harness.handleInbound({
         channel: message.channel,
@@ -427,11 +492,19 @@ function createInboundHandler(
     }
 
     const session = await sessions.get(message.sessionId);
+    // Escape a fall-through leading '/' — the router didn't claim it, but
+    // the Claude Agent SDK reads a leading '/' as its own CLI slash-
+    // command and returns empty content (issue #54). Zero-width space is
+    // invisible in the transcript. Belt-and-suspenders alongside the
+    // runtime-side escape in ClaudeCodeRuntime.
+    const publishedContent = message.content.startsWith('/')
+      ? `​${message.content}`
+      : message.content;
     await eventBus.publish(EventSubjects.AGENT_RUN_REQUESTED, 'anvio.agent.run.requested', {
       sessionId: message.sessionId,
       userId: message.userId,
       agentId: session?.agentName ?? defaultAgent,
-      content: message.content,
+      content: publishedContent,
       channel: message.channel,
       detached: true,
     });

@@ -319,8 +319,43 @@ Status values:
 
 Examples for future channels: Microsoft Teams, Matrix, Line, Signal, custom enterprise chat.
 
+## Slash commands (v2.1.0)
+
+Slash-prefixed messages (`/help`, `/agents`, `/skill code-review`, …) are
+routed by a **workspace-scoped `SlashCommandRegistry`** in
+`packages/platform/src/slash-commands.ts` (see ADR-0023). The router is
+consulted by `createInboundHandler` **before** the harness gate, so a DM's
+`/help` on a workspace with a restrictive default profile still gets a
+reply — the operator is entitled to a picker regardless of engagement
+policy.
+
+Built-in commands, generated from workspace content at platform boot:
+
+| Command | Source |
+|---|---|
+| `/help` | registry itself |
+| `/whoami` | active session + agent |
+| `/agents` | `workspace/agents/*.md` |
+| `/agent <slug>` | validates against catalog, updates session `agentName` |
+| `/skills` | `workspace/skills/*.md` |
+| `/reset` | clears `messages` + `metadata.agentRunCheckpoint` on current session |
+| `/drafts` | `workspace/skills/_drafts/` (via LearningEngine) |
+| `/promote <slug>` | promotes a draft to `workspace/skills/` |
+
+The Telegram adapter also syncs its `setMyCommands` picker from
+`registry.list()` at start(), so the native `/` dropdown reflects the
+workspace. Discord Application Commands and Slack `slash_commands` sync
+is deferred to a follow-up ADR (0024); the underlying router already
+handles their inbound `/foo` text.
+
+Unknown slash commands fall through to the model with a leading
+zero-width space prepended, so downstream vendors (notably the Claude
+Agent SDK) do not treat them as their own CLI directives — this defends
+against the empty-reply failure mode from issue #54.
+
 ## Related
 
 - ADR: `docs/adr/0008-channel-hub-architecture.md`
+- ADR: `docs/adr/0023-workspace-slash-commands.md`
 - Runtime: `docs/03-runtime.md`
 - Events: `docs/17-event-flows.md`

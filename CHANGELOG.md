@@ -7,11 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.1.0] - 2026-08-31
+
+**Cross-channel slash commands + skill-promotion lineage.**
+
+A minor version because the operator surface grows: `workspace/agents/*` and `workspace/skills/*` become the source of truth for what the picker on every chat channel shows, and a new port makes wiring the next adapter (Discord / Slack / Mattermost) a follow-up rather than a rewrite.
+
+### Added
+
+- **`SlashCommandRegistry` port and platform-side factory** ([#55](https://github.com/viantonugroho11/Anvio/issues/55), ADR-0023). New `SlashCommand` / `SlashCommandContext` / `SlashCommandResult` / `SlashCommandRegistry` in `@anvio/core`. `createSlashCommandRegistry` in `@anvio/platform` composes the registry from `workspace.loader.listAgents/listSkills` plus the learning engine's draft list, plus built-ins: `/help`, `/whoami`, `/agents`, `/agent <slug>`, `/skills`, `/reset`, `/drafts`, `/promote <slug>`. `createInboundHandler` in `@anvio/channels` dispatches through the registry **before** the harness gate, so a DM's `/help` on a workspace whose default profile would drop it as `restricted_zone` still gets a reply.
+- **`/agent <slug>` and `/reset` are real behavior**, not stubs. `/agent` validates against the workspace catalog and writes `session.agentName` through the session store. `/reset` clears `messages` and `metadata.agentRunCheckpoint` on the current session.
+- **Telegram picker syncs from the registry** at `setMyCommands`. The old hardcoded set only survives as a fallback when no registry is passed. `TelegramChannelOptions.slashCommands` is optional so tests and third-party callers stay working.
+- **Fall-through slash escape at the channel layer.** Unknown `/foo` is prefixed with U+200B before being published to `AGENT_RUN_REQUESTED`, so the Claude Agent SDK does not intercept it as its own CLI slash-command (belt-and-suspenders alongside the runtime-side escape from v2.0.2).
+- **`anvio skill drafts` / `anvio skill promote` aliases** ([#56](https://github.com/viantonugroho11/Anvio/issues/56) (a)). The learning-loop surface is now discoverable under the noun users grep for. `anvio learning drafts/promote` still works.
+
+### Changed
+
+- **Draft slug carries the source session id** ([#56](https://github.com/viantonugroho11/Anvio/issues/56) (c)). Was `<agent>-draft-<ms>`, now `<agent>-<sessionShort>-<ms>` so a reviewer can trace a draft back to its run without opening the file. Legacy slugs still promote. Promotion regex updated to strip either shape.
+- **Draft frontmatter carries lineage under a `source:` key** ([#56](https://github.com/viantonugroho11/Anvio/issues/56) (d)) — `sessionId`, `agentId`, `channel`, `userId`, `messages` (count), and `capturedAt`. Survives the skill parser (which ignores unknown top-level keys) and stays grepable.
+- **`SessionLearningInput.channel`** — `LearningEngine.onSessionCompleted` now takes the session's channel and forwards it into the draft, so lineage records the chat surface the session ran on.
+
+### Docs
+
+- **New ADR** — `docs/adr/0023-workspace-slash-commands.md` records the port shape, dispatch order, and per-adapter picker-sync plan.
+- **`docs/10-channels.md`** — new "Slash commands" section describing the built-in set, dispatch order, and the Telegram sync path.
+- **`docs/05-skills.md`** — learning-loop section updated with the new slug shape, lineage frontmatter, and the `/drafts` / `/promote` chat commands.
+
+### Follow-up
+
+- Discord Application Commands and Slack `slash_commands` picker sync (ADR-0024, not written yet). The router already accepts their inbound `/foo` traffic — only the client-side picker generation is deferred.
+- Workspace-defined commands (`workspace/commands/*.md` bound to skills) and per-agent scoping (filter list by `spec.skills`). Recorded in ADR-0023's alternatives.
+
+---
+
+## [2.0.2] - 2026-08-31
+
+**Telegram bug sweep — four defects that combined to make the bot look completely dead even when every subsystem reported healthy.**
+
+### Fixed
+
+- **Adapter never set `mentionedBot`; default profile required a mention** ([#51](https://github.com/viantonugroho11/Anvio/issues/51)). The shipped `telegram-like` profile was `engageOn: mention`, but nothing populated the flag, so every message disengaged and was dropped. Now parses `mention` / `text_mention` / `bot_command` entities against the bot's own `getMe().username`. The shipped default flips to `engageOn: always` because private chats have no other participant for `mention` to match against.
+- **Every DM dropped by `canAccessRestrictedZone`; gate emitted no log** ([#52](https://github.com/viantonugroho11/Anvio/issues/52)). Adapter now sets `metadata.isDm` from `chat.type`, and `HarnessGateway.handleInbound` emits a one-line drop reason gated by `ANVIO_HARNESS_DEBUG`. Silent drops behind a "healthy" status were the worst possible failure mode.
+- **`setMyCommands` never called; no slash-command dispatcher** ([#53](https://github.com/viantonugroho11/Anvio/issues/53)). Registered a default set (`/help`, `/agents`, `/skills`, `/reset`, `/whoami`) on `start()` and added a dispatcher — Telegram-only in this release. v2.1.0's ADR-0023 promotes both to a cross-channel registry.
+- **Task Completed spam + SDK slash swallow** ([#54](https://github.com/viantonugroho11/Anvio/issues/54)). Chat channels no longer receive the completion notification (non-streaming surfaces still do). Adapter + `ClaudeCodeRuntime` both prefix a `/` prompt with `U+200B` so the SDK treats it as user text, not a CLI command.
+
+---
+
+## [2.0.1] - 2026-08-31
+
+**Bugfix sweep on v2.0.0.**
+
+### Fixed
+
+- **`${VAR}` never expanded in MCP + workspace YAML** ([#47](https://github.com/viantonugroho11/Anvio/issues/47)). Placeholders reached child processes verbatim, so every server configured that way crashed at spawn (`Invalid URL`, `env var required`, …). Adds `expandEnvDeep` to `@anvio/core` — shell-shaped `${NAME}` / `${NAME:-default}` / `${NAME:?message}`, `$${` to escape — applied at `IntegrationRegistry.load()` and `Workspace` config reads.
+- **`anvio run` / `anvio chat` leaked Telegram pollers** ([#48](https://github.com/viantonugroho11/Anvio/issues/48)). One-shot CLI runs started a second long-poller against the same bot the gateway was already polling; whichever won consumed the update and acked it, so the bot silently dropped messages. Adds `PlatformOptions.startChannels` (default `true`, preserves gateway/worker/api behavior) and `PlatformContext.shutdown()`. CLI opts out of inbound and tears down on `beforeExit` / `SIGINT` / `SIGTERM`.
+- **`claude-code` runtime forwarded `spec.model.model` as its Anthropic model id** ([#49](https://github.com/viantonugroho11/Anvio/issues/49)). Same field also configured the `local` fallback's model provider, so a `deepseek-chat` id landed at the Anthropic SDK and every run failed with *"It may not exist or you may not have access to it."* Adds `runtime.model` to the agent runtime binding for the vendor's own id; schema rejects the misconfiguration at parse time.
+- **`anvio gateway start` (no `--foreground`) always failed with "Cannot locate gateway binary"** ([#50](https://github.com/viantonugroho11/Anvio/issues/50)). Daemon path assumed a monorepo layout; tarball / npm / homebrew installs had no such path. Re-spawns `argv[1]` with `gateway start --foreground` instead, logging into `workspace/logs/gateway.log`.
+
 ### Tests
 
-- **Boot smoke tests for both HTTP surfaces** ([#46](https://github.com/viantonugroho11/Anvio/pull/46)). ADR-0020 and ADR-0022 both recorded this as an open gap, and it is the gap that mattered: three defects this cycle — two that stopped `apps/api` starting at all, one that left a webhook answering `404 channel not enabled` to an unauthenticated caller — were every one found by running the thing, while the unit suite stayed green. `tests/integration/boot.integration.spec.ts` boots `apps/api` from its built `dist` as a child process and the gateway in-process, then asserts routes answer under the `/api` prefix and that unverified webhooks are refused. Verified against the original defects: reintroducing the `setGlobalPrefix` ordering bug turns three tests red, and removing the gateway's `assertSafeBinding` call turns another red.
-
-  `apps/api` is spawned rather than imported for a reason worth knowing: **booting the Nest app in-process under vitest does not reproduce the app that ships.** vitest transpiles with esbuild, which does not emit `emitDecoratorMetadata`, so Nest cannot resolve `Reflector` from `AnvioAuthGuard`'s constructor, injects `undefined`, and every guarded route 500s. The first version of this test failed for that reason alone.
+- **Boot smoke tests for both HTTP surfaces** ([#46](https://github.com/viantonugroho11/Anvio/pull/46)). ADR-0020 and ADR-0022 both recorded this as an open gap, and it is the gap that mattered: three defects this cycle — two that stopped `apps/api` starting at all, one that left a webhook answering `404 channel not enabled` to an unauthenticated caller — were every one found by running the thing, while the unit suite stayed green. `tests/integration/boot.integration.spec.ts` boots `apps/api` from its built `dist` as a child process and the gateway in-process, then asserts routes answer under the `/api` prefix and that unverified webhooks are refused.
 
 ---
 

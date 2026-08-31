@@ -1961,8 +1961,15 @@ async function cmdSkill(sub: string[]) {
       }
       break;
     }
+    case 'drafts':
+    case 'promote':
+      // Alias into cmdLearning so users find the learning-loop surface
+      // where they look for it (#56 (a)). `anvio learning drafts/promote`
+      // still works.
+      await cmdLearning([action, ...sub.slice(1)]);
+      break;
     default:
-      console.error('Usage: anvio skill catalog|install|validate|upgrade|test');
+      console.error('Usage: anvio skill catalog|install|validate|upgrade|test|drafts|promote');
       process.exit(1);
   }
 }

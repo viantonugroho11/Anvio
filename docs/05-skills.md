@@ -157,8 +157,22 @@ anvio skill list               # list installed
 
 ## Learning loop
 
-When a session ends and the soul's `evolution.allowAutoUpdate` is enabled, the learning loop (`packages/learning`) may auto-draft a skill from the session pattern. Drafts land in `workspace/skills/_drafts/` and can be promoted via:
+When a session ends and the soul's `evolution.allowAutoUpdate` is enabled, the learning loop (`packages/learning`) may auto-draft a skill from the session pattern. Drafts land in `workspace/skills/_drafts/` with a slug that includes the source session id (`<agent>-<sessionShort>-<timestamp>.md`) so a reviewer can trace them back to the run.
+
+Each draft carries lineage under a `source:` key in its frontmatter — `sessionId`, `agentId`, `channel`, `userId`, `messages` (count), and `capturedAt`. This survives the skill parser (which ignores unknown top-level keys) and stays grepable.
+
+Manage drafts from the CLI:
 
 ```bash
-anvio skill promote <draft-slug>
+anvio skill drafts               # list pending drafts (alias of `anvio learning drafts`)
+anvio skill promote <slug>       # promote to workspace/skills/ (alias of `anvio learning promote`)
 ```
+
+Or from any channel with the shared slash-command router (v2.1.0, ADR-0023):
+
+```
+/drafts               # list pending drafts
+/promote <slug>       # promote a draft
+```
+
+See `docs/adr/0023-workspace-slash-commands.md` for the cross-channel router shape.

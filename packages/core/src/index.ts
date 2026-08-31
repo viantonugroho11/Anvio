@@ -50,3 +50,4 @@ export * from './ports/runtime-tool.port.js';
 export * from './ports/code-execution.port.js';
 export * from './ports/credential.port.js';
 export * from './ports/worktree.port.js';
+export * from './ports/slash-command.port.js';

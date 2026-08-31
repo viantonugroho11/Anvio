@@ -3,6 +3,7 @@ import type {
   ChannelType,
   OutboundMessage,
   SessionStore,
+  SlashCommandRegistry,
 } from '@anvio/core';
 import type { ChannelVoiceOptions, VoicePipeline } from '@anvio/voice';
 import { isChannelVoiceEnabled, transcribeInboundAudio, voiceInboundContent } from '@anvio/voice';
@@ -22,6 +23,14 @@ export interface TelegramChannelOptions {
     approved: boolean,
     userId?: string,
   ) => Promise<void>;
+  /**
+   * Registry consulted at start() to sync the Bot API `setMyCommands`
+   * picker with what the workspace actually exposes. When absent, the
+   * adapter falls back to a small built-in set so the picker is never
+   * empty (issue #53). Runtime dispatch of `/foo` messages happens in
+   * platform's createInboundHandler — see ADR-0023.
+   */
+  slashCommands?: SlashCommandRegistry;
 }
 
 interface TelegramChatTarget {
@@ -190,10 +199,19 @@ export class TelegramChannel extends BaseChannelAdapter {
       );
     }
     // Register the client's slash-command picker. Was missing entirely
-    // before this — issue #53. Failure is non-fatal; the picker stays empty
-    // but polling and dispatch still work.
+    // before v2.0.2 — issue #53. As of v2.1.0 the list is generated from
+    // the workspace-scoped SlashCommandRegistry (ADR-0023) when one is
+    // supplied, and falls back to a small hardcoded set otherwise. Failure
+    // is non-fatal; the picker stays empty but polling and dispatch still
+    // work.
+    const commands = this.options.slashCommands
+      ? this.options.slashCommands.list().map((c) => ({
+          command: c.name,
+          description: truncateDescription(c.description),
+        }))
+      : DEFAULT_SLASH_COMMANDS;
     try {
-      await this.api('setMyCommands', { commands: DEFAULT_SLASH_COMMANDS });
+      await this.api('setMyCommands', { commands });
     } catch (error) {
       console.error(
         '[Telegram] setMyCommands failed:',
@@ -273,24 +291,18 @@ export class TelegramChannel extends BaseChannelAdapter {
       }
     }
 
-    // Route slash commands before the model ever sees them. The Claude Agent
-    // SDK swallowed leading '/' as its own CLI commands (issue #54(b)); every
-    // "/help" or "/skills" DM produced an empty assistant reply. Handled
-    // commands short-circuit here; unhandled '/foo' is escaped so the SDK
-    // treats it as user text, not a CLI directive.
-    if (msg.text.startsWith('/')) {
-      const handled = await this.handleSlashCommand(msg.text, session.id, threadId);
-      if (handled) return;
-    }
-
+    // Slash-command dispatch lives in createInboundHandler now (ADR-0023);
+    // the adapter forwards the raw text and the router short-circuits
+    // known commands. Unknown `/foo` that reaches the model is escaped
+    // there too so downstream vendors don't treat it as a CLI directive
+    // (issue #54(b)).
     const entities = msg.entities ?? msg.caption_entities ?? [];
     const mentionedBot = this.detectBotMention(msg.text, entities);
-    const content = escapeLeadingSlash(msg.text);
 
     await this.dispatchInbound({
       sessionId: session.id,
       userId,
-      content,
+      content: msg.text,
       channel: 'telegram',
       channelThreadId: threadId,
       metadata: { isDm, mentionedBot },
@@ -314,52 +326,9 @@ export class TelegramChannel extends BaseChannelAdapter {
     return false;
   }
 
-  private async handleSlashCommand(
-    text: string,
-    sessionId: string,
-    threadId: string,
-  ): Promise<boolean> {
-    const firstWord = text.split(/\s+/, 1)[0] ?? '';
-    // Strip @botname suffix — Telegram appends it in groups.
-    const stripped = firstWord.replace(/@\S+$/, '').slice(1).toLowerCase();
-    let reply: string | null = null;
-    switch (stripped) {
-      case 'help':
-        reply = [
-          'Available commands:',
-          ...DEFAULT_SLASH_COMMANDS.map((c) => `  /${c.command} — ${c.description}`),
-        ].join('\n');
-        break;
-      case 'whoami':
-        reply = `Session: ${sessionId}\nThread: ${threadId}`;
-        break;
-      case 'reset':
-        // Session reset lives in the platform layer; the adapter cannot
-        // rewrite session state on its own. Acknowledge so the user sees
-        // that the command was recognized rather than swallowed silently.
-        reply = 'Reset requested. Send a new message to start a fresh turn.';
-        break;
-      case 'agents':
-      case 'skills':
-        // These need workspace access the adapter doesn't hold. Return a
-        // stub so the picker entry is not a dead click. A follow-up (part
-        // of #53's "sync from workspace/skills") would wire them up.
-        reply = `\`/${stripped}\` — coming soon (workspace-scoped commands not yet wired to Telegram).`;
-        break;
-      default:
-        return false;
-    }
-    const session = await this.options.sessions.get(sessionId);
-    if (!session) return true;
-    const target = parseChatTarget(session);
-    if (!target) return true;
-    await this.api('sendMessage', {
-      chat_id: target.chatId,
-      message_thread_id: target.messageThreadId,
-      text: reply,
-    });
-    return true;
-  }
+  // Slash dispatch moved to platform's createInboundHandler in v2.1.0
+  // (ADR-0023). Adapter keeps the escape utility below for the fall-
+  // through path only.
 
   private async handleVoiceMessage(
     msg: NonNullable<TelegramUpdate['message']>,
@@ -450,4 +419,13 @@ function sleep(ms: number): Promise<void> {
  */
 export function escapeLeadingSlash(text: string): string {
   return text.startsWith('/') ? `​${text}` : text;
+}
+
+/**
+ * Telegram limits command descriptions to 256 chars but the picker
+ * truncates far earlier; keep it under 100 so the visible line reads
+ * cleanly across mobile widths.
+ */
+function truncateDescription(text: string): string {
+  return text.length > 96 ? `${text.slice(0, 93)}...` : text;
 }
