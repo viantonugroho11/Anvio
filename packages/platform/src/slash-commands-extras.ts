@@ -380,11 +380,52 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
 
   registry.register({
     name: 'history',
-    description: 'Show last N turns: /history [n]',
+    description: 'Show last N turns: /history [n] [--branch]',
     handler: async (ctx) => {
-      const n = Math.min(50, Math.max(1, parseInt(ctx.argsList[0] ?? '10', 10) || 10));
       const s = await workspace.sessions.get(ctx.sessionId);
       if (!s) return { swallow: true, reply: 'No session.' };
+
+      if (ctx.argsList.includes('--branch')) {
+        // Walk ancestors up, then collect descendants down.
+        const all = await workspace.sessions.list();
+        const byId = new Map(all.map((row) => [row.id, row]));
+        const rootId = (() => {
+          let cur = s;
+          const seen = new Set<string>();
+          while (cur.parentSessionId && !seen.has(cur.id)) {
+            seen.add(cur.id);
+            const parent = byId.get(cur.parentSessionId);
+            if (!parent) break;
+            cur = parent;
+          }
+          return cur.id;
+        })();
+        const children = new Map<string, string[]>();
+        for (const row of all) {
+          if (!row.parentSessionId) continue;
+          const arr = children.get(row.parentSessionId) ?? [];
+          arr.push(row.id);
+          children.set(row.parentSessionId, arr);
+        }
+        const lines: string[] = [];
+        const walk = (id: string, depth: number): void => {
+          const row = byId.get(id);
+          if (!row) return;
+          const marker = id === ctx.sessionId ? '● ' : '  ';
+          const label = (row.metadata as { branchLabel?: string } | undefined)?.branchLabel;
+          lines.push(
+            `${' '.repeat(depth * 2)}${marker}${row.id.slice(0, 12)}` +
+              ` · ${row.status}${label ? ` · ${label}` : ''}` +
+              ` · ${row.messages.length} msgs`,
+          );
+          for (const childId of children.get(id) ?? []) walk(childId, depth + 1);
+        };
+        walk(rootId, 0);
+        return { swallow: true, reply: lines.join('\n') };
+      }
+
+      const nRaw = ctx.argsList.find((a) => !a.startsWith('--')) ?? '10';
+      const n = Math.min(50, Math.max(1, parseInt(nRaw, 10) || 10));
       const tail = s.messages.slice(-n);
       if (tail.length === 0) return { swallow: true, reply: 'No history.' };
       return {
@@ -436,6 +477,96 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
       };
       await workspace.sessions.update(ctx.sessionId, { metadata: nextMeta });
       return { swallow: true, reply: `Checkpoint saved: ${label}` };
+    },
+  });
+
+  // ---------------- Session forking (ADR-0025) ----------------
+
+  registry.register({
+    name: 'branch',
+    description: 'Fork this session into a labeled child: /branch <label>',
+    handler: async (ctx) => {
+      const label = ctx.argsList.join(' ').trim();
+      if (!label) return { swallow: true, reply: 'Usage: /branch <label>' };
+      const parent = await workspace.sessions.get(ctx.sessionId);
+      if (!parent) return { swallow: true, reply: 'No session to branch from.' };
+
+      const checkpoint = (parent.metadata as { agentRunCheckpoint?: { messages?: number } } | undefined)
+        ?.agentRunCheckpoint;
+      const cutoff =
+        typeof checkpoint?.messages === 'number'
+          ? Math.min(checkpoint.messages, parent.messages.length)
+          : parent.messages.length;
+
+      const { agentRunCheckpoint: _drop, ...restMeta } = (parent.metadata ?? {}) as Record<string, unknown>;
+      const child = await workspace.sessions.create({
+        userId: parent.userId,
+        agentName: parent.agentName,
+        channel: parent.channel,
+        channelThread: parent.channelThread,
+        parentSessionId: parent.id,
+        messages: parent.messages.slice(0, cutoff),
+        status: 'idle',
+        detached: parent.detached,
+        metadata: { ...restMeta, branchLabel: label, branchedFromMessages: cutoff },
+      });
+
+      return {
+        swallow: true,
+        reply: [
+          `Branched → ${child.id}`,
+          `label: ${label}`,
+          `seeded ${cutoff}/${parent.messages.length} messages from parent ${parent.id.slice(0, 12)}`,
+          `next message runs on the branch.`,
+        ].join('\n'),
+      };
+    },
+  });
+
+  registry.register({
+    name: 'resume',
+    description: 'Reopen the last failed/idle session in this thread and re-run',
+    handler: async (ctx) => {
+      const all = await workspace.sessions.list();
+      const candidates = all
+        .filter(
+          (s) =>
+            s.id !== ctx.sessionId &&
+            s.channelThread?.channel === ctx.channel &&
+            s.channelThread?.threadId === ctx.threadId &&
+            s.status === 'failed',
+        )
+        .sort((a, b) => (a.lastActiveAt < b.lastActiveAt ? 1 : -1));
+      const target = candidates[0];
+      if (!target) return { swallow: true, reply: 'Nothing to resume in this thread.' };
+
+      const checkpoint = (target.metadata as { agentRunCheckpoint?: { messages?: number } } | undefined)
+        ?.agentRunCheckpoint;
+      let messages = target.messages;
+      if (typeof checkpoint?.messages === 'number' && checkpoint.messages < messages.length) {
+        messages = messages.slice(0, checkpoint.messages);
+        await workspace.sessions.update(target.id, { messages });
+      }
+
+      const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+      await eventBus.publish(EventSubjects.AGENT_RUN_REQUESTED, 'anvio.agent.run.requested', {
+        sessionId: target.id,
+        userId: target.userId,
+        agentId: target.agentName,
+        content: lastUser?.content ?? '',
+        channel: target.channel,
+        detached: target.detached ?? false,
+      });
+
+      return {
+        swallow: true,
+        reply: [
+          `Resuming ${target.id.slice(0, 12)} (was ${target.status}).`,
+          checkpoint?.messages !== undefined
+            ? `Rewound to checkpoint at message ${checkpoint.messages}.`
+            : 'No checkpoint — re-running the last user turn.',
+        ].join('\n'),
+      };
     },
   });
 

@@ -44,7 +44,15 @@ import { KnowledgeBaseStore, KnowledgeIngestEngine, WorkspaceManifestImporter } 
 import { LearningEngine } from '@anvio/learning';
 import { createHarnessGateway, loadHarnessConfig, loadHarnessProfiles, runSimulationScenario, ConnectionBroker, ConnectionStore, startLoginHost } from '@anvio/harness';
 import { FilesystemStorageProvider } from '@anvio/storage';
-import { Workspace, WORKSPACE_DIRS } from '@anvio/workspace';
+import {
+  Workspace,
+  WORKSPACE_DIRS,
+  listTrash,
+  moveToTrash,
+  pruneTrash,
+  restoreFromTrash,
+  type TrashablePrimitive,
+} from '@anvio/workspace';
 
 const args = process.argv.slice(2);
 const command = args[0] ?? 'help';
@@ -172,6 +180,9 @@ async function main() {
     case 'workspace':
       await cmdWorkspace(args.slice(1));
       break;
+    case 'trash':
+      await cmdTrash(args.slice(1));
+      break;
     case 'help':
     default:
       printHelp();
@@ -233,6 +244,7 @@ Execution & Providers
   anvio voice transcribe|stream-transcribe|realtime-transcribe|speak
   anvio gateway start|stop|status         Unified Hermes-style gateway daemon
   anvio workspace validate             Validate workspace structure
+  anvio trash list|rm|restore|prune    Workspace soft-delete + restore (ADR-0025)
 
 Environment
   ANVIO_CONNECTION_ENCRYPTION_KEY      Encrypt contextual connection payloads
@@ -2519,6 +2531,84 @@ async function cmdWorkspace(sub: string[]) {
       console.error('Usage: anvio workspace validate');
       process.exit(1);
   }
+}
+
+async function cmdTrash(sub: string[]) {
+  const wsPath = resolveWorkspacePath();
+  const action = sub[0] ?? 'list';
+
+  if (action === 'list') {
+    const primitive = (sub[1] as TrashablePrimitive | undefined) ?? undefined;
+    const entries = await listTrash(wsPath, primitive);
+    if (entries.length === 0) {
+      console.log(primitive ? `No trashed ${primitive}s.` : 'Trash is empty.');
+      return;
+    }
+    console.log('Primitive    Slug                          Deleted (UTC)             Entry');
+    console.log('─'.repeat(96));
+    for (const e of entries) {
+      console.log(
+        `${e.primitive.padEnd(12)} ${e.slug.padEnd(29)} ${new Date(e.deletedAtMs).toISOString().padEnd(24)} ${e.entryName}`,
+      );
+    }
+    return;
+  }
+
+  if (action === 'restore') {
+    const primitive = sub[1] as TrashablePrimitive | undefined;
+    const entryName = sub[2];
+    const force = sub.includes('--force');
+    if (!primitive || !entryName) {
+      console.error('Usage: anvio trash restore <primitive> <entryName> [--force]');
+      process.exit(1);
+    }
+    try {
+      const result = await restoreFromTrash(wsPath, primitive, entryName, { force });
+      console.log(
+        `Restored ${result.primitive}:${result.slug} → ${result.destPath}${result.overwritten ? ' (previous live file trashed)' : ''}`,
+      );
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (action === 'rm') {
+    const primitive = sub[1] as TrashablePrimitive | undefined;
+    const slug = sub[2];
+    if (!primitive || !slug) {
+      console.error('Usage: anvio trash rm <primitive> <slug>');
+      process.exit(1);
+    }
+    try {
+      const result = await moveToTrash(wsPath, primitive, slug);
+      console.log(`Trashed ${primitive}:${slug} → ${result.entry.path}`);
+      console.log(`Restore with: ${result.restoreCommand}`);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (action === 'prune') {
+    const daysIdx = sub.indexOf('--older-than');
+    const olderThanDays = daysIdx >= 0 ? parseInt(sub[daysIdx + 1] ?? '30', 10) || 30 : 30;
+    const dryRun = sub.includes('--dry-run');
+    const result = await pruneTrash(wsPath, { olderThanDays, dryRun });
+    const verb = dryRun ? 'Would remove' : 'Removed';
+    console.log(
+      `${verb} ${result.removed.length} of ${result.scanned} trash entries (older than ${olderThanDays}d).`,
+    );
+    for (const e of result.removed) {
+      console.log(`  ${e.primitive}:${e.slug} (${new Date(e.deletedAtMs).toISOString()})`);
+    }
+    return;
+  }
+
+  console.error('Usage: anvio trash list|rm|restore|prune');
+  process.exit(1);
 }
 
 async function cmdSessionExport(sub: string[]) {

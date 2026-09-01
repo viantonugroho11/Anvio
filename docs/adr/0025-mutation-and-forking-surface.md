@@ -1,6 +1,6 @@
 # ADR-0025: Mutation surface (`/new`, `/edit`, `/rm`), session forking, batch/worktree/connections/setup-token
 
-- **Status:** Draft — v2.2.1 ships the read-shaped subset from ADR-0024's deferred list; this ADR designs the rest for v2.3.0.
+- **Status:** Accepted (partial, v2.3.0 track 1 shipped) — session forking (`/branch`, `/resume`, `/history --branch`) and the `_trash/` foundation (`anvio trash list|rm|restore|prune`) are implemented. The uniform mutation surface (`/new`, `/edit`, `/rm`), `/batch` chat handlers, `/setup-token` QR, `/providers add|remove|test`, `/worktree new|rm`, and `/connections revoke` remain queued for v2.3.0 track 2.
 - **Date:** 2026-09-01
 - **Related:** #57, ADR-0024 (deferred these), ADR-0023 (router shape), ADR-0019 (credential broker), ADR-0009 (runtime OAuth)
 

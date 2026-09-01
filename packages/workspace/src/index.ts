@@ -539,6 +539,19 @@ export {
   openSqliteSessionStore,
   resolveSessionDbPath,
 } from './sqlite-session-store.js';
+export {
+  TRASH_DIRNAME,
+  moveToTrash,
+  restoreFromTrash,
+  listTrash,
+  pruneTrash,
+  type TrashablePrimitive,
+  type TrashEntry,
+  type MoveToTrashResult,
+  type RestoreResult,
+  type PruneOptions,
+  type PruneResult,
+} from './trash.js';
 
 export async function createSessionStore(
   storageConfig: StorageConfig,
