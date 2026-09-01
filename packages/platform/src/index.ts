@@ -596,6 +596,8 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     kanban: kanbanEngine,
     personas: personaService,
     eventBus,
+    memory: memoryProvider,
+    harness,
   });
 
   toolGateway.mergeContext({

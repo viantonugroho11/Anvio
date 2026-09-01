@@ -37,6 +37,7 @@
     "@anvio/tools": "workspace:*",
     "@anvio/harness": "workspace:*",
     "@anvio/kanban": "workspace:*",
+    "@anvio/knowledge": "workspace:*",
     "@anvio/soul-gate": "workspace:*",
     "@anvio/workflows": "workspace:*",
     "@anvio/workspace": "workspace:*",

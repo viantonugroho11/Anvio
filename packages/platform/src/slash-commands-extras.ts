@@ -16,6 +16,7 @@ import fs from 'node:fs/promises';
 import type {
   AgentDefinition,
   ChannelHubPort,
+  MemoryProvider,
   ModelProviderId,
   SlashCommandRegistry,
 } from '@anvio/core';
@@ -31,6 +32,10 @@ import type { PersonaService } from '@anvio/personas';
 import type { EventBusLike } from '@anvio/events';
 import { EventSubjects } from '@anvio/events';
 import { probeAllChannels, summarizeChannelHealth } from '@anvio/channels';
+import type { HarnessGateway } from '@anvio/harness';
+import { resolveChannelProfile } from '@anvio/harness';
+import { KnowledgeBaseStore } from '@anvio/knowledge';
+import { aggregateTokenUsage, readTokenUsageAudit } from './usage-stats.js';
 
 export interface ExtrasOptions {
   registry: SlashCommandRegistry;
@@ -45,6 +50,8 @@ export interface ExtrasOptions {
   personas: PersonaService;
   eventBus: EventBusLike;
   version?: string;
+  memory?: MemoryProvider;
+  harness?: HarnessGateway;
 }
 
 const VALID_RUNTIMES: AgentRuntimeOverride[] = [
@@ -590,6 +597,187 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
     name: 'thumbsdown',
     description: 'Record negative feedback: /thumbsdown [reason]',
     handler: feedbackHandler('down'),
+  });
+
+  // ---------------- v2.2.1: read-shaped additions ----------------
+
+  registry.register({
+    name: 'audit',
+    description: 'Recent token usage: /audit [--last <n>]',
+    handler: async (ctx) => {
+      const nIdx = ctx.argsList.indexOf('--last');
+      const n = Math.min(200, Math.max(1, parseInt(nIdx >= 0 ? ctx.argsList[nIdx + 1] ?? '20' : '20', 10) || 20));
+      try {
+        const rows = (await readTokenUsageAudit(workspace.storage)).slice(-n);
+        if (!rows.length) return { swallow: true, reply: 'No usage recorded yet.' };
+        const stats = aggregateTokenUsage(rows);
+        return {
+          swallow: true,
+          reply: [
+            `Recent ${rows.length} events:`,
+            `  input tokens:  ${stats.inputTokens.toLocaleString()}`,
+            `  output tokens: ${stats.outputTokens.toLocaleString()}`,
+            `  cost (USD):    $${stats.estimatedCostUsd.toFixed(4)}`,
+            '',
+            'Top agents:',
+            ...Object.entries(stats.byAgent)
+              .slice(0, 5)
+              .map(
+                ([id, t]) =>
+                  `  ${id} — ${t.totalTokens.toLocaleString()} tokens · $${t.estimatedCostUsd.toFixed(4)}`,
+              ),
+          ].join('\n'),
+        };
+      } catch (error) {
+        return { swallow: true, reply: `Audit read failed: ${errMsg(error)}` };
+      }
+    },
+  });
+
+  if (opts.memory) {
+    const memory = opts.memory;
+    registry.register({
+      name: 'memory',
+      description: 'Search this workspace\'s memory: /memory <query>',
+      handler: async (ctx) => {
+        const query = ctx.argsRaw.trim();
+        if (!query) return { swallow: true, reply: 'Usage: /memory <query>' };
+        if (!memory.search) return { swallow: true, reply: 'Memory provider does not support search.' };
+        try {
+          const hits = await memory.search(query, { userId: ctx.userId, limit: 8 });
+          if (!hits.length) return { swallow: true, reply: 'No memory hits.' };
+          return {
+            swallow: true,
+            reply: hits
+              .map((h) => `  · ${(h.content ?? '').slice(0, 200)}`)
+              .join('\n'),
+          };
+        } catch (error) {
+          return { swallow: true, reply: `Memory search failed: ${errMsg(error)}` };
+        }
+      },
+    });
+  }
+
+  registry.register({
+    name: 'knowledge',
+    description: 'List knowledge bases, or entries in one: /knowledge [<slug>]',
+    handler: async (ctx) => {
+      const kb = new KnowledgeBaseStore(workspace.rootDir ?? '.');
+      const slug = ctx.argsList[0];
+      try {
+        if (!slug) {
+          const bases: string[] = await kb.listBases();
+          return {
+            swallow: true,
+            reply: bases.length ? bases.map((b: string) => `  ${b}`).join('\n') : 'No knowledge bases.',
+          };
+        }
+        const entries: string[] = await kb.listRaw(slug);
+        return {
+          swallow: true,
+          reply: entries.length
+            ? [`${slug}:`, ...entries.slice(-20).map((e: string) => `  ${e}`)].join('\n')
+            : `No entries under ${slug}.`,
+        };
+      } catch (error) {
+        return { swallow: true, reply: `Knowledge read failed: ${errMsg(error)}` };
+      }
+    },
+  });
+
+  registry.register({
+    name: 'artifacts',
+    description: 'Recent artifacts: /artifacts [--session <id>|--global]',
+    handler: async (ctx) => {
+      const scopedIdx = ctx.argsList.indexOf('--session');
+      const global = ctx.argsList.includes('--global');
+      const sessionId = scopedIdx >= 0 ? ctx.argsList[scopedIdx + 1] : global ? undefined : ctx.sessionId;
+      try {
+        const items = await workspace.artifacts.list(sessionId);
+        if (!items.length) return { swallow: true, reply: 'No artifacts.' };
+        return {
+          swallow: true,
+          reply: items
+            .slice(-15)
+            .map(
+              (a) =>
+                `  ${a.id.slice(0, 12)} · ${a.kind ?? 'blob'} · ${(a as { sizeBytes?: number }).sizeBytes ?? '?'}b`,
+            )
+            .join('\n'),
+        };
+      } catch (error) {
+        return { swallow: true, reply: `Artifacts read failed: ${errMsg(error)}` };
+      }
+    },
+  });
+
+  if (opts.harness) {
+    const harness = opts.harness;
+    registry.register({
+      name: 'harness',
+      description: 'Harness defaults + effective profile for this thread',
+      handler: async (ctx) => {
+        const profile = resolveChannelProfile(
+          [], // profiles are held internally; the fallback shape matches the loader default
+          ctx.channel,
+        );
+        return {
+          swallow: true,
+          reply: [
+            `harness.enabled: ${harness.enabled}`,
+            `soul: ${harness.defaults.soulSlug ?? '-'}`,
+            `suppressRawOutput: ${harness.defaults.suppressRawOutput}`,
+            `idleMinutes: ${harness.defaults.idleMinutes}`,
+            `channel profile (${ctx.channel}): engageOn=${profile.engageOn} dmPolicy=${profile.dmPolicy}`,
+          ].join('\n'),
+        };
+      },
+    });
+
+    if (harness.connectBroker) {
+      const broker = harness.connectBroker;
+      registry.register({
+        name: 'connections',
+        description: 'List connection-broker entries (payloads never printed)',
+        handler: async () => {
+          try {
+            const items = await broker.listConnections();
+            if (!items.length) return { swallow: true, reply: 'No connections.' };
+            return {
+              swallow: true,
+              reply: items
+                .slice(-15)
+                .map((c) => `  ${c.channel}:${c.userId} · ${c.service} · expires ${c.expiresAt}`)
+                .join('\n'),
+            };
+          } catch (error) {
+            return { swallow: true, reply: `Connections read failed: ${errMsg(error)}` };
+          }
+        },
+      });
+    }
+  }
+
+  registry.register({
+    name: 'worktree',
+    description: 'List git worktrees created for isolated sessions',
+    handler: async () => {
+      const wt = workspace.worktrees;
+      if (!wt) return { swallow: true, reply: 'Worktrees not configured.' };
+      try {
+        const items = await wt.list();
+        if (!items.length) return { swallow: true, reply: 'No worktrees.' };
+        return {
+          swallow: true,
+          reply: items
+            .map((w) => `  ${w.sessionId.slice(0, 12)} · ${w.branch ?? '-'} · ${w.path}`)
+            .join('\n'),
+        };
+      } catch (error) {
+        return { swallow: true, reply: `Worktree read failed: ${errMsg(error)}` };
+      }
+    },
   });
 }
 

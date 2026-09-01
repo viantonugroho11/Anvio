@@ -360,6 +360,13 @@ Built-in commands, generated from workspace content at platform boot:
 | `/model <id>`, `/runtime <slug>`, `/routing` | per-thread model/runtime override + effective config |
 | `/version`, `/settings` | Anvio version + effective session config |
 | `/thumbsup`, `/thumbsdown [reason]` | write feedback to `workspace/memory/feedback/` |
+| `/audit [--last <n>]` | tail of `workspace/audit/tokens.jsonl` + aggregate (v2.2.1) |
+| `/memory <query>` | search filesystem memory scoped to the current user (v2.2.1) |
+| `/knowledge [<slug>]` | list bases or entries under one via `KnowledgeBaseStore` (v2.2.1) |
+| `/artifacts [--session <id>\|--global]` | recent artifacts from `FilesystemArtifactStore` (v2.2.1) |
+| `/harness` | `HarnessDefaults` + effective channel profile for this thread (v2.2.1) |
+| `/connections` | connection-broker entries (payloads never printed) (v2.2.1) |
+| `/worktree` | git worktrees created for isolated sessions (v2.2.1) |
 
 `SlashCommandRegistry` also exposes `register(command)` so late-bound subsystems (goal engine, automation, workflow executor) can attach commands after the registry has been handed to channel adapters.
 

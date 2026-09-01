@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.1] - 2026-09-01
+
+**Read-shaped commands from ADR-0024's deferred list.** Every remaining introspection surface that only needs a getter is now reachable from `/`. Mutation, session forking, and the batch/setup-token flows are designed in the new [ADR-0025](docs/adr/0025-mutation-and-forking-surface.md) (draft) and land in v2.3.0.
+
+### Added
+
+- **`/audit [--last <n>]`** — last N events from `workspace/audit/tokens.jsonl` + aggregated input/output/cost totals and the top-5 agents by spend. Uses `readTokenUsageAudit` + `aggregateTokenUsage` from `@anvio/platform`.
+- **`/memory <query>`** — search the workspace memory scoped to the current user via `MemoryProvider.search`. Reports up to 8 hits.
+- **`/knowledge [<slug>]`** — list knowledge bases (`workspace/knowledge/*`) or the last 20 raw entries under one. Backed by `KnowledgeBaseStore`. New `@anvio/knowledge` workspace dep on `@anvio/platform`.
+- **`/artifacts [--session <id>\|--global]`** — recent artifacts from `FilesystemArtifactStore.list()`. Defaults to the current session's artifacts.
+- **`/harness`** — `HarnessDefaults` (enabled, soul, suppressRawOutput, idleMinutes) + the effective channel profile for the current thread.
+- **`/connections`** — connection-broker entries via `ConnectionBroker.listConnections()`. Payloads are **never** printed; only channel, user, service, and expiry.
+- **`/worktree`** — git worktrees created for isolated sessions via `WorkspaceManager.worktrees.list()`.
+
+### Docs
+
+- **New (draft) ADR** — `docs/adr/0025-mutation-and-forking-surface.md` designs the `/new` / `/edit` / `/rm` mutation surface, `/branch` / `/resume` session forking, batch / worktree / connections mutations, `/setup-token`, and `/providers add|remove|test` for v2.3.0. Includes the approver gate, soft-delete to `workspace/_trash/`, and the two-turn `/edit` UX with a specialist-agent-scoped rewrite.
+- **`docs/10-channels.md`** — Slash commands table extended with the seven new entries.
+
+### Notes
+
+- `@anvio/knowledge` is now a workspace dep of `@anvio/platform`. No API change to `KnowledgeBaseStore` itself.
+- The `/audit` handler reads through `workspace.storage`; it does not require the `TokenUsageAudit` service — the writer is a separate concern and lives where it always has.
+
+---
+
 ## [2.2.0] - 2026-09-01
 
 **Complete the slash-command surface — introspection, session control, per-thread overrides.**
