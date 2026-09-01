@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.0] - 2026-09-01
+
+**Mutation surface + session forking (ADR-0025).** The chat surface can now scaffold, edit, and soft-delete every workspace primitive; sessions can fork and rewind; batch, worktree, and connections have live mutation subcommands. All destructive filesystem writes go through `workspace/_trash/` with an append-only audit log at `workspace/audit/mutations.jsonl`.
+
+### Added
+
+- **Session forking** — `/branch <label>` clones the current session (parent seeded up to `agentRunCheckpoint.messages`), `/resume` reopens the last `failed` session in this `(channel, threadId)` and republishes `AGENT_RUN_REQUESTED` (rewinds to the checkpoint when present), and `/history --branch` renders the ancestor + descendant tree rooted at the current session.
+- **Mutation surface** — `/new <primitive> <slug>`, `/edit <primitive> <slug> ```<body>``` `, and `/rm <primitive> <slug> [reason]` post a preview and stash a pending mutation under a 12-hex confirm token; `/confirm <token>` applies it, `/cancel <token>` drops it, `/pending` lists the session's live tokens. Tokens live in-process, expire after 5 minutes, and carry into the audit record as the `approvalId` field so the track-3 formal-approver upgrade is drop-in. Primitives covered: `agent`, `persona`, `soul`, `skill`, `workflow`, `goal`, `blueprint`, `automation`, `hook`, `mcp`, `knowledge`.
+- **Workspace trash + audit foundation** — new `@anvio/workspace/mutations` (`scaffoldPrimitive`, `editPrimitive`, `removePrimitive`, `resolvePrimitivePath`, `appendMutationAudit`, `readMutationAudit`) and `@anvio/workspace/trash` (`moveToTrash`, `restoreFromTrash`, `listTrash`, `pruneTrash`). Layout: `workspace/_trash/<primitive>/<slug>-<UTC-timestamp>.<ext>`. Audit records track `{ts, actor, primitive, slug, action, hashBefore, hashAfter, approvalId, channel, sessionId, reason}`.
+- **CLI: `anvio trash list|rm|restore|prune`** — `--older-than N`, `--dry-run`, `--force`. Pruning is the only path that calls `fs.unlink`; every other path preserves the file.
+- **`/worktree new <sessionId>` / `/worktree rm <sessionId>`** — mutation subcommands on top of the read-only listing shipped in v2.2.1.
+- **`/connections revoke <channel> <userId> <service>`** — mutation subcommand alongside `/connections list`, backed by `ConnectionBroker.revokeConnection`.
+- **`/batch [list|status <id>|stop <id>|enqueue <blueprint>]`** — chat-native subset of `anvio batch`, wired through a shared `BatchEngine` composed from the workspace filesystem storage and the platform's `BlueprintExecutor`. Enqueue is fire-and-forget with a 250ms first-tick race so the operator gets the new `jobId` back before the run completes.
+- **`/providers-test <route> [prompt]`** — probes a routing entry via the platform's `ModelRouter.chat` and reports `{selectedProvider, latency, sample}`. New `probeModelRoute` closure on `ExtrasOptions`.
+- **`/setup-token <vendor>`** — chat handler prints the exact `anvio setup-token --<vendor>` invocation for the operator to run locally; the vendor CLIs open a real browser and can't run inside a bot process. Full chat-native OAuth + QR attachment path stays queued for track 3.
+
+### Changed
+
+- **ADR-0025 → Accepted (partial).** Track 1 (session forking + trash foundation) and track 2 (mutation surface, batch, worktree/connections mutations, /setup-token pointer, /providers-test) ship in this release. Track 3 will formalize the harness-approver bridge and full setup-token chat flow.
+- `@anvio/batch` is now a workspace dep of `@anvio/platform`.
+
+### Deferred (documented, not shipped)
+
+- **Two-turn `/edit` with a specialist-agent swap.** The ADR's specialist rewrite requires per-primitive agent selection (`documenter` for prose, `tech-lead` for structure) — the current `/edit` accepts the full body inline in a fenced block. Specialist swap becomes an ADR-0026 conversation.
+- **`/providers add|remove`** mutations against `providers/routing.yaml`. The routing schema is route-based, not provider-list-based, so ADR-0025's `add|remove` shape doesn't map cleanly — this is a schema-design conversation for track 3, not a wiring gap.
+
+---
+
 ## [2.2.1] - 2026-09-01
 
 **Read-shaped commands from ADR-0024's deferred list.** Every remaining introspection surface that only needs a getter is now reachable from `/`. Mutation, session forking, and the batch/setup-token flows are designed in the new [ADR-0025](docs/adr/0025-mutation-and-forking-surface.md) (draft) and land in v2.3.0.

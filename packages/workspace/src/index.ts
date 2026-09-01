@@ -552,6 +552,25 @@ export {
   type PruneOptions,
   type PruneResult,
 } from './trash.js';
+export {
+  scaffoldPrimitive,
+  removePrimitive,
+  editPrimitive,
+  resolvePrimitivePath,
+  primitiveDir,
+  defaultExtension,
+  appendMutationAudit,
+  readMutationAudit,
+  shortHash,
+  type MutationAction,
+  type MutationAuditRecord,
+  type ScaffoldOptions,
+  type ScaffoldResult,
+  type EditOptions,
+  type EditResult,
+  type RemoveOptions,
+  type RemoveResult,
+} from './mutations.js';
 
 export async function createSessionStore(
   storageConfig: StorageConfig,

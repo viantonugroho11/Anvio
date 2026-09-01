@@ -17,6 +17,7 @@
     "@anvio/goals": "workspace:*",
     "@anvio/auth": "workspace:*",
     "@anvio/automation": "workspace:*",
+    "@anvio/batch": "workspace:*",
     "@anvio/blueprints": "workspace:*",
     "@anvio/channels": "workspace:*",
     "@anvio/core": "workspace:*",

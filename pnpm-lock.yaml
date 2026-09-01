@@ -799,6 +799,9 @@ importers:
       '@anvio/automation':
         specifier: workspace:*
         version: link:../automation
+      '@anvio/batch':
+        specifier: workspace:*
+        version: link:../batch
       '@anvio/blueprints':
         specifier: workspace:*
         version: link:../blueprints

@@ -15,6 +15,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import type {
   AgentDefinition,
+  BatchEngine,
   ChannelHubPort,
   MemoryProvider,
   ModelProviderId,
@@ -26,7 +27,18 @@ import type { HookEngine } from '@anvio/hooks';
 import type { ToolGateway } from '@anvio/tools';
 import type { WorkflowRegistry } from '@anvio/workflows';
 import type { KanbanEngine } from '@anvio/core';
-import type { Workspace } from '@anvio/workspace';
+import {
+  editPrimitive,
+  removePrimitive,
+  resolvePrimitivePath,
+  scaffoldPrimitive,
+  type TrashablePrimitive,
+  type Workspace,
+} from '@anvio/workspace';
+import { PendingMutationStore, type PendingMutationAction } from './pending-mutations.js';
+import { createBatchEngine } from '@anvio/batch';
+import { FilesystemStorageProvider } from '@anvio/storage';
+import type { BlueprintExecutor } from '@anvio/blueprints';
 import type { BlueprintCatalogRegistry } from '@anvio/blueprints';
 import type { PersonaService } from '@anvio/personas';
 import type { EventBusLike } from '@anvio/events';
@@ -52,6 +64,28 @@ export interface ExtrasOptions {
   version?: string;
   memory?: MemoryProvider;
   harness?: HarnessGateway;
+  /** Executor used by /batch enqueue and by ProviderRouter probes. */
+  blueprintExecutor?: BlueprintExecutor;
+  /** Optional model-router probe for /providers test. */
+  probeModelRoute?: (route: string, prompt: string) => Promise<{ selectedProvider?: string; content?: string; latencyMs?: number }>;
+}
+
+const TRASHABLE_PRIMITIVES: readonly TrashablePrimitive[] = [
+  'agent',
+  'persona',
+  'soul',
+  'skill',
+  'workflow',
+  'goal',
+  'blueprint',
+  'automation',
+  'hook',
+  'mcp',
+  'knowledge',
+] as const;
+
+function isTrashablePrimitive(value: string | undefined): value is TrashablePrimitive {
+  return !!value && (TRASHABLE_PRIMITIVES as readonly string[]).includes(value);
 }
 
 const VALID_RUNTIMES: AgentRuntimeOverride[] = [
@@ -870,20 +904,45 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
       const broker = harness.connectBroker;
       registry.register({
         name: 'connections',
-        description: 'List connection-broker entries (payloads never printed)',
-        handler: async () => {
+        description: 'List broker entries: /connections [list|revoke <channel> <userId> <service>]',
+        handler: async (ctx) => {
+          const sub = (ctx.argsList[0] ?? 'list').toLowerCase();
           try {
-            const items = await broker.listConnections();
-            if (!items.length) return { swallow: true, reply: 'No connections.' };
+            if (sub === 'list') {
+              const items = await broker.listConnections();
+              if (!items.length) return { swallow: true, reply: 'No connections.' };
+              return {
+                swallow: true,
+                reply: items
+                  .slice(-15)
+                  .map((c) => `  ${c.channel}:${c.userId} · ${c.service} · expires ${c.expiresAt}`)
+                  .join('\n'),
+              };
+            }
+            if (sub === 'revoke') {
+              const channel = ctx.argsList[1];
+              const userId = ctx.argsList[2];
+              const service = ctx.argsList[3];
+              if (!channel || !userId || !service) {
+                return {
+                  swallow: true,
+                  reply: 'Usage: /connections revoke <channel> <userId> <service>',
+                };
+              }
+              const removed = await broker.revokeConnection(channel, userId, service);
+              return {
+                swallow: true,
+                reply: removed
+                  ? `Revoked ${channel}:${userId}/${service}.`
+                  : `No matching connection to revoke.`,
+              };
+            }
             return {
               swallow: true,
-              reply: items
-                .slice(-15)
-                .map((c) => `  ${c.channel}:${c.userId} · ${c.service} · expires ${c.expiresAt}`)
-                .join('\n'),
+              reply: 'Usage: /connections [list|revoke <channel> <userId> <service>]',
             };
           } catch (error) {
-            return { swallow: true, reply: `Connections read failed: ${errMsg(error)}` };
+            return { swallow: true, reply: `Connections op failed: ${errMsg(error)}` };
           }
         },
       });
@@ -892,24 +951,453 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
 
   registry.register({
     name: 'worktree',
-    description: 'List git worktrees created for isolated sessions',
-    handler: async () => {
+    description: 'Git worktrees: /worktree [list|new <sessionId>|rm <sessionId>]',
+    handler: async (ctx) => {
       const wt = workspace.worktrees;
       if (!wt) return { swallow: true, reply: 'Worktrees not configured.' };
+      const sub = (ctx.argsList[0] ?? 'list').toLowerCase();
       try {
-        const items = await wt.list();
-        if (!items.length) return { swallow: true, reply: 'No worktrees.' };
-        return {
-          swallow: true,
-          reply: items
-            .map((w) => `  ${w.sessionId.slice(0, 12)} · ${w.branch ?? '-'} · ${w.path}`)
-            .join('\n'),
-        };
+        if (sub === 'list') {
+          const items = await wt.list();
+          if (!items.length) return { swallow: true, reply: 'No worktrees.' };
+          return {
+            swallow: true,
+            reply: items
+              .map((w) => `  ${w.sessionId.slice(0, 12)} · ${w.branch ?? '-'} · ${w.path}`)
+              .join('\n'),
+          };
+        }
+        if (sub === 'new' || sub === 'create') {
+          const sessionId = ctx.argsList[1];
+          if (!sessionId) return { swallow: true, reply: 'Usage: /worktree new <sessionId>' };
+          const created = await wt.create(sessionId);
+          return {
+            swallow: true,
+            reply: `Worktree created: ${created.path}${created.branch ? ` (branch ${created.branch})` : ''}`,
+          };
+        }
+        if (sub === 'rm' || sub === 'remove') {
+          const sessionId = ctx.argsList[1];
+          if (!sessionId) return { swallow: true, reply: 'Usage: /worktree rm <sessionId>' };
+          await wt.remove(sessionId);
+          return { swallow: true, reply: `Worktree removed for session ${sessionId.slice(0, 12)}.` };
+        }
+        return { swallow: true, reply: 'Usage: /worktree [list|new <sessionId>|rm <sessionId>]' };
       } catch (error) {
-        return { swallow: true, reply: `Worktree read failed: ${errMsg(error)}` };
+        return { swallow: true, reply: `Worktree op failed: ${errMsg(error)}` };
       }
     },
   });
+
+  // ---------------- Mutation surface (ADR-0025 track 2) ----------------
+  //
+  // Two-turn safety: `/new <primitive> <slug>`, `/edit <primitive> <slug>
+  // ```body```` or `/rm <primitive> <slug>` post a preview and stash the
+  // pending mutation under a confirm token. `/confirm <token>` applies it,
+  // `/cancel <token>` drops it. Formal harness-approver wiring is deferred
+  // to track 3 (the audit record already carries `approvalId` so the
+  // upgrade is drop-in).
+
+  const pendingMutations = new PendingMutationStore();
+
+  const stagePending = async (
+    ctx: {
+      channel: string;
+      sessionId: string;
+      userId: string;
+    },
+    action: PendingMutationAction,
+    primitive: TrashablePrimitive,
+    slug: string,
+    body?: string,
+    reason?: string,
+  ): Promise<{ token: string; preview: string }> => {
+    const entry = pendingMutations.put({
+      action,
+      primitive,
+      slug,
+      body,
+      actor: ctx.userId,
+      channel: ctx.channel,
+      sessionId: ctx.sessionId,
+      reason,
+    });
+    let preview: string;
+    if (action === 'rm') {
+      preview = `Will move ${primitive}/${slug} to workspace/_trash/. Restore with: anvio trash restore ${primitive} <entryName>`;
+    } else if (action === 'new') {
+      preview = body
+        ? `Will create ${primitive}/${slug} with the provided body (${Buffer.byteLength(body, 'utf-8')} bytes).`
+        : `Will create ${primitive}/${slug} from the built-in template.`;
+    } else {
+      preview = `Will overwrite ${primitive}/${slug} (${Buffer.byteLength(body ?? '', 'utf-8')} bytes). Prior version trashed.`;
+    }
+    return {
+      token: entry.token,
+      preview: [
+        preview,
+        '',
+        `Confirm: /confirm ${entry.token}   ·   Cancel: /cancel ${entry.token}`,
+        '(expires in 5 minutes)',
+      ].join('\n'),
+    };
+  };
+
+  registry.register({
+    name: 'new',
+    description: 'Scaffold a workspace primitive: /new <primitive> <slug>',
+    handler: async (ctx) => {
+      const primitive = ctx.argsList[0];
+      const slug = ctx.argsList[1];
+      if (!isTrashablePrimitive(primitive) || !slug) {
+        return {
+          swallow: true,
+          reply: `Usage: /new <primitive> <slug>\nPrimitives: ${TRASHABLE_PRIMITIVES.join(', ')}`,
+        };
+      }
+      const existing = await resolvePrimitivePath(workspace.rootDir, primitive, slug);
+      if (existing) {
+        return {
+          swallow: true,
+          reply: `${primitive}/${slug} already exists at ${existing.path}. Use /edit to change it or /rm to remove.`,
+        };
+      }
+      const staged = await stagePending(ctx, 'new', primitive, slug);
+      return { swallow: true, reply: staged.preview };
+    },
+  });
+
+  registry.register({
+    name: 'rm',
+    description: 'Soft-delete a primitive: /rm <primitive> <slug> [reason...]',
+    handler: async (ctx) => {
+      const primitive = ctx.argsList[0];
+      const slug = ctx.argsList[1];
+      const reason = ctx.argsList.slice(2).join(' ').trim() || undefined;
+      if (!isTrashablePrimitive(primitive) || !slug) {
+        return {
+          swallow: true,
+          reply: `Usage: /rm <primitive> <slug> [reason]\nPrimitives: ${TRASHABLE_PRIMITIVES.join(', ')}`,
+        };
+      }
+      const existing = await resolvePrimitivePath(workspace.rootDir, primitive, slug);
+      if (!existing) {
+        return { swallow: true, reply: `Not found: ${primitive}/${slug}` };
+      }
+      const staged = await stagePending(ctx, 'rm', primitive, slug, undefined, reason);
+      return { swallow: true, reply: staged.preview };
+    },
+  });
+
+  registry.register({
+    name: 'edit',
+    description: 'Replace a primitive: /edit <primitive> <slug> ```<body>```',
+    handler: async (ctx) => {
+      const primitive = ctx.argsList[0];
+      const slug = ctx.argsList[1];
+      if (!isTrashablePrimitive(primitive) || !slug) {
+        return {
+          swallow: true,
+          reply:
+            'Usage: /edit <primitive> <slug> ```<body>```\n' +
+            'Primitives: ' + TRASHABLE_PRIMITIVES.join(', '),
+        };
+      }
+      const existing = await resolvePrimitivePath(workspace.rootDir, primitive, slug);
+      if (!existing) {
+        return {
+          swallow: true,
+          reply: `Not found: ${primitive}/${slug}. Use /new ${primitive} ${slug} to create it.`,
+        };
+      }
+      // Extract fenced body from the raw arg string. Accept ``` or ~~~ fences.
+      const body = extractFencedBody(ctx.argsRaw);
+      if (!body) {
+        return {
+          swallow: true,
+          reply:
+            'Include the new body in a fenced code block:\n' +
+            `/edit ${primitive} ${slug} \`\`\`\n<file contents>\n\`\`\``,
+        };
+      }
+      const staged = await stagePending(ctx, 'edit', primitive, slug, body);
+      return { swallow: true, reply: staged.preview };
+    },
+  });
+
+  registry.register({
+    name: 'confirm',
+    description: 'Apply a pending /new /edit /rm: /confirm <token>',
+    handler: async (ctx) => {
+      const token = ctx.argsList[0];
+      if (!token) return { swallow: true, reply: 'Usage: /confirm <token>' };
+      const entry = pendingMutations.take(token);
+      if (!entry) return { swallow: true, reply: 'Token unknown or expired.' };
+      if (entry.sessionId !== ctx.sessionId) {
+        return { swallow: true, reply: 'Token belongs to a different session.' };
+      }
+      try {
+        if (entry.action === 'new') {
+          const result = await scaffoldPrimitive(workspace.rootDir, entry.primitive, entry.slug, {
+            actor: entry.actor,
+            channel: entry.channel,
+            sessionId: entry.sessionId,
+            approvalId: entry.token,
+            body: entry.body,
+          });
+          return {
+            swallow: true,
+            reply: `Created ${entry.primitive}/${entry.slug} → ${result.path} (${result.bytesWritten} bytes)`,
+          };
+        }
+        if (entry.action === 'rm') {
+          const result = await removePrimitive(workspace.rootDir, entry.primitive, entry.slug, {
+            actor: entry.actor,
+            channel: entry.channel,
+            sessionId: entry.sessionId,
+            approvalId: entry.token,
+            reason: entry.reason,
+          });
+          return {
+            swallow: true,
+            reply: `Trashed ${entry.primitive}/${entry.slug}. Restore with: ${result.trash.restoreCommand}`,
+          };
+        }
+        const result = await editPrimitive(workspace.rootDir, entry.primitive, entry.slug, {
+          actor: entry.actor,
+          channel: entry.channel,
+          sessionId: entry.sessionId,
+          approvalId: entry.token,
+          body: entry.body ?? '',
+        });
+        return {
+          swallow: true,
+          reply: `Edited ${entry.primitive}/${entry.slug} (${result.hashBefore} → ${result.hashAfter}, ${result.bytesWritten} bytes). Prior version trashed.`,
+        };
+      } catch (error) {
+        return { swallow: true, reply: `Mutation failed: ${errMsg(error)}` };
+      }
+    },
+  });
+
+  registry.register({
+    name: 'cancel',
+    description: 'Discard a pending mutation: /cancel <token>',
+    handler: async (ctx) => {
+      const token = ctx.argsList[0];
+      if (!token) return { swallow: true, reply: 'Usage: /cancel <token>' };
+      const dropped = pendingMutations.cancel(token);
+      return {
+        swallow: true,
+        reply: dropped ? 'Cancelled.' : 'Token unknown or already resolved.',
+      };
+    },
+  });
+
+  registry.register({
+    name: 'pending',
+    description: 'List pending mutations in this session',
+    handler: async (ctx) => {
+      const items = pendingMutations.listForSession(ctx.sessionId);
+      if (!items.length) return { swallow: true, reply: 'No pending mutations.' };
+      return {
+        swallow: true,
+        reply: items
+          .map(
+            (e) =>
+              `  ${e.token} · ${e.action} ${e.primitive}/${e.slug} · expires ${new Date(e.expiresAt).toISOString()}`,
+          )
+          .join('\n'),
+      };
+    },
+  });
+
+  // ---------------- Batch (ADR-0025 track 2) ----------------
+
+  const batchEngine: BatchEngine | undefined = opts.blueprintExecutor
+    ? createBatchEngine({
+        storage: new FilesystemStorageProvider(workspace.rootDir),
+        workspaceRoot: workspace.rootDir,
+        blueprintRunner: {
+          run: async (blueprint, inputs, runOpts) =>
+            opts.blueprintExecutor!.run(blueprint, inputs, runOpts),
+        },
+      })
+    : undefined;
+
+  if (batchEngine) {
+    registry.register({
+      name: 'batch',
+      description: 'Batch jobs: /batch [list|status <id>|stop <id>|enqueue <blueprint>]',
+      handler: async (ctx) => {
+        const sub = (ctx.argsList[0] ?? 'list').toLowerCase();
+        try {
+          if (sub === 'list') {
+            const stateDir = path.join(workspace.rootDir, 'batch');
+            let dirs: string[];
+            try {
+              dirs = await fs.readdir(stateDir);
+            } catch {
+              return { swallow: true, reply: 'No batch jobs.' };
+            }
+            const jobs = dirs.filter((d) => d && !d.startsWith('_') && !d.startsWith('.'));
+            if (!jobs.length) return { swallow: true, reply: 'No batch jobs.' };
+            const lines: string[] = [];
+            for (const jobId of jobs.slice(-15)) {
+              const status = await batchEngine.getStatus(jobId).catch(() => null);
+              const progress = await batchEngine.getProgress(jobId).catch(() => null);
+              lines.push(
+                `  ${jobId} · ${status?.status ?? '?'} · ${progress?.completed ?? 0}/${progress?.total ?? 0} completed`,
+              );
+            }
+            return { swallow: true, reply: lines.join('\n') };
+          }
+          if (sub === 'status') {
+            const jobId = ctx.argsList[1];
+            if (!jobId) return { swallow: true, reply: 'Usage: /batch status <jobId>' };
+            const status = await batchEngine.getStatus(jobId);
+            const progress = await batchEngine.getProgress(jobId);
+            if (!status) return { swallow: true, reply: `Batch job not found: ${jobId}` };
+            return {
+              swallow: true,
+              reply: [
+                `job ${jobId}`,
+                `status: ${status.status} · started ${status.startedAt ?? '-'} · completed ${status.completedAt ?? '-'}`,
+                progress
+                  ? `progress: ${progress.completed}/${progress.total} (failed ${progress.failed}, in-progress ${progress.inProgress})`
+                  : 'progress: (none)',
+              ].join('\n'),
+            };
+          }
+          if (sub === 'stop' || sub === 'cancel') {
+            const jobId = ctx.argsList[1];
+            if (!jobId) return { swallow: true, reply: 'Usage: /batch stop <jobId>' };
+            await batchEngine.cancel(jobId);
+            return { swallow: true, reply: `Batch cancelled: ${jobId}` };
+          }
+          if (sub === 'enqueue' || sub === 'run') {
+            const blueprint = ctx.argsList[1];
+            if (!blueprint) return { swallow: true, reply: 'Usage: /batch enqueue <blueprint>' };
+            // Fire-and-forget — the batch engine writes progress to disk;
+            // the operator can poll with `/batch status <id>` once the reply
+            // returns the new job id.
+            const runResult = batchEngine.run(
+              {
+                name: `chat-enqueue-${blueprint}`,
+                blueprint,
+                input: { type: 'inline', items: [{ userId: ctx.userId }] },
+                concurrency: 1,
+                retry: { maxAttempts: 1, backoff: 'exponential', delayMs: 1000, retryOn: [] },
+                dryRun: false,
+              },
+              undefined,
+              {},
+            );
+            // Race the first tick so we can hand the jobId back.
+            const first = await Promise.race([
+              runResult.then((r) => ({ jobId: r.jobId, ready: true })),
+              new Promise<{ jobId: string; ready: boolean }>((resolve) =>
+                setTimeout(() => resolve({ jobId: '(running)', ready: false }), 250),
+              ),
+            ]);
+            return {
+              swallow: true,
+              reply:
+                first.ready
+                  ? `Batch enqueued and completed synchronously: ${first.jobId}. Poll: /batch status ${first.jobId}`
+                  : `Batch running in background — see /batch list to discover the new job id.`,
+            };
+          }
+          return { swallow: true, reply: 'Usage: /batch [list|status <id>|stop <id>|enqueue <blueprint>]' };
+        } catch (error) {
+          return { swallow: true, reply: `Batch op failed: ${errMsg(error)}` };
+        }
+      },
+    });
+  }
+
+  // ---------------- Setup-token pointer ----------------
+  //
+  // ADR-0025 called for a full chat-native OAuth flow with QR fallback. The
+  // vendor CLIs (`claude`, `cursor`, `codex`, `antigravity`) spawn a
+  // browser-authorized subprocess on the operator's machine — that cannot
+  // run inside a bot process, so the chat command posts the equivalent CLI
+  // invocation and the callback URL prefix instead. The URL polling +
+  // QR-as-attachment path is queued for track 3.
+
+  registry.register({
+    name: 'setup-token',
+    description: 'How to complete a runtime OAuth login: /setup-token <claude|cursor|codex|antigravity|nous>',
+    handler: async (ctx) => {
+      const vendor = (ctx.argsList[0] ?? '').toLowerCase();
+      const known = ['claude', 'cursor', 'codex', 'antigravity', 'nous'];
+      if (!known.includes(vendor)) {
+        return {
+          swallow: true,
+          reply: `Usage: /setup-token <${known.join('|')}>`,
+        };
+      }
+      return {
+        swallow: true,
+        reply: [
+          `Runtime OAuth for ${vendor} must run on the operator's machine (the vendor CLI opens a browser).`,
+          '',
+          `Run this locally, then re-check /connections:`,
+          `  anvio setup-token --${vendor}`,
+          '',
+          'Track 3 will bridge this into chat via a callback URL + QR attachment (ADR-0025 §Setup-token).',
+        ].join('\n'),
+      };
+    },
+  });
+
+  // ---------------- /providers test <route> [prompt...] ----------------
+
+  if (opts.probeModelRoute) {
+    const probe = opts.probeModelRoute;
+    registry.register({
+      name: 'providers-test',
+      description: 'Probe a routing entry: /providers-test <route> [prompt]',
+      handler: async (ctx) => {
+        const route = ctx.argsList[0];
+        if (!route) {
+          return {
+            swallow: true,
+            reply: 'Usage: /providers-test <route> [prompt]\nSee /workflows and providers/routing.yaml for routes.',
+          };
+        }
+        const prompt = ctx.argsList.slice(1).join(' ') || 'ping';
+        const started = Date.now();
+        try {
+          const result = await probe(route, prompt);
+          const ms = Date.now() - started;
+          return {
+            swallow: true,
+            reply: [
+              `route ${route} → ${result.selectedProvider ?? '?'}`,
+              `latency ~${ms}ms`,
+              result.content ? `sample: ${result.content.slice(0, 200)}` : '',
+            ]
+              .filter(Boolean)
+              .join('\n'),
+          };
+        } catch (error) {
+          return { swallow: true, reply: `Probe failed: ${errMsg(error)}` };
+        }
+      },
+    });
+  }
+}
+
+/**
+ * Extract the innermost fenced block from a raw arg string. Accepts ``` and
+ * ~~~ fences with an optional language tag. Returns null when no fence is
+ * present — the caller then asks the user to wrap the body in fences.
+ */
+function extractFencedBody(raw: string): string | null {
+  const fenceRe = /(?:```|~~~)[a-zA-Z0-9_+-]*\n([\s\S]*?)\n(?:```|~~~)/;
+  const match = raw.match(fenceRe);
+  return match ? match[1] : null;
 }
 
 async function patchSessionMeta(

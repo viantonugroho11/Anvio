@@ -598,6 +598,19 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     eventBus,
     memory: memoryProvider,
     harness,
+    blueprintExecutor,
+    probeModelRoute: async (route, prompt) => {
+      const started = Date.now();
+      const result = await modelRouter.chat({
+        messages: [{ role: 'user', content: prompt }],
+        routeOverride: route as import('@anvio/models').TaskRoute,
+      });
+      return {
+        selectedProvider: result.selectedProvider,
+        content: result.content,
+        latencyMs: Date.now() - started,
+      };
+    },
   });
 
   toolGateway.mergeContext({
