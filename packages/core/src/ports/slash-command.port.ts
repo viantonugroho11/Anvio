@@ -44,6 +44,16 @@ export interface SlashCommand {
   name: string;
   description: string;
   scope?: SlashCommandScope;
+  /**
+   * When false, adapters must NOT publish this command into the native
+   * client picker (Telegram `setMyCommands`, Discord Application Commands,
+   * Slack `/command`, etc.). The router still dispatches it — this only
+   * hides it from the auto-generated menu. Use for commands that require
+   * an inline token or free-form arg the picker cannot supply (e.g.
+   * `/confirm <token>`, `/cancel <token>`) so the picker entry is not
+   * misleading. Default: true.
+   */
+  syncable?: boolean;
   handler: (ctx: SlashCommandContext) => Promise<SlashCommandResult>;
 }
 

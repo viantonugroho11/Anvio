@@ -205,14 +205,14 @@ export class TelegramChannel extends BaseChannelAdapter {
     // is non-fatal; the picker stays empty but polling and dispatch still
     // work.
     const commands = this.options.slashCommands
-      ? this.options.slashCommands.list().map((c) => ({
-          command: c.name,
-          description: truncateDescription(c.description),
-        }))
+      ? buildTelegramCommandList(this.options.slashCommands.list())
       : DEFAULT_SLASH_COMMANDS;
     try {
       await this.api('setMyCommands', { commands });
     } catch (error) {
+      // Telegram fails the whole batch on the first invalid entry
+      // (regression: issue #59, v2.3.0). buildTelegramCommandList already
+      // sanitises/filters; log so an unexpected shape is still visible.
       console.error(
         '[Telegram] setMyCommands failed:',
         error instanceof Error ? error.message : error,
@@ -428,4 +428,40 @@ export function escapeLeadingSlash(text: string): string {
  */
 function truncateDescription(text: string): string {
   return text.length > 96 ? `${text.slice(0, 93)}...` : text;
+}
+
+/**
+ * Telegram Bot API constrains command names to `[a-z0-9_]{1,32}`. Any
+ * other character (`-`, `.`, uppercase, whitespace) causes `setMyCommands`
+ * to reject the ENTIRE batch (issue #59). Sanitise per-entry:
+ *   - drop `syncable === false` entries (router still dispatches them);
+ *   - lower-case, replace `-`/`.`/whitespace with `_`, drop everything else;
+ *   - truncate at 32;
+ *   - skip entries that end up empty or start with a digit (Telegram wants
+ *     the first char to be a letter or underscore).
+ *
+ * Exported so unit tests can pin the shape without spinning a bot.
+ */
+export function buildTelegramCommandList(
+  commands: Array<{ name: string; description: string; syncable?: boolean }>,
+): Array<{ command: string; description: string }> {
+  const out: Array<{ command: string; description: string }> = [];
+  const seen = new Set<string>();
+  for (const c of commands) {
+    if (c.syncable === false) continue;
+    const sanitized = c.name
+      .toLowerCase()
+      .replace(/[-.\s]+/g, '_')
+      .replace(/[^a-z0-9_]/g, '')
+      .slice(0, 32)
+      .replace(/^[^a-z_]+/, '');
+    if (!sanitized || !/[a-z0-9]/.test(sanitized)) {
+      console.warn(`[Telegram] skipping unsyncable command name: ${c.name}`);
+      continue;
+    }
+    if (seen.has(sanitized)) continue;
+    seen.add(sanitized);
+    out.push({ command: sanitized, description: truncateDescription(c.description) });
+  }
+  return out;
 }

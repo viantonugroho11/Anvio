@@ -608,8 +608,39 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
 
   registry.register({
     name: 'providers',
-    description: 'List known model providers',
+    description: 'Model providers: /providers [list|test <route> [prompt]]',
     handler: async (ctx) => {
+      const sub = (ctx.argsList[0] ?? 'list').toLowerCase();
+      if (sub === 'test') {
+        if (!opts.probeModelRoute) {
+          return { swallow: true, reply: 'Model-route probe not wired in this build.' };
+        }
+        const route = ctx.argsList[1];
+        if (!route) {
+          return {
+            swallow: true,
+            reply: 'Usage: /providers test <route> [prompt]\nRoutes come from providers/routing.yaml (e.g. coding, chat).',
+          };
+        }
+        const prompt = ctx.argsList.slice(2).join(' ') || 'ping';
+        const started = Date.now();
+        try {
+          const result = await opts.probeModelRoute(route, prompt);
+          const ms = Date.now() - started;
+          return {
+            swallow: true,
+            reply: [
+              `route ${route} → ${result.selectedProvider ?? '?'}`,
+              `latency ~${ms}ms`,
+              result.content ? `sample: ${result.content.slice(0, 200)}` : '',
+            ]
+              .filter(Boolean)
+              .join('\n'),
+          };
+        } catch (error) {
+          return { swallow: true, reply: `Probe failed: ${errMsg(error)}` };
+        }
+      }
       const s = await workspace.sessions.get(ctx.sessionId);
       const active = (s?.metadata?.providerOverride as string | undefined) ?? 'agent-default';
       return {
@@ -1128,6 +1159,7 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
   registry.register({
     name: 'confirm',
     description: 'Apply a pending /new /edit /rm: /confirm <token>',
+    syncable: false,
     handler: async (ctx) => {
       const token = ctx.argsList[0];
       if (!token) return { swallow: true, reply: 'Usage: /confirm <token>' };
@@ -1183,6 +1215,7 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
   registry.register({
     name: 'cancel',
     description: 'Discard a pending mutation: /cancel <token>',
+    syncable: false,
     handler: async (ctx) => {
       const token = ctx.argsList[0];
       if (!token) return { swallow: true, reply: 'Usage: /cancel <token>' };
@@ -1351,42 +1384,9 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
     },
   });
 
-  // ---------------- /providers test <route> [prompt...] ----------------
-
-  if (opts.probeModelRoute) {
-    const probe = opts.probeModelRoute;
-    registry.register({
-      name: 'providers-test',
-      description: 'Probe a routing entry: /providers-test <route> [prompt]',
-      handler: async (ctx) => {
-        const route = ctx.argsList[0];
-        if (!route) {
-          return {
-            swallow: true,
-            reply: 'Usage: /providers-test <route> [prompt]\nSee /workflows and providers/routing.yaml for routes.',
-          };
-        }
-        const prompt = ctx.argsList.slice(1).join(' ') || 'ping';
-        const started = Date.now();
-        try {
-          const result = await probe(route, prompt);
-          const ms = Date.now() - started;
-          return {
-            swallow: true,
-            reply: [
-              `route ${route} → ${result.selectedProvider ?? '?'}`,
-              `latency ~${ms}ms`,
-              result.content ? `sample: ${result.content.slice(0, 200)}` : '',
-            ]
-              .filter(Boolean)
-              .join('\n'),
-          };
-        } catch (error) {
-          return { swallow: true, reply: `Probe failed: ${errMsg(error)}` };
-        }
-      },
-    });
-  }
+  // `/providers-test` was a separate registration in v2.3.0 — Telegram
+  // rejects command names with `-` and failed the whole setMyCommands
+  // batch (issue #59). Folded into the `/providers test` subcommand above.
 }
 
 /**
