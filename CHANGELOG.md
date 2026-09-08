@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.4.0] - 2026-09-08
+
+**A2A Protocol v1.0 implementation — agent-to-agent interoperability.**
+
+### Added
+
+- **`packages/a2a` — full A2A protocol implementation (ADR-0026)**
+  - **A2A Server**: JSON-RPC 2.0 + REST bindings, SSE streaming, push notifications, in-memory task store with state machine lifecycle
+  - **A2A Client**: `A2AClient` with `sendMessage`/`sendStreamingMessage`/`getTask`/`cancelTask`, `AgentDiscovery` with TTL cache
+  - **A2A Tool**: `A2ATool` wraps any external A2A agent as an Anvio tool for delegation
+  - **Mapping layer**: bidirectional conversion — `AgentRunStatus ↔ TaskState`, `ChatMessage ↔ A2A Message`, `AgentStreamEvent → A2A StreamEvent`
+  - **Agent Card builder**: generates `/.well-known/agent.json` from Anvio `AgentDefinition` frontmatter
+  - **31 unit tests** covering task lifecycle, Agent Card generation, message mapping, and full server HTTP routes
+- **Gateway A2A routing** — Unified Gateway (`gateway-http.ts`) routes `/a2a/*` and `/.well-known/agent.json` to `platform.a2aServer` when enabled
+- **`PlatformContext.a2aServer`** — duck-typed optional interface; no hard dependency from platform to `@anvio/a2a`
+- **Documentation**: `docs/78-a2a-protocol.md` — integration guide with quick start, streaming, push notifications, state mapping, architecture diagrams
+
+---
+
 ## [2.3.1] - 2026-09-08
 
 **Telegram command sanitization fix + A2A protocol ADR.**
