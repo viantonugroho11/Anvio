@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.1] - 2026-09-08
+
+**Telegram command sanitization fix + A2A protocol ADR.**
+
+### Fixed
+
+- **Telegram `setMyCommands` batch failure (issue #59)** — command names containing `-`, `.`, uppercase, or whitespace caused the Telegram Bot API to reject the entire batch. New `buildTelegramCommandList()` sanitises names to `[a-z0-9_]{1,32}`, deduplicates, and skips non-syncable entries. Comprehensive test suite added.
+- **`/providers-test` folded into `/providers test` subcommand** — the hyphenated name was one of the entries breaking Telegram's command picker. The standalone registration is removed; `/providers test <route> [prompt]` provides identical functionality.
+- **`/confirm` and `/cancel` marked `syncable: false`** — these commands require an inline token the native picker cannot supply; hiding them from the auto-generated menu prevents misleading entries.
+
+### Added
+
+- **`SlashCommand.syncable` field** (`packages/core`) — when `false`, channel adapters skip the command in native client pickers (Telegram, Discord, Slack) while the router still dispatches it.
+- **ADR-0026: A2A Protocol Integration** — proposes `packages/a2a` implementing the A2A v1.0 open standard for agent-to-agent interoperability (Agent Cards, Tasks, JSON-RPC + REST, SSE streaming, push notifications). Two surfaces: A2A Server (expose Anvio agents) and A2A Client (delegate to external agents as tools).
+
+---
+
 ## [2.3.0] - 2026-09-01
 
 **Mutation surface + session forking (ADR-0025).** The chat surface can now scaffold, edit, and soft-delete every workspace primitive; sessions can fork and rewind; batch, worktree, and connections have live mutation subcommands. All destructive filesystem writes go through `workspace/_trash/` with an append-only audit log at `workspace/audit/mutations.jsonl`.
