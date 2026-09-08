@@ -305,5 +305,11 @@ export async function handleGatewayHttp(
     return true;
   }
 
+  // A2A protocol routes (ADR-0026)
+  if (platform.a2aServer && (pathname.startsWith('/a2a') || pathname === '/.well-known/agent.json' || pathname === '/.well-known/agents.json')) {
+    const handled = await platform.a2aServer.handleRequest(req, res, pathname);
+    if (handled) return true;
+  }
+
   return false;
 }

@@ -45,6 +45,18 @@ export interface PlatformContext {
    */
   slashCommands: SlashCommandRegistry;
   /**
+   * Optional A2A protocol server (ADR-0026). When present, the unified gateway
+   * routes `/a2a/*` and `/.well-known/agent.json` through it. Set by the
+   * platform boot sequence when `anvio.yaml` enables `a2a`.
+   */
+  a2aServer?: {
+    handleRequest(
+      req: import('node:http').IncomingMessage,
+      res: import('node:http').ServerResponse,
+      pathname: string,
+    ): Promise<boolean>;
+  };
+  /**
    * Tear down every background task started by createPlatform — channel
    * pollers, cron/automation timers, hook watchers, event-bus connections.
    * Short-lived callers (`anvio run`, `anvio chat`) must call this before
