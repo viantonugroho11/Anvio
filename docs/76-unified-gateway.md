@@ -27,6 +27,7 @@ anvio gateway stop
 | WebSocket | `/ws?sessionId=<id>` |
 | Cron / automation | Built-in scheduler |
 | Harness | Channel formatting + soul gate |
+| A2A Server | `/a2a/*`, `/.well-known/agent.json` (when enabled) |
 
 Default port: **3001** (`ANVIO_GATEWAY_PORT`).
 

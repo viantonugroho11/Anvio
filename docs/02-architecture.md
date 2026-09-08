@@ -49,6 +49,7 @@ packages/
   personas/     Persona profiles (bootstrap templates)
   integrations/ MCP-first integration registry
   acp/          Editor integration (ACP server)
+  a2a/          Agent-to-Agent protocol (A2A v1.0)
 ```
 
 ## Dependency Rule
