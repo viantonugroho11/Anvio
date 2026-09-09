@@ -1,50 +1,46 @@
 import type { AgentRunStatus } from '@anvio/core';
-import type { TaskState } from '../types/task.js';
+import { TaskState } from '@a2a-js/sdk';
 
 /**
- * Maps Anvio AgentRunStatus to A2A TaskState.
- *
- * Anvio sessions have a simpler lifecycle; A2A has richer terminal/interrupt
- * states. This mapping preserves the semantic meaning while bridging the gap.
+ * Maps Anvio AgentRunStatus to A2A TaskState (SDK enum).
  */
 export function sessionStatusToTaskState(status: AgentRunStatus): TaskState {
   switch (status) {
     case 'idle':
-      return 'submitted';
+      return TaskState.TASK_STATE_SUBMITTED;
     case 'assembling_context':
     case 'calling_model':
     case 'tool_executing':
     case 'storing_memory':
-      return 'working';
+      return TaskState.TASK_STATE_WORKING;
     case 'awaiting_approval':
-      return 'input_required';
+      return TaskState.TASK_STATE_INPUT_REQUIRED;
     case 'completed':
-      return 'completed';
+      return TaskState.TASK_STATE_COMPLETED;
     case 'failed':
-      return 'failed';
+      return TaskState.TASK_STATE_FAILED;
     default:
-      return 'working';
+      return TaskState.TASK_STATE_WORKING;
   }
 }
 
 /**
- * Maps A2A TaskState back to the closest Anvio AgentRunStatus.
- * Used when an external A2A agent reports status back.
+ * Maps A2A TaskState back to Anvio AgentRunStatus.
  */
 export function taskStateToSessionStatus(state: TaskState): AgentRunStatus {
   switch (state) {
-    case 'submitted':
+    case TaskState.TASK_STATE_SUBMITTED:
       return 'idle';
-    case 'working':
+    case TaskState.TASK_STATE_WORKING:
       return 'calling_model';
-    case 'input_required':
-    case 'auth_required':
+    case TaskState.TASK_STATE_INPUT_REQUIRED:
+    case TaskState.TASK_STATE_AUTH_REQUIRED:
       return 'awaiting_approval';
-    case 'completed':
+    case TaskState.TASK_STATE_COMPLETED:
       return 'completed';
-    case 'failed':
-    case 'rejected':
-    case 'canceled':
+    case TaskState.TASK_STATE_FAILED:
+    case TaskState.TASK_STATE_REJECTED:
+    case TaskState.TASK_STATE_CANCELED:
       return 'failed';
     default:
       return 'calling_model';

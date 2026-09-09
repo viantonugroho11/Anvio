@@ -298,10 +298,19 @@ importers:
 
   packages/a2a:
     dependencies:
+      '@a2a-js/sdk':
+        specifier: ^1.1.0
+        version: 1.1.0(@grpc/grpc-js@1.14.4)(express@5.2.1)
       '@anvio/core':
         specifier: workspace:*
         version: link:../core
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1
     devDependencies:
+      '@types/express':
+        specifier: ^5.0.2
+        version: 5.0.6
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -1192,6 +1201,21 @@ importers:
         version: 2.9.0
 
 packages:
+
+  '@a2a-js/sdk@1.1.0':
+    resolution: {integrity: sha512-/Mhzw9C6VW7pFbY2Rq0pnrjT0Fy9PV0c46A7Gx1ppRlYq2u/6OV/bNRIoVBKChb8UZ8bE0WzzCc0pIr2CdmG+w==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.10.2
+      '@grpc/grpc-js': ^1.11.0
+      express: ^4.21.2 || ^5.1.0
+    peerDependenciesMeta:
+      '@bufbuild/protobuf':
+        optional: true
+      '@grpc/grpc-js':
+        optional: true
+      express:
+        optional: true
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -4531,6 +4555,13 @@ packages:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
+
+  '@a2a-js/sdk@1.1.0(@grpc/grpc-js@1.14.4)(express@5.2.1)':
+    dependencies:
+      jose: 6.2.8
+    optionalDependencies:
+      '@grpc/grpc-js': 1.14.4
+      express: 5.2.1
 
   '@alloc/quick-lru@5.2.0': {}
 

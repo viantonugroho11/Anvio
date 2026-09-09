@@ -1,163 +1,118 @@
 import { randomUUID } from 'node:crypto';
-import type { AgentCard } from '../types/agent-card.js';
-import type { Task } from '../types/task.js';
-import type { Message } from '../types/message.js';
-import type { SendMessageRequest, SendMessageConfiguration } from '../types/requests.js';
-import type { StreamEvent } from '../types/index.js';
-import { AgentDiscovery } from './agent-discovery.js';
+import type { AgentCard, Task, Message, SendMessageRequest } from '@a2a-js/sdk';
+import { Role } from '@a2a-js/sdk';
+import {
+  ClientFactory,
+  JsonRpcTransportFactory,
+  RestTransportFactory,
+  type Client,
+} from '@a2a-js/sdk/client';
 
 export interface A2AClientOptions {
   baseUrl: string;
   apiKey?: string;
   bearerToken?: string;
+  preferredTransport?: 'JSONRPC' | 'HTTP+JSON';
 }
 
-/**
- * A2A v1.0 client — invokes remote A2A agents.
- * Supports both JSON-RPC and REST bindings.
- */
 export class A2AClient {
-  private readonly discovery = new AgentDiscovery();
+  private sdkClient?: Client;
   private cachedCard?: AgentCard;
+  private readonly options: A2AClientOptions;
 
-  constructor(private readonly options: A2AClientOptions) {}
+  constructor(options: A2AClientOptions) {
+    this.options = options;
+  }
 
   async getAgentCard(): Promise<AgentCard> {
     if (!this.cachedCard) {
-      this.cachedCard = await this.discovery.discover(this.options.baseUrl);
+      await this.getClient();
+      this.cachedCard = (this.sdkClient as any).agentCard ?? await this.fetchCard();
     }
-    return this.cachedCard;
+    return this.cachedCard!;
   }
 
   async sendMessage(
     content: string,
-    options?: {
-      contextId?: string;
-      configuration?: SendMessageConfiguration;
-      metadata?: Record<string, unknown>;
-    },
+    opts?: { contextId?: string; metadata?: Record<string, unknown> },
   ): Promise<Task> {
-    const message: Message = {
-      messageId: randomUUID(),
-      contextId: options?.contextId,
-      role: 'user',
-      parts: [{ type: 'text', text: content }],
-    };
-
+    const client = await this.getClient();
+    const message = this.buildMessage(content, opts?.contextId);
     const request: SendMessageRequest = {
+      tenant: '',
       message,
-      configuration: options?.configuration,
-      metadata: options?.metadata,
+      metadata: opts?.metadata as any,
+      configuration: undefined,
     };
-
-    return this.jsonRpc<Task>('sendMessage', request as unknown as Record<string, unknown>);
+    const result = await client.sendMessage(request);
+    return result as Task;
   }
 
-  async sendStreamingMessage(
+  async *sendStreamingMessage(
     content: string,
-    onEvent: (event: StreamEvent) => void,
-    options?: { contextId?: string },
-  ): Promise<void> {
-    const message: Message = {
-      messageId: randomUUID(),
-      contextId: options?.contextId,
-      role: 'user',
-      parts: [{ type: 'text', text: content }],
+    opts?: { contextId?: string },
+  ): AsyncGenerator<any> {
+    const client = await this.getClient();
+    const message = this.buildMessage(content, opts?.contextId);
+    const request: SendMessageRequest = {
+      tenant: '',
+      message,
+      configuration: undefined,
+      metadata: undefined,
     };
-
-    const card = await this.getAgentCard();
-    const endpoint = this.resolveEndpoint(card);
-
-    const res = await fetch(`${endpoint}/messages:stream`, {
-      method: 'POST',
-      headers: this.buildHeaders(),
-      body: JSON.stringify({ message }),
-    });
-
-    if (!res.ok) {
-      throw new Error(`A2A streaming failed: ${res.status}`);
-    }
-
-    const reader = res.body?.getReader();
-    if (!reader) throw new Error('No response body for streaming');
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const event = JSON.parse(line.slice(6)) as StreamEvent;
-            onEvent(event);
-          } catch {
-            // skip unparseable SSE lines
-          }
-        }
-      }
+    const stream = client.sendMessageStream(request);
+    for await (const event of stream) {
+      yield event;
     }
   }
 
   async getTask(taskId: string): Promise<Task> {
-    return this.jsonRpc<Task>('getTask', { id: taskId });
+    const client = await this.getClient();
+    return client.getTask({ id: taskId, tenant: '' });
   }
 
   async cancelTask(taskId: string): Promise<Task> {
-    return this.jsonRpc<Task>('cancelTask', { id: taskId });
+    const client = await this.getClient();
+    return client.cancelTask({ id: taskId, tenant: '', metadata: undefined });
   }
 
-  // ── JSON-RPC transport ──────────────────────────────────────
+  private async getClient(): Promise<Client> {
+    if (!this.sdkClient) {
+      const factory = new ClientFactory({
+        transports: [
+          new JsonRpcTransportFactory(),
+          new RestTransportFactory(),
+        ],
+        preferredTransports: [this.options.preferredTransport ?? 'JSONRPC'],
+      });
 
-  private async jsonRpc<T>(method: string, params: Record<string, unknown>): Promise<T> {
-    const card = await this.getAgentCard();
-    const endpoint = this.resolveEndpoint(card);
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: this.buildHeaders(),
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: randomUUID(),
-        method,
-        params,
-      }),
-    });
-
-    if (!res.ok) {
-      throw new Error(`A2A RPC failed: ${res.status} ${res.statusText}`);
+      this.sdkClient = await factory.createFromUrl(this.options.baseUrl);
     }
-
-    const body = (await res.json()) as { result?: T; error?: { code: number; message: string } };
-    if (body.error) {
-      throw new Error(`A2A RPC error [${body.error.code}]: ${body.error.message}`);
-    }
-    return body.result as T;
+    return this.sdkClient;
   }
 
-  private resolveEndpoint(card: AgentCard): string {
-    const jsonRpcEndpoint = card.endpoints.find((e) => e.protocolBinding === 'json-rpc');
-    const restEndpoint = card.endpoints.find((e) => e.protocolBinding === 'http+json');
-    const ep = jsonRpcEndpoint ?? restEndpoint ?? card.endpoints[0];
-    return ep?.url ?? this.options.baseUrl;
-  }
-
-  private buildHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'A2A-Version': '1.0',
+  private buildMessage(content: string, contextId?: string): Message {
+    return {
+      messageId: randomUUID(),
+      contextId: contextId ?? '',
+      taskId: '',
+      role: Role.ROLE_USER,
+      parts: [{
+        content: { $case: 'text' as const, value: content },
+        metadata: undefined,
+        filename: '',
+        mediaType: 'text/plain',
+      }],
+      metadata: undefined,
+      extensions: [],
+      referenceTaskIds: [],
     };
-    if (this.options.bearerToken) {
-      headers['Authorization'] = `Bearer ${this.options.bearerToken}`;
-    } else if (this.options.apiKey) {
-      headers['X-API-Key'] = this.options.apiKey;
-    }
-    return headers;
+  }
+
+  private async fetchCard(): Promise<AgentCard> {
+    const url = `${this.options.baseUrl.replace(/\/$/, '')}/.well-known/agent.json`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`Agent Card fetch failed: ${res.status}`);
+    return (await res.json()) as AgentCard;
   }
 }

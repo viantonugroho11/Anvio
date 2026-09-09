@@ -23,18 +23,17 @@ describe('buildAgentCard', () => {
   it('maps AgentDefinition to A2A AgentCard', () => {
     const card = buildAgentCard(AGENT, {
       baseUrl: 'http://localhost:3001',
-      organization: 'Anvio',
+      provider: { organization: 'Anvio', url: 'http://localhost:3001' },
     });
-    expect(card.agentId).toBe('researcher');
-    expect(card.agentName).toBe('researcher');
+    expect(card.name).toBe('researcher');
     expect(card.description).toBe('Research agent');
     expect(card.provider?.organization).toBe('Anvio');
-    expect(card.capabilities.streaming).toBe(true);
-    expect(card.endpoints).toHaveLength(2);
-    expect(card.endpoints[0].protocolBinding).toBe('json-rpc');
-    expect(card.endpoints[1].protocolBinding).toBe('http+json');
+    expect(card.capabilities?.streaming).toBe(true);
+    expect(card.supportedInterfaces).toHaveLength(2);
+    expect(card.supportedInterfaces![0]!.protocolBinding).toBe('JSONRPC');
+    expect(card.supportedInterfaces![1]!.protocolBinding).toBe('HTTP+JSON');
     expect(card.skills).toHaveLength(2);
-    expect(card.skills![0].name).toBe('web-search');
+    expect(card.skills![0]!.name).toBe('web-search');
   });
 
   it('handles agent with no skills', () => {
@@ -43,6 +42,6 @@ describe('buildAgentCard', () => {
       spec: { ...AGENT.spec, skills: [] },
     };
     const card = buildAgentCard(bare, { baseUrl: 'http://localhost:3001' });
-    expect(card.skills).toBeUndefined();
+    expect(card.skills).toHaveLength(0);
   });
 });

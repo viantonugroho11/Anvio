@@ -1,63 +1,69 @@
 import type { AgentDefinition } from '@anvio/core';
-import type { AgentCard, AgentCapabilities, AgentSkill } from '../types/agent-card.js';
+import type { AgentCard } from '@a2a-js/sdk';
+import { A2A_PROTOCOL_VERSION } from '@a2a-js/sdk';
 
 export interface AgentCardBuilderOptions {
   baseUrl: string;
-  organization?: string;
-  organizationUrl?: string;
-  enableStreaming?: boolean;
-  enablePushNotifications?: boolean;
+  provider?: { organization: string; url: string };
 }
 
 /**
- * Builds an A2A Agent Card from an Anvio AgentDefinition.
- * Maps frontmatter fields to A2A schema.
+ * Converts an Anvio AgentDefinition into an A2A v1.0 AgentCard
+ * using the official SDK types.
  */
 export function buildAgentCard(
   agent: AgentDefinition,
   options: AgentCardBuilderOptions,
 ): AgentCard {
-  const capabilities: AgentCapabilities = {
-    streaming: options.enableStreaming ?? true,
-    pushNotifications: options.enablePushNotifications ?? false,
-    extendedAgentCard: false,
-  };
-
-  const skills: AgentSkill[] = agent.spec.skills.map((skillName, i) => ({
-    skillId: `skill_${i}`,
-    name: skillName,
-    description: skillName,
-  }));
+  const baseUrl = options.baseUrl.replace(/\/$/, '');
 
   return {
-    agentId: agent.metadata.name,
-    agentName: agent.metadata.name,
-    description: agent.spec.description,
-    provider: options.organization
-      ? { organization: options.organization, url: options.organizationUrl }
-      : undefined,
-    capabilities,
-    endpoints: [
+    name: agent.metadata.name,
+    description: agent.spec.description ?? '',
+    version: agent.metadata.version ?? '1.0.0',
+    provider: options.provider ?? {
+      organization: 'Anvio',
+      url: baseUrl,
+    },
+    supportedInterfaces: [
       {
-        url: `${options.baseUrl}/a2a`,
-        protocolBinding: 'json-rpc',
+        url: `${baseUrl}/a2a`,
+        protocolBinding: 'JSONRPC',
+        tenant: '',
+        protocolVersion: A2A_PROTOCOL_VERSION,
       },
       {
-        url: `${options.baseUrl}/a2a`,
-        protocolBinding: 'http+json',
+        url: `${baseUrl}/a2a`,
+        protocolBinding: 'HTTP+JSON',
+        tenant: '',
+        protocolVersion: A2A_PROTOCOL_VERSION,
       },
     ],
-    skills: skills.length > 0 ? skills : undefined,
-    metadata: {
-      anvioVersion: agent.metadata.version,
-      runtime: agent.spec.runtime?.provider ?? 'local',
+    capabilities: {
+      streaming: true,
+      pushNotifications: true,
+      extensions: [],
+      extendedAgentCard: false,
     },
+    skills: (agent.spec.skills ?? []).map((s: string) => ({
+      id: s,
+      name: s,
+      description: '',
+      tags: [],
+      examples: [],
+      inputModes: ['text'],
+      outputModes: ['text'],
+      securityRequirements: [],
+    })),
+    securitySchemes: {},
+    securityRequirements: [],
+    defaultInputModes: ['text'],
+    defaultOutputModes: ['text'],
+    documentationUrl: '',
+    signatures: [],
   };
 }
 
-/**
- * Builds Agent Cards for all agents in a workspace.
- */
 export function buildAgentCards(
   agents: AgentDefinition[],
   options: AgentCardBuilderOptions,

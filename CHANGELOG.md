@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.0] - 2026-09-09
+
+**A2A package refactored to official `@a2a-js/sdk` v1.1.0 — replaces hand-written protocol code.**
+
+### Changed
+
+- **`packages/a2a` — migrated to official A2A JS SDK (`@a2a-js/sdk` v1.1.0)**
+  - **Server**: `A2AServer` now wraps SDK's `DefaultRequestHandler` + Express transport handlers (`jsonRpcHandler`, `restHandler`, `agentCardHandler`) instead of hand-written JSON-RPC/REST routing
+  - **`AnvioAgentExecutor`**: implements SDK's `AgentExecutor` interface, bridges to Anvio runtime via `RequestContext` + `ExecutionEventBus`
+  - **Client**: `A2AClient` wraps SDK's `ClientFactory` with `JsonRpcTransportFactory` + `RestTransportFactory`
+  - **Types**: all A2A types now re-exported from `@a2a-js/sdk` — protobuf-generated with `$case` discriminated unions for `Part.content`, numeric enums for `TaskState`/`Role`
+  - **Mapping layer**: updated to SDK enums (`TaskState.TASK_STATE_WORKING`, `Role.ROLE_AGENT`) instead of string literals
+
+### Removed
+
+- **Hand-written types** (`packages/a2a/src/types/`) — replaced by SDK re-exports
+- **`TaskManager`** — replaced by SDK's `InMemoryTaskStore`
+- **`SseStream`** — replaced by SDK streaming transport
+- **`PushNotifier`** — replaced by SDK's `DefaultPushNotificationSender`
+- **`AgentDiscovery`** — replaced by SDK's `ClientFactory.createFromUrl()`
+
+### Added
+
+- `@a2a-js/sdk` v1.1.0 and `express` as dependencies (SDK transport handlers use Express middleware)
+- `@types/express` as devDependency
+
+---
+
 ## [2.4.0] - 2026-09-08
 
 **A2A Protocol v1.0 implementation — agent-to-agent interoperability.**

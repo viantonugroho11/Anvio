@@ -1,11 +1,16 @@
 {
   "name": "@anvio/a2a",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
@@ -13,7 +18,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@anvio/core": "workspace:*"
+    "@a2a-js/sdk": "^1.1.0",
+    "@anvio/core": "workspace:*",
+    "express": "^5.2.1"
   },
-  "devDependencies": { "typescript": "^5.8.3", "vitest": "^3.1.4" }
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
 }
