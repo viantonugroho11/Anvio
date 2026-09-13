@@ -173,136 +173,147 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
             : { content };
           let fullContent = '';
 
-          for await (const chunk of runtime.stream(session, agent, input)) {
-            if (chunk.type === 'progress') {
-              await eventBus.publishCore(
-                EventSubjects.AGENT_RUN_PROGRESS,
-                'anvio.agent.run.progress',
-                {
-                  sessionId,
-                  phase: chunk.phase,
-                  status: chunk.status,
-                  channel,
-                },
-              );
-            }
-            if (chunk.type === 'chunk' && chunk.delta) {
-              fullContent += chunk.delta;
-              await eventBus.publishCore(EventSubjects.AGENT_RUN_CHUNK, 'anvio.agent.run.chunk', {
-                sessionId,
-                delta: chunk.delta,
-                channel,
-              });
-              if (!harness.shouldSuppressRawOutput(channel as ChannelType)) {
-                await channelHub.sendMessage(channel as ChannelType, sessionId, {
-                  sessionId,
-                  type: 'chunk',
-                  delta: chunk.delta,
-                });
-              }
-            }
-            if (chunk.type === 'approval_required') {
-              await workspace.sessions.update(sessionId, {
-                status: 'awaiting_approval',
-                pendingApproval: chunk.request,
-                metadata: {
-                  ...stored.metadata,
-                  agentRunCheckpoint: chunk.checkpoint,
-                },
-              });
-              await eventBus.publish(EventSubjects.APPROVAL_REQUESTED, 'anvio.approval.requested', {
-                sessionId,
-                requestId: chunk.request.id,
-                toolName: chunk.request.toolName,
-                reason: chunk.request.reason,
-                channel,
-              } satisfies ApprovalRequestedData);
-              await channelHub.sendNotification(channel as ChannelType, sessionId, {
-                sessionId,
-                type: 'approval_required',
-                title: 'Approval required',
-                body: chunk.request.reason,
-              });
-              return;
-            }
-            if (chunk.type === 'done' && chunk.usage) {
-              await workspace.sessions.update(sessionId, {
-                messages: [
-                  ...stored.messages,
-                  { role: 'user', content },
-                  { role: 'assistant', content: fullContent },
-                ],
-                status: 'completed',
-                pendingApproval: undefined,
-                metadata: {
-                  ...stored.metadata,
-                  agentRunCheckpoint: undefined,
-                  // Vendor runtimes keep their own transcript; store the
-                  // handle so the next turn resumes it instead of starting
-                  // cold (issue #63). Keyed per runtime id — a fallback
-                  // chain must not hand one vendor another's session.
-                  ...(chunk.vendorSessionId && chunk.runtimeId
-                    ? {
-                        vendorSessions: {
-                          ...((stored.metadata?.vendorSessions as
-                            | Record<string, string>
-                            | undefined) ?? {}),
-                          [chunk.runtimeId ?? 'unknown']: chunk.vendorSessionId,
-                        },
-                      }
-                    : {}),
-                },
-              });
-              await finalizeAgentRun(eventBus, {
-                sessionId,
-                content: fullContent,
-                usage: chunk.usage,
-                channel,
-              });
-              if (!harness.shouldSuppressRawOutput(channel as ChannelType)) {
-                await channelHub.sendMessage(channel as ChannelType, sessionId, {
-                  sessionId,
-                  type: 'done',
-                  content: fullContent,
-                });
-              } else if (fullContent.trim() && !harness.hasDeliveredReply(sessionId)) {
-                console.warn(
-                  `[gateway] Harness strict: session ${sessionId} completed without anvio_channel__reply`,
+          // Native "working on it" indicator for channels that have one.
+          // Vendor runtimes emit no progress events at all, so without
+          // this the user sees pure silence for the whole turn (issue #70).
+          await channelHub.setTyping?.(channel as ChannelType, sessionId, true);
+          try {
+            for await (const chunk of runtime.stream(session, agent, input)) {
+              if (chunk.type === 'progress') {
+                await eventBus.publishCore(
+                  EventSubjects.AGENT_RUN_PROGRESS,
+                  'anvio.agent.run.progress',
+                  {
+                    sessionId,
+                    phase: chunk.phase,
+                    status: chunk.status,
+                    channel,
+                  },
                 );
               }
-              // task_completed used to fire unconditionally, so every chat
-              // reply was followed by a second "Task Completed / Agent X
-              // finished." bubble (issue #54(a)). For chat channels the
-              // user already saw the reply arrive; the notification is only
-              // meaningful for non-streaming surfaces (email/sms/webhook).
-              if (!CHAT_CHANNELS.has(channel)) {
+              if (chunk.type === 'chunk' && chunk.delta) {
+                fullContent += chunk.delta;
+                await eventBus.publishCore(EventSubjects.AGENT_RUN_CHUNK, 'anvio.agent.run.chunk', {
+                  sessionId,
+                  delta: chunk.delta,
+                  channel,
+                });
+                if (!harness.shouldSuppressRawOutput(channel as ChannelType)) {
+                  await channelHub.sendMessage(channel as ChannelType, sessionId, {
+                    sessionId,
+                    type: 'chunk',
+                    delta: chunk.delta,
+                  });
+                }
+              }
+              if (chunk.type === 'approval_required') {
+                await workspace.sessions.update(sessionId, {
+                  status: 'awaiting_approval',
+                  pendingApproval: chunk.request,
+                  metadata: {
+                    ...stored.metadata,
+                    agentRunCheckpoint: chunk.checkpoint,
+                  },
+                });
+                await eventBus.publish(EventSubjects.APPROVAL_REQUESTED, 'anvio.approval.requested', {
+                  sessionId,
+                  requestId: chunk.request.id,
+                  toolName: chunk.request.toolName,
+                  reason: chunk.request.reason,
+                  channel,
+                } satisfies ApprovalRequestedData);
                 await channelHub.sendNotification(channel as ChannelType, sessionId, {
                   sessionId,
-                  type: 'task_completed',
-                  title: 'Task Completed',
-                  body: `Agent ${agentId} finished.`,
+                  type: 'approval_required',
+                  title: 'Approval required',
+                  body: chunk.request.reason,
+                });
+                return;
+              }
+              if (chunk.type === 'done' && chunk.usage) {
+                await workspace.sessions.update(sessionId, {
+                  messages: [
+                    ...stored.messages,
+                    { role: 'user', content },
+                    { role: 'assistant', content: fullContent },
+                  ],
+                  status: 'completed',
+                  pendingApproval: undefined,
+                  metadata: {
+                    ...stored.metadata,
+                    agentRunCheckpoint: undefined,
+                    // Vendor runtimes keep their own transcript; store the
+                    // handle so the next turn resumes it instead of starting
+                    // cold (issue #63). Keyed per runtime id — a fallback
+                    // chain must not hand one vendor another's session.
+                    ...(chunk.vendorSessionId && chunk.runtimeId
+                      ? {
+                          vendorSessions: {
+                            ...((stored.metadata?.vendorSessions as
+                              | Record<string, string>
+                              | undefined) ?? {}),
+                            [chunk.runtimeId ?? 'unknown']: chunk.vendorSessionId,
+                          },
+                        }
+                      : {}),
+                  },
+                });
+                await finalizeAgentRun(eventBus, {
+                  sessionId,
+                  content: fullContent,
+                  usage: chunk.usage,
+                  channel,
+                });
+                if (!harness.shouldSuppressRawOutput(channel as ChannelType)) {
+                  await channelHub.sendMessage(channel as ChannelType, sessionId, {
+                    sessionId,
+                    type: 'done',
+                    content: fullContent,
+                  });
+                } else if (fullContent.trim() && !harness.hasDeliveredReply(sessionId)) {
+                  console.warn(
+                    `[gateway] Harness strict: session ${sessionId} completed without anvio_channel__reply`,
+                  );
+                }
+                // task_completed used to fire unconditionally, so every chat
+                // reply was followed by a second "Task Completed / Agent X
+                // finished." bubble (issue #54(a)). For chat channels the
+                // user already saw the reply arrive; the notification is only
+                // meaningful for non-streaming surfaces (email/sms/webhook).
+                if (!CHAT_CHANNELS.has(channel)) {
+                  await channelHub.sendNotification(channel as ChannelType, sessionId, {
+                    sessionId,
+                    type: 'task_completed',
+                    title: 'Task Completed',
+                    body: `Agent ${agentId} finished.`,
+                  });
+                }
+                await eventBus.publish(EventSubjects.MEMORY_STORED, 'anvio.memory.stored', {
+                  sessionId,
+                  userId,
+                  type: 'conversation',
                 });
               }
-              await eventBus.publish(EventSubjects.MEMORY_STORED, 'anvio.memory.stored', {
-                sessionId,
-                userId,
-                type: 'conversation',
-              });
+              if (chunk.type === 'error') {
+                await workspace.sessions.update(sessionId, { status: 'failed' });
+                await eventBus.publishCore(EventSubjects.AGENT_RUN_FAILED, 'anvio.agent.run.failed', {
+                  sessionId,
+                  error: chunk.error ?? 'Unknown error',
+                  channel,
+                });
+                await channelHub.sendNotification(channel as ChannelType, sessionId, {
+                  sessionId,
+                  type: 'task_failed',
+                  title: 'Task Failed',
+                  body: chunk.error,
+                });
+              }
             }
-            if (chunk.type === 'error') {
-              await workspace.sessions.update(sessionId, { status: 'failed' });
-              await eventBus.publishCore(EventSubjects.AGENT_RUN_FAILED, 'anvio.agent.run.failed', {
-                sessionId,
-                error: chunk.error ?? 'Unknown error',
-                channel,
-              });
-              await channelHub.sendNotification(channel as ChannelType, sessionId, {
-                sessionId,
-                type: 'task_failed',
-                title: 'Task Failed',
-                body: chunk.error,
-              });
-            }
+          } finally {
+            // Covers the approval_required early return and any thrown
+            // error too — a leaked keepalive would leave the indicator
+            // spinning forever.
+            await channelHub.setTyping?.(channel as ChannelType, sessionId, false);
           }
         },
       );

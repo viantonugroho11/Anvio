@@ -67,6 +67,12 @@ export class ChannelHub implements ChannelHubPort {
     await adapter.sendApprovalRequest(sessionId, request);
   }
 
+  async setTyping(channel: ChannelType, sessionId: string, active: boolean): Promise<void> {
+    const adapter = this.adapters.get(channel);
+    if (!adapter?.setTyping) return;
+    await adapter.setTyping(sessionId, active);
+  }
+
   async startAll(): Promise<void> {
     await Promise.all([...this.adapters.values()].map((a) => a.start()));
   }
