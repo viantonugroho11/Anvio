@@ -22,7 +22,7 @@
     "@anvio/memory": "workspace:*",
     "@anvio/models": "workspace:*",
     "@anvio/tools": "workspace:*",
-    "uuid": "^11.1.0"
+    "uuid": "^14.0.0"
   },
   "devDependencies": { "typescript": "^5.8.3", "vitest": "^3.1.4" }
 }
