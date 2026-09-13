@@ -10,12 +10,16 @@ import os from 'node:os';
 import fs from 'node:fs/promises';
 
 describe('Phase H — Learning, Tools, Knowledge', () => {
-  it('memory nudge stores user preference facts', async () => {
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'anvio-h-'));
+  async function learningEngine(prefix: string) {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
     await Workspace.init(tmp);
     const ws = await Workspace.open(tmp);
     const memory = createMemoryProvider('filesystem', ws.storage);
-    const engine = new LearningEngine(memory, tmp);
+    return { tmp, engine: new LearningEngine(memory, tmp) };
+  }
+
+  it('memory nudge stores user preference facts', async () => {
+    const { engine } = await learningEngine('anvio-h-');
 
     const result = await engine.onSessionCompleted({
       sessionId: 's1',
@@ -28,6 +32,27 @@ describe('Phase H — Learning, Tools, Knowledge', () => {
     });
 
     expect(result.memoryNudge.factsStored).toBeGreaterThan(0);
+    // No auto-draft here: the loop fires once per agent run, so a
+    // two-message exchange with no /capture marker must not produce a
+    // skill (issue #64). Memory still learns from it.
+    expect(result.skillDraft).toBeUndefined();
+  });
+
+  it('auto-drafts a skill when the session asks for it explicitly', async () => {
+    const { engine } = await learningEngine('anvio-h-capture-');
+
+    const result = await engine.onSessionCompleted({
+      sessionId: 's2',
+      userId: 'local-user',
+      agentId: 'architect',
+      messages: [
+        { role: 'user', content: 'Remember that user prefers architecture diagrams in reviews' },
+        { role: 'assistant', content: 'I will include diagrams in architecture reviews.' },
+        { role: 'user', content: '/capture this as a skill for future architecture reviews' },
+        { role: 'assistant', content: 'Captured the architecture review preference.' },
+      ],
+    });
+
     expect(result.skillDraft?.slug).toBeDefined();
   });
 
