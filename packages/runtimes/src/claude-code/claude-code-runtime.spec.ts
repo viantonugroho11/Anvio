@@ -193,4 +193,115 @@ describe('ClaudeCodeRuntimeProvider', () => {
     await provider.run(request);
     expect(captured).toBeUndefined();
   });
+  describe('conversation continuity (issue #63)', () => {
+    function successResult(sessionId = 'sdk-session') {
+      return {
+        type: 'result',
+        subtype: 'success',
+        result: 'ok',
+        session_id: sessionId,
+        usage: { input_tokens: 1, output_tokens: 1 },
+        duration_ms: 1,
+        duration_api_ms: 1,
+        is_error: false,
+        num_turns: 1,
+        stop_reason: 'end_turn',
+        total_cost_usd: 0,
+        modelUsage: {},
+        permission_denials: [],
+        errors: [],
+        uuid: '00000000-0000-4000-8000-000000000020',
+      } as never;
+    }
+
+    function stub(onCall: (params: { prompt: string; options?: { resume?: string } }) => void) {
+      return new ClaudeCodeRuntimeProvider({
+        oauthToken: 'sk-ant-oat01-test',
+        queryImpl: (params) => {
+          onCall(params as { prompt: string; options?: { resume?: string } });
+          return (async function* (): AsyncIterable<
+            import('@anthropic-ai/claude-agent-sdk').SDKMessage
+          > {
+            yield successResult();
+          })();
+        },
+      });
+    }
+
+    it('reports native resume support', () => {
+      expect(new ClaudeCodeRuntimeProvider().capabilities().supportsNativeResume).toBe(true);
+    });
+
+    it('returns the SDK session id so the gateway can persist it', async () => {
+      const provider = stub(() => {});
+      const result = await provider.run(mockRequest());
+      expect(result.vendorSessionId).toBe('sdk-session');
+    });
+
+    it('emits the vendor session id and runtime id on the done event', async () => {
+      const provider = stub(() => {});
+      const events = [];
+      for await (const event of provider.stream(mockRequest())) events.push(event);
+      const done = events.find((e) => e.type === 'done');
+      expect(done).toMatchObject({ vendorSessionId: 'sdk-session', runtimeId: 'claude-code' });
+    });
+
+    it('resumes the stored transcript instead of replaying history', async () => {
+      let seen: { prompt: string; options?: { resume?: string } } | undefined;
+      const provider = stub((params) => {
+        seen = params;
+      });
+
+      const request = mockRequest('and what did I say before?');
+      request.session.state.messages = [{ role: 'user', content: 'my name is Vianto' }];
+      request.session.state.metadata = { vendorSessions: { 'claude-code': 'sdk-prev' } };
+      await provider.run(request);
+
+      expect(seen?.options?.resume).toBe('sdk-prev');
+      // The SDK already holds the transcript — resending it would double the cost.
+      expect(seen?.prompt).toBe('and what did I say before?');
+    });
+
+    it('replays history as a prelude when there is no stored handle', async () => {
+      let seen: { prompt: string; options?: { resume?: string } } | undefined;
+      const provider = stub((params) => {
+        seen = params;
+      });
+
+      const request = mockRequest('and what did I say before?');
+      request.session.state.messages = [{ role: 'user', content: 'my name is Vianto' }];
+      await provider.run(request);
+
+      expect(seen?.options?.resume).toBeUndefined();
+      expect(seen?.prompt).toContain('my name is Vianto');
+    });
+
+    it('falls back to a cold start when the stored handle is stale', async () => {
+      const calls: Array<{ prompt: string; options?: { resume?: string } }> = [];
+      const provider = new ClaudeCodeRuntimeProvider({
+        oauthToken: 'sk-ant-oat01-test',
+        queryImpl: (params) => {
+          calls.push(params as { prompt: string; options?: { resume?: string } });
+          return (async function* (): AsyncIterable<
+            import('@anthropic-ai/claude-agent-sdk').SDKMessage
+          > {
+            if ((params.options as { resume?: string } | undefined)?.resume) {
+              throw new Error('No conversation found with session ID: sdk-gone');
+            }
+            yield successResult('sdk-fresh');
+          })();
+        },
+      });
+
+      const request = mockRequest('still there?');
+      request.session.state.messages = [{ role: 'user', content: 'my name is Vianto' }];
+      request.session.state.metadata = { vendorSessions: { 'claude-code': 'sdk-gone' } };
+      const result = await provider.run(request);
+
+      expect(calls).toHaveLength(2);
+      expect(calls[1]?.options?.resume).toBeUndefined();
+      expect(calls[1]?.prompt).toContain('my name is Vianto');
+      expect(result.vendorSessionId).toBe('sdk-fresh');
+    });
+  });
 });

@@ -9,6 +9,10 @@ import type {
 } from '@anvio/core';
 import { AnvioError } from '@anvio/core';
 import {
+  buildResumeAwarePrompt,
+  readVendorSessionId,
+} from '../shared/session-history.js';
+import {
   buildClaudeCodeAgentEnv,
   resolveClaudeCodeOAuthToken,
   type ResolveClaudeCodeOAuthOptions,
@@ -95,6 +99,7 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
       supportsSubagents: true,
       supportsMcp: true,
       supportedLanguages: ['typescript', 'python', 'go', 'shell'],
+      supportsNativeResume: true,
     };
   }
 
@@ -129,7 +134,11 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
     return token;
   }
 
-  private buildQueryOptions(request: RuntimeRequest, oauthToken: string): Options {
+  private buildQueryOptions(
+    request: RuntimeRequest,
+    oauthToken: string,
+    resume?: string,
+  ): Options {
     // Prefer the runtime-scoped model. Falling through to `spec.model.model`
     // used to be the only path, which conflated the vendor's model id with
     // the local fallback's model provider config (issue #49). When both are
@@ -146,22 +155,56 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
       permissionMode: this.options.permissionMode ?? 'default',
       includePartialMessages: true,
       env: buildClaudeCodeAgentEnv(oauthToken),
+      // Continue the transcript the SDK already holds for this Anvio
+      // session (issue #63). Without it every turn is a cold start.
+      ...(resume ? { resume } : {}),
     };
+  }
+
+  /**
+   * A stored handle can go stale — the SDK's transcript lives under
+   * `~/.claude/projects/` keyed by cwd, so a moved workspace, a pruned
+   * transcript, or a different machine all invalidate it. Treat that as a
+   * cold start rather than a failed turn: the caller retries once without
+   * `resume`, replaying history as a prompt prelude.
+   */
+  private isStaleResumeError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error ?? '');
+    return /resume|session.*(not found|does not exist|unknown)|no conversation found/i.test(message);
   }
 
   async run(request: RuntimeRequest): Promise<RuntimeResult> {
     const oauthToken = await this.oauthTokenForRequest(request);
+    const resume = readVendorSessionId(request, this.runtimeId);
+
+    try {
+      return await this.runOnce(request, oauthToken, resume);
+    } catch (error) {
+      if (!resume || !this.isStaleResumeError(error)) throw error;
+      // Stored handle no longer resolves — retry cold, with the transcript
+      // replayed as a prelude so the turn still has context.
+      return await this.runOnce(request, oauthToken, undefined);
+    }
+  }
+
+  private async runOnce(
+    request: RuntimeRequest,
+    oauthToken: string,
+    resume: string | undefined,
+  ): Promise<RuntimeResult> {
     let content = '';
     let usage: TokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
     let status: RuntimeResult['status'] = 'completed';
     let sessionId = request.session.id;
+    let vendorSessionId: string | undefined;
 
     for await (const message of this.runQuery({
-      prompt: escapeSdkSlashPrompt(request.input.content),
-      options: this.buildQueryOptions(request, oauthToken),
+      prompt: escapeSdkSlashPrompt(buildResumeAwarePrompt(request, resume)),
+      options: this.buildQueryOptions(request, oauthToken, resume),
     })) {
       if (message.type === 'result') {
         sessionId = message.session_id;
+        vendorSessionId = message.session_id;
         usage = mapUsage(message.usage);
         if (message.subtype === 'success') {
           content = message.result;
@@ -185,41 +228,86 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
       usage,
       status,
       runtimeId: this.runtimeId,
+      vendorSessionId,
     };
   }
 
   async *stream(request: RuntimeRequest): AsyncIterable<RuntimeStreamEvent> {
     try {
       const oauthToken = await this.oauthTokenForRequest(request);
-      let usage: TokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+      const resume = readVendorSessionId(request, this.runtimeId);
 
-      for await (const message of this.runQuery({
-        prompt: escapeSdkSlashPrompt(request.input.content),
-        options: this.buildQueryOptions(request, oauthToken),
-      })) {
-        const delta = extractStreamDelta(message);
-        if (delta) {
-          yield { type: 'chunk', delta };
-        }
-
-        if (message.type === 'result') {
-          usage = mapUsage(message.usage);
-          if (message.subtype !== 'success') {
-            yield {
-              type: 'error',
-              error: message.errors.join('\n') || 'Claude Code execution failed',
-            };
-            return;
-          }
-        }
+      try {
+        yield* this.streamOnce(request, oauthToken, resume);
+      } catch (error) {
+        // Only safe to retry while nothing has been emitted yet —
+        // `streamOnce` rethrows a stale-resume failure before its first
+        // chunk, so a retry cannot duplicate output the channel already
+        // rendered.
+        if (!resume || !this.isStaleResumeError(error)) throw error;
+        yield* this.streamOnce(request, oauthToken, undefined);
       }
-
-      yield { type: 'done', usage };
     } catch (error) {
       yield {
         type: 'error',
         error: error instanceof Error ? error.message : 'Claude Code runtime error',
       };
     }
+  }
+
+  private async *streamOnce(
+    request: RuntimeRequest,
+    oauthToken: string,
+    resume: string | undefined,
+  ): AsyncIterable<RuntimeStreamEvent> {
+    let usage: TokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+    let vendorSessionId: string | undefined;
+    let emitted = false;
+
+    const iterator = this.runQuery({
+      prompt: escapeSdkSlashPrompt(buildResumeAwarePrompt(request, resume)),
+      options: this.buildQueryOptions(request, oauthToken, resume),
+    })[Symbol.asyncIterator]();
+
+    while (true) {
+      let next: IteratorResult<SDKMessage>;
+      try {
+        next = await iterator.next();
+      } catch (error) {
+        // Once a chunk is on the wire the turn is no longer retryable —
+        // a second attempt would render the reply twice. Report instead.
+        if (emitted) {
+          yield {
+            type: 'error',
+            error: error instanceof Error ? error.message : 'Claude Code runtime error',
+          };
+          return;
+        }
+        throw error;
+      }
+      if (next.done) break;
+      const message = next.value;
+
+      const delta = extractStreamDelta(message);
+      if (delta) {
+        emitted = true;
+        yield { type: 'chunk', delta };
+      }
+
+      if (message.type === 'result') {
+        vendorSessionId = message.session_id;
+        usage = mapUsage(message.usage);
+        if (message.subtype !== 'success') {
+          emitted = true;
+          yield {
+            type: 'error',
+            error: message.errors.join('\n') || 'Claude Code execution failed',
+          };
+          return;
+        }
+      }
+    }
+
+    yield { type: 'done', usage, vendorSessionId, runtimeId: this.runtimeId };
   }
 }

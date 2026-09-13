@@ -5,6 +5,7 @@ import type {
   RuntimeResult,
   RuntimeStreamEvent,
 } from '@anvio/core';
+import { buildPromptWithHistory } from '../shared/session-history.js';
 import { AnvioError } from '@anvio/core';
 import type { RuntimeConnectionResolver } from '@anvio/core';
 import {
@@ -67,7 +68,8 @@ export class AntigravityRuntimeProvider implements RuntimeProvider {
 
     const result = await this.exec({
       binary,
-      args: ['-p', request.input.content],
+      // One-shot CLI — replay the transcript so the turn has context (#63).
+      args: ['-p', buildPromptWithHistory(request)],
       cwd,
       env,
       timeoutMs: this.options.timeoutMs,

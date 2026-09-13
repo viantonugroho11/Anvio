@@ -5,6 +5,7 @@ import type {
   RuntimeResult,
   RuntimeStreamEvent,
 } from '@anvio/core';
+import { buildPromptWithHistory } from '../shared/session-history.js';
 import { AnvioError } from '@anvio/core';
 import type { RuntimeConnectionResolver } from '@anvio/core';
 import {
@@ -85,7 +86,9 @@ export class CodexRuntimeProvider implements RuntimeProvider {
 
     const result = await this.exec({
       binary,
-      args: this.execArgs(request.input.content),
+      // `codex exec` is one-shot: replay the transcript so the turn has
+      // context (issue #63).
+      args: this.execArgs(buildPromptWithHistory(request)),
       cwd,
       env,
       timeoutMs: this.options.timeoutMs,

@@ -5,6 +5,7 @@ import type {
   RuntimeResult,
   RuntimeStreamEvent,
 } from '@anvio/core';
+import { buildPromptWithHistory } from '../shared/session-history.js';
 import { AnvioError } from '@anvio/core';
 import type { RuntimeConnectionResolver } from '@anvio/core';
 import {
@@ -102,7 +103,8 @@ export class CursorRuntimeProvider implements RuntimeProvider {
     const binary = this.options.agentBinary ?? 'agent';
     const result = await this.exec({
       binary,
-      args: ['-p', request.input.content],
+      // `agent -p` is one-shot: no history unless we replay it (issue #63).
+      args: ['-p', buildPromptWithHistory(request)],
       cwd: this.options.cwd ?? process.cwd(),
       timeoutMs: this.options.timeoutMs,
     });
