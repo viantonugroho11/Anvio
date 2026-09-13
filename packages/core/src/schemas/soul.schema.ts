@@ -20,12 +20,16 @@ export const soulEvolutionSchema = z.object({
   requireApproval: z.boolean().default(false),
   /**
    * When to auto-draft skills from finished sessions (issue #56 (f)).
-   *   - `always` — draft whenever `SkillEvolutionSummarizer.shouldCreate` returns true (previous behavior)
+   *   - `always` — draft whenever `SkillEvolutionSummarizer.shouldCreate` returns true
    *   - `mention` — only draft when the session contained an explicit `/capture` marker
    *   - `manual`  — never draft automatically; only `anvio learning promote-session --force` / `/capture` produce drafts
    * `allowAutoUpdate: false` still wins — a soul with evolution off never drafts, regardless of this field.
+   *
+   * Defaults to `mention` (issue #64): the loop runs once per agent run, so
+   * `always` produced a draft per chat turn — mostly one-off conversation
+   * that no reviewer would ever promote.
    */
-  captureOn: z.enum(['always', 'mention', 'manual']).default('always'),
+  captureOn: z.enum(['always', 'mention', 'manual']).default('mention'),
 });
 
 export const soulSpecSchema = z.object({

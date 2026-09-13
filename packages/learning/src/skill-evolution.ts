@@ -31,16 +31,35 @@ interface DraftLineage {
   sourceExcerpt: string;
 }
 
+export interface ProposeDraftOptions {
+  /**
+   * Overwrite the draft already captured for this session+agent instead of
+   * writing a new timestamped file. Used by the automatic path; the
+   * explicit `/capture` path keeps writing distinct drafts.
+   */
+  replaceForSession?: boolean;
+}
+
 export class SkillEvolutionWriter {
   constructor(private readonly draftsDir: string) {}
 
-  async proposeDraft(input: SkillDraftInput): Promise<{ path: string; definition: SkillDefinition }> {
+  async proposeDraft(
+    input: SkillDraftInput,
+    options: ProposeDraftOptions = {},
+  ): Promise<{ path: string; definition: SkillDefinition }> {
     await fs.mkdir(this.draftsDir, { recursive: true });
     // Slug carries the session id (short) alongside the timestamp so a
     // reviewer can grep a draft back to the run it came from. The old
     // `-draft-${Date.now()}` was unique but opaque (issue #56 (c)).
     const sessionShort = input.sessionId.slice(0, 8) || 'nosession';
-    const slug = `${input.slug}-${sessionShort}-${Date.now()}`;
+    // The learning loop runs once per agent run, so an ongoing conversation
+    // used to leave one timestamped draft per turn (issue #64). Reuse the
+    // draft this session already has — a later turn knows strictly more
+    // about the pattern than an earlier one.
+    const existing = options.replaceForSession
+      ? await this.findDraftForSession(input.slug, sessionShort)
+      : null;
+    const slug = existing ?? `${input.slug}-${sessionShort}-${Date.now()}`;
     const lineage: DraftLineage = {
       sourceSessionId: input.sessionId,
       sourceAgentId: input.agentId,
@@ -68,6 +87,26 @@ export class SkillEvolutionWriter {
     const md = renderSkillMd(definition, lineage);
     await fs.writeFile(filePath, md, 'utf-8');
     return { path: filePath, definition };
+  }
+
+  /**
+   * Existing draft slug for this agent+session, if the loop already wrote
+   * one. Matches the `<slug>-<sessionShort>-<timestamp>` naming; the newest
+   * wins when several exist from before this behavior.
+   */
+  private async findDraftForSession(slug: string, sessionShort: string): Promise<string | null> {
+    let entries: string[];
+    try {
+      entries = await fs.readdir(this.draftsDir);
+    } catch {
+      return null;
+    }
+    const prefix = `${slug}-${sessionShort}-`;
+    const matches = entries
+      .filter((name) => name.endsWith('.md') && name.startsWith(prefix))
+      .map((name) => name.replace(/\.md$/, ''))
+      .sort();
+    return matches.at(-1) ?? null;
   }
 
   async listDrafts(): Promise<string[]> {

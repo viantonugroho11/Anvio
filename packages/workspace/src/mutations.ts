@@ -284,7 +284,8 @@ export async function readMutationAudit(
 // Templates
 // ---------------------------------------------------------------------------
 
-function scaffoldTemplate(
+/** Exported so tests can round-trip each template through its own parser. */
+export function scaffoldTemplate(
   primitive: TrashablePrimitive,
   slug: string,
   actor: string,
@@ -329,7 +330,7 @@ function scaffoldTemplate(
         'values: []',
         'evolution:',
         '  allowAutoUpdate: false',
-        '  captureOn: never',
+        '  captureOn: manual',
         '---',
         '',
         '# SOUL.md',
