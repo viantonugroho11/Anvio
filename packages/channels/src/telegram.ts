@@ -2,6 +2,7 @@ import type {
   ApprovalRequestMessage,
   ChannelType,
   OutboundMessage,
+  ProgressUpdate,
   SessionStore,
   SlashCommandRegistry,
 } from '@anvio/core';
@@ -79,6 +80,9 @@ const DEFAULT_SLASH_COMMANDS: Array<{ command: string; description: string }> = 
   { command: 'whoami', description: 'Show current agent and user' },
 ];
 
+/** Telegram expires a chat action after ~5s; refresh just inside that. */
+const TYPING_REFRESH_MS = 4000;
+
 function threadKey(chatId: number, topicId?: number): string {
   return `chat:${chatId}:topic:${topicId ?? 0}`;
 }
@@ -108,6 +112,13 @@ export class TelegramChannel extends BaseChannelAdapter {
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly apiBase: string;
   private readonly buffer = new Map<string, string>();
+  /**
+   * One `sendChatAction` keepalive per in-flight session. Telegram expires
+   * a chat action after ~5s, so the indicator has to be re-sent until the
+   * reply lands (issue #70). Keyed by sessionId; every exit path must call
+   * `setTyping(id, false)` or the timer leaks.
+   */
+  private readonly typingTimers = new Map<string, ReturnType<typeof setInterval>>();
   private botUsername: string | null = null;
 
   constructor(private readonly options: TelegramChannelOptions) {
@@ -134,8 +145,16 @@ export class TelegramChannel extends BaseChannelAdapter {
 
     if (message.type === 'chunk' && message.delta) {
       this.buffer.set(sessionId, (this.buffer.get(sessionId) ?? '') + message.delta);
+      // Deltas are buffered until `done` (per-token editMessageText would
+      // blow the Bot API rate limit), so the chat action is the only
+      // progress signal the user gets while the turn runs.
+      await this.setTyping(sessionId, true);
       return;
     }
+
+    // Anything that renders text ends the "typing…" state — the user can
+    // now see output, so the indicator would be a lie.
+    await this.setTyping(sessionId, false);
 
     let text = message.content ?? '';
     if (message.type === 'done') {
@@ -178,6 +197,53 @@ export class TelegramChannel extends BaseChannelAdapter {
         ],
       },
     });
+  }
+
+  /**
+   * Telegram renders progress as the native "typing…" action rather than
+   * the base adapter's text bubble — a run emits several phases per turn
+   * and each one as its own message buried the actual reply (issue #54(a)).
+   */
+  async sendProgress(sessionId: string, update: ProgressUpdate): Promise<void> {
+    await this.setTyping(sessionId, update.status === 'running');
+  }
+
+  async setTyping(sessionId: string, active: boolean): Promise<void> {
+    if (!active) {
+      const timer = this.typingTimers.get(sessionId);
+      if (timer) clearInterval(timer);
+      this.typingTimers.delete(sessionId);
+      return;
+    }
+    if (this.typingTimers.has(sessionId)) return;
+
+    // Register the timer before the first await: two deltas arriving back
+    // to back would otherwise both pass the guard above and start their
+    // own keepalive, leaving one orphaned.
+    const timer = setInterval(() => void this.sendChatAction(sessionId), TYPING_REFRESH_MS);
+    timer.unref?.();
+    this.typingTimers.set(sessionId, timer);
+    await this.sendChatAction(sessionId);
+  }
+
+  private async sendChatAction(sessionId: string): Promise<void> {
+    const session = await this.options.sessions.get(sessionId);
+    if (!session) return;
+    const target = parseChatTarget(session);
+    if (!target) return;
+    try {
+      await this.api('sendChatAction', {
+        chat_id: target.chatId,
+        message_thread_id: target.messageThreadId,
+        action: 'typing',
+      });
+    } catch (error) {
+      // Cosmetic signal — never fail a turn over it.
+      console.error(
+        '[Telegram] sendChatAction failed:',
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 
   async start(): Promise<void> {
@@ -223,6 +289,8 @@ export class TelegramChannel extends BaseChannelAdapter {
   async stop(): Promise<void> {
     this.polling = false;
     if (this.pollTimer) clearTimeout(this.pollTimer);
+    for (const timer of this.typingTimers.values()) clearInterval(timer);
+    this.typingTimers.clear();
   }
 
   private async pollLoop(): Promise<void> {

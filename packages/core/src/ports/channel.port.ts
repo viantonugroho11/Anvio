@@ -37,6 +37,14 @@ export interface ChannelAdapter {
   sendProgress?(sessionId: string, update: ProgressUpdate): Promise<void>;
   sendNotification?(sessionId: string, notification: AgentNotification): Promise<void>;
   sendApprovalRequest?(sessionId: string, request: ApprovalRequestMessage): Promise<void>;
+  /**
+   * Toggle the channel's native "working on it" indicator (Telegram's
+   * sendChatAction, Slack's typing event, …). Optional — adapters without
+   * one simply omit it. Implementations must be idempotent and must not
+   * leak timers: the worker calls it once when a turn starts and once when
+   * it ends, including on the failure path (issue #70).
+   */
+  setTyping?(sessionId: string, active: boolean): Promise<void>;
   onMessage(handler: InboundMessageHandler): void;
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -57,6 +65,8 @@ export interface ChannelHubPort {
     sessionId: string,
     request: ApprovalRequestMessage,
   ): Promise<void>;
+  /** Forwards to the adapter's `setTyping` when it has one; no-op otherwise. */
+  setTyping?(channel: ChannelType, sessionId: string, active: boolean): Promise<void>;
   startAll(): Promise<void>;
   stopAll(): Promise<void>;
 }
