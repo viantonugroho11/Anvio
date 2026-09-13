@@ -32,6 +32,35 @@ const CHAT_CHANNELS: ReadonlySet<string> = new Set([
   'mattermost',
 ]);
 
+/**
+ * Deliver to a channel without letting the channel take the run down.
+ *
+ * A Telegram `400 can't parse entities`, a Slack `msg_too_long`, a 429 that
+ * outlived its retries — each used to throw out of the stream loop and out of
+ * the event-bus dispatch, so the reply was persisted but never sent and every
+ * handler queued behind it was skipped (issue #71).
+ *
+ * This is deliberately *not* done inside `ChannelHub`: the harness's
+ * `anvio_channel__reply` tool reports delivery back to the model through that
+ * same path, and swallowing there would tell the model a message was
+ * delivered when it was not. The run loop is the layer that should degrade.
+ */
+async function deliver(
+  what: string,
+  sessionId: string,
+  channel: string,
+  send: () => Promise<void>,
+): Promise<void> {
+  try {
+    await send();
+  } catch (error) {
+    console.error(
+      `[gateway] ${what} to ${channel} failed for session ${sessionId}:`,
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
 /** Agent run consumer — Hermes GatewayRunner agent dispatch equivalent. */
 export async function registerGatewayWorker(platform: PlatformContext): Promise<void> {
   const { runtime, eventBus, workspace, channelHub, inbox, harness, mcpFirstCallGate } = platform;
@@ -204,11 +233,13 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                   channel,
                 });
                 if (!harness.shouldSuppressRawOutput(channel as ChannelType)) {
-                  await channelHub.sendMessage(channel as ChannelType, sessionId, {
-                    sessionId,
-                    type: 'chunk',
-                    delta: chunk.delta,
-                  });
+                  await deliver('chunk', sessionId, channel, () =>
+                    channelHub.sendMessage(channel as ChannelType, sessionId, {
+                      sessionId,
+                      type: 'chunk',
+                      delta: chunk.delta,
+                    }),
+                  );
                 }
               }
               if (chunk.type === 'approval_required') {
@@ -233,21 +264,23 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                 // request is also registered with the approval gate —
                 // otherwise the button callback resolves an id the gate has
                 // never seen and silently no-ops.
-                if (harness.enabled) {
-                  await harness.registerRuntimeApproval(sessionId, channel as ChannelType, {
-                    requestId: chunk.request.id,
-                    toolName: chunk.request.toolName,
-                    reason: chunk.request.reason,
-                  });
-                } else {
-                  await channelHub.sendApprovalRequest(channel as ChannelType, sessionId, {
-                    sessionId,
-                    requestId: chunk.request.id,
-                    toolName: chunk.request.toolName,
-                    reason: chunk.request.reason,
-                    actions: ['approve', 'reject'],
-                  });
-                }
+                await deliver('approval request', sessionId, channel, async () => {
+                  if (harness.enabled) {
+                    await harness.registerRuntimeApproval(sessionId, channel as ChannelType, {
+                      requestId: chunk.request.id,
+                      toolName: chunk.request.toolName,
+                      reason: chunk.request.reason,
+                    });
+                  } else {
+                    await channelHub.sendApprovalRequest(channel as ChannelType, sessionId, {
+                      sessionId,
+                      requestId: chunk.request.id,
+                      toolName: chunk.request.toolName,
+                      reason: chunk.request.reason,
+                      actions: ['approve', 'reject'],
+                    });
+                  }
+                });
                 return;
               }
               if (chunk.type === 'done' && chunk.usage) {
@@ -285,11 +318,13 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                   channel,
                 });
                 if (!harness.shouldSuppressRawOutput(channel as ChannelType)) {
-                  await channelHub.sendMessage(channel as ChannelType, sessionId, {
-                    sessionId,
-                    type: 'done',
-                    content: fullContent,
-                  });
+                  await deliver('reply', sessionId, channel, () =>
+                    channelHub.sendMessage(channel as ChannelType, sessionId, {
+                      sessionId,
+                      type: 'done',
+                      content: fullContent,
+                    }),
+                  );
                 } else if (fullContent.trim() && !harness.hasDeliveredReply(sessionId)) {
                   console.warn(
                     `[gateway] Harness strict: session ${sessionId} completed without anvio_channel__reply`,
@@ -301,12 +336,14 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                 // user already saw the reply arrive; the notification is only
                 // meaningful for non-streaming surfaces (email/sms/webhook).
                 if (!CHAT_CHANNELS.has(channel)) {
-                  await channelHub.sendNotification(channel as ChannelType, sessionId, {
-                    sessionId,
-                    type: 'task_completed',
-                    title: 'Task Completed',
-                    body: `Agent ${agentId} finished.`,
-                  });
+                  await deliver('completion notice', sessionId, channel, () =>
+                    channelHub.sendNotification(channel as ChannelType, sessionId, {
+                      sessionId,
+                      type: 'task_completed',
+                      title: 'Task Completed',
+                      body: `Agent ${agentId} finished.`,
+                    }),
+                  );
                 }
                 await eventBus.publish(EventSubjects.MEMORY_STORED, 'anvio.memory.stored', {
                   sessionId,
@@ -321,12 +358,14 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                   error: chunk.error ?? 'Unknown error',
                   channel,
                 });
-                await channelHub.sendNotification(channel as ChannelType, sessionId, {
-                  sessionId,
-                  type: 'task_failed',
-                  title: 'Task Failed',
-                  body: chunk.error,
-                });
+                await deliver('failure notice', sessionId, channel, () =>
+                  channelHub.sendNotification(channel as ChannelType, sessionId, {
+                    sessionId,
+                    type: 'task_failed',
+                    title: 'Task Failed',
+                    body: chunk.error,
+                  }),
+                );
               }
             }
           } finally {

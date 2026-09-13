@@ -46,11 +46,29 @@ export class LocalEventBus {
     };
   }
 
+  /**
+   * Handlers are isolated from one another. A bare sequential `await` meant a
+   * single throwing subscriber rejected the `publish()` that started the run
+   * and skipped every handler queued behind it — one Telegram `400 can't
+   * parse entities` was enough to lose a reply and starve the rest of the
+   * subject (issue #71).
+   *
+   * A handler failure is logged and the remaining handlers still run. This
+   * mirrors at-least-once delivery on the NATS bus, where one consumer's
+   * failure never blocks another's.
+   */
   private async dispatch<T>(subject: string, event: AnvioEvent<T>): Promise<void> {
     const handlers = this.handlers.get(subject);
     if (!handlers) return;
     for (const handler of handlers) {
-      await handler(event);
+      try {
+        await handler(event);
+      } catch (error) {
+        console.error(
+          `[events] Handler failed for ${subject}:`,
+          error instanceof Error ? (error.stack ?? error.message) : error,
+        );
+      }
     }
   }
 
