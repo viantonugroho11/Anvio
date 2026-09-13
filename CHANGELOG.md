@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A channel failure no longer kills the agent run** ([#71](https://github.com/viantonugroho11/Anvio/issues/71)) — a Telegram `400 can't parse entities` threw out of the adapter, the hub, the worker's stream loop and `LocalEventBus.dispatch`, rejecting the `publish()` that started the run and skipping every handler behind it. The reply was persisted before the send was attempted, so the answer existed but never arrived. Handlers are now isolated on the bus, the worker's outbound sends log and continue, and Telegram retries a Markdown-rejected send as plain text.
+- **`splitMessage` corrupted text at the boundary** ([#72](https://github.com/viantonugroho11/Anvio/issues/72)) — splitting at a raw offset cut surrogate pairs in half and left Markdown entities unbalanced across the seam. Replaced with one shared splitter that breaks on line, then word, then a code-point-safe cut, and closes and reopens code fences across chunks.
+- **Leaked chunk buffer, stray session, dropped poll updates** ([#73](https://github.com/viantonugroho11/Anvio/issues/73)) — a failed turn never sends `done`, so its buffered partial was never released; a stale Approve button called `resolveOrCreate` and fabricated a session to resolve against; and one failing poll update discarded every sibling in its batch.
+- **Slack and Mattermost never split long replies** ([#74](https://github.com/viantonugroho11/Anvio/issues/74)) — neither had any length handling, so an over-limit reply was rejected and aborted the run. Both now chunk through the shared splitter; Mattermost's server-configurable `MaxPostSize` is settable via a new `maxPostSize` option.
+- **High-traffic adapters bypassed `fetchWithRetry`** ([#75](https://github.com/viantonugroho11/Anvio/issues/75)) — the adapters that actually meet rate limits were the ones calling bare `fetch`. Retry is now opt-out via the base class, and the helper honours the server's own `Retry-After` / `retry_after` instead of discarding it for a fixed schedule capped at 5s.
+
+### Changed
+
+- **`BaseChannelAdapter` owns delivery, not just dispatch** ([#76](https://github.com/viantonugroho11/Anvio/issues/76)) — stream buffering, message chunking and retrying transport moved into the base class, so an adapter declares `maxMessageLength` instead of reimplementing the machinery. Removes five copies of the delta buffer and three of `splitMessage`.
+
 ---
 
 ## [2.6.2] - 2026-09-14
