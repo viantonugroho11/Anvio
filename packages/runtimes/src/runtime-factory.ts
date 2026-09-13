@@ -50,6 +50,8 @@ export class RuntimeFactory {
           cwd: opts.claudeCodeCwd,
           oauthToken: opts.claudeCodeOAuthToken,
           resolveOAuthToken: opts.resolveClaudeCodeOAuthToken,
+          toolPort: opts.runtimeToolPort,
+          approvalPort: opts.runtimeApprovalPort,
         }),
       ],
       [

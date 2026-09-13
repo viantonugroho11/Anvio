@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type {
   BuiltinToolCall,
   BuiltinToolResult,
@@ -245,6 +246,58 @@ export class HarnessGateway implements HarnessGatewayPort {
     );
   }
 
+  /**
+   * Ask for approval and block until a human answers (or the policy timeout
+   * fires). Used by runtimes that gate their own tool execution and keep
+   * the call open rather than checkpointing the turn — see
+   * `RuntimeApprovalPort` and issue #69.
+   *
+   * `inlineApprovalRequestId` marks the session so the APPROVAL_DECIDED
+   * consumer does not also re-dispatch the run: the original turn is still
+   * alive and about to continue on its own.
+   */
+  async requestApprovalAndWait(
+    sessionId: string,
+    channel: ChannelType,
+    summary: string,
+    toolName: string,
+    input: Record<string, unknown> = {},
+  ): Promise<boolean> {
+    // Mint the id up front and persist the awaiting state BEFORE the
+    // prompt reaches the channel: a human who answers instantly would
+    // otherwise race the write, and the session would be left marked
+    // awaiting_approval after the decision had already cleared it.
+    const requestId = randomUUID();
+    const timeoutSec = this.policy.approvalTimeoutSeconds;
+    const stored = await this.sessions.get(sessionId);
+    await this.sessions.update(sessionId, {
+      status: 'awaiting_approval',
+      pendingApproval: {
+        id: requestId,
+        toolName,
+        input,
+        reason: summary,
+        expiresAt: new Date(Date.now() + (timeoutSec > 0 ? timeoutSec * 1000 : 86_400_000)),
+      },
+      metadata: { ...stored?.metadata, inlineApprovalRequestId: requestId },
+    });
+
+    await this.approvalGate.requestApproval(sessionId, channel, summary, toolName, requestId);
+
+    const approved = await this.approvalGate.waitFor(requestId);
+
+    const after = await this.sessions.get(sessionId);
+    const metadata = { ...after?.metadata };
+    delete metadata.inlineApprovalRequestId;
+    await this.sessions.update(sessionId, {
+      status: 'calling_model',
+      pendingApproval: undefined,
+      metadata,
+    });
+
+    return approved;
+  }
+
   listChannelTools(): string[] {
     if (!this.enabled) return [];
     return [
@@ -266,12 +319,18 @@ export class HarnessGateway implements HarnessGatewayPort {
     userId: string,
     approved: boolean,
   ): Promise<boolean> {
-    void sessionId;
+    const stored = await this.sessions.get(sessionId);
     const ok = this.approvalGate.resolve(requestId, userId, approved);
-    if (ok) {
+    if (!ok) return false;
+
+    // An inline approval's own turn clears the session once it wakes up
+    // (`requestApprovalAndWait`). Writing here too would race that clear —
+    // both patches are read-modify-write, so the loser resurrects the
+    // pending state it just cleared.
+    if (stored?.metadata?.inlineApprovalRequestId !== requestId) {
       await this.sessions.update(sessionId, { pendingApproval: undefined });
     }
-    return ok;
+    return true;
   }
 
   formatOutbound(channel: ChannelType, markdown: string): string {

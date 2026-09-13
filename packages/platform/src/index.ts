@@ -16,7 +16,13 @@ import {
   type WhatsAppChannel,
 } from '@anvio/channels';
 import { createAuthProvider } from '@anvio/auth';
-import type { ChannelHubPort, AgentInbox, ModelProvider, ChannelType } from '@anvio/core';
+import type {
+  ChannelHubPort,
+  AgentInbox,
+  ModelProvider,
+  ChannelType,
+  RuntimeApprovalPort,
+} from '@anvio/core';
 import { createEventBus, EventSubjects } from '@anvio/events';
 import { createMemoryProvider } from '@anvio/memory';
 import { createCredentialPoolManager } from '@anvio/credentials';
@@ -425,10 +431,30 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         })
     : undefined;
 
+  // Vendor runtimes gate their own tool calls, so the harness approval flow
+  // that hangs off the tool gateway never sees them (issue #69). This port
+  // lets such a runtime hold its call open on a real channel approval. Only
+  // wired when the harness is on — with no approver policy there is nothing
+  // to ask, and the SDK keeps its own default behaviour.
+  const runtimeApprovalPort: RuntimeApprovalPort = {
+    async requestApproval(request) {
+      const approved = await harness.requestApprovalAndWait(
+        request.sessionId,
+        request.channel as ChannelType,
+        request.summary,
+        request.toolName,
+        request.input,
+      );
+      return { approved, reason: approved ? undefined : 'Approval denied or timed out' };
+    },
+  };
+
   const runtimeFactory = createRuntimeFactory({
     agentRuntime: localRuntime,
     options: {
       defaultRuntime: spec.runtime.default,
+      runtimeToolPort: toolPort,
+      runtimeApprovalPort: harness.enabled ? runtimeApprovalPort : undefined,
       acpEndpoint: spec.acp.enabled
         ? `http://${spec.acp.host}:${spec.acp.port}`
         : process.env.ANVIO_ACP_ENDPOINT,

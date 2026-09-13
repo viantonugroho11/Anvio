@@ -1,10 +1,12 @@
 import { query, type Options, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type {
+  RuntimeApprovalPort,
   RuntimeCapabilities,
   RuntimeProvider,
   RuntimeRequest,
   RuntimeResult,
   RuntimeStreamEvent,
+  RuntimeToolPort,
   TokenUsage,
 } from '@anvio/core';
 import { AnvioError } from '@anvio/core';
@@ -12,6 +14,7 @@ import {
   buildResumeAwarePrompt,
   readVendorSessionId,
 } from '../shared/session-history.js';
+import { createAnvioMcpServer, mcpToolName } from './claude-code-tool-bridge.js';
 import {
   buildClaudeCodeAgentEnv,
   resolveClaudeCodeOAuthToken,
@@ -23,6 +26,29 @@ export interface ClaudeCodeRuntimeOptions extends ResolveClaudeCodeOAuthOptions 
   model?: string;
   permissionMode?: Options['permissionMode'];
   queryImpl?: (params: { prompt: string; options?: Options }) => AsyncIterable<SDKMessage>;
+  /**
+   * Built-in + harness tool surface. When supplied it is served to the SDK
+   * as an in-process MCP server and its instructions are appended to the
+   * system prompt, so `anvio_channel__reply` /
+   * `anvio_channel__request_approval` exist on this runtime the way they do
+   * on `local` (issue #69). Omitted in tests and standalone use — the
+   * runtime then behaves exactly as before.
+   */
+  toolPort?: RuntimeToolPort;
+  /**
+   * Translates the SDK's own tool-permission prompts into harness
+   * approvals. Without it the SDK has no permission surface, so every
+   * "ask" decision is terminal and the gating is invisible to the user.
+   */
+  approvalPort?: RuntimeApprovalPort;
+}
+
+/** Short one-liner for the approval prompt; the full input goes with it. */
+function summarizeToolCall(toolName: string, input: Record<string, unknown>): string {
+  const command = input.command ?? input.file_path ?? input.path ?? input.url;
+  return typeof command === 'string' && command.trim()
+    ? `Run ${toolName}: ${command.trim().slice(0, 300)}`
+    : `Run ${toolName}`;
 }
 
 function mapUsage(usage?: {
@@ -149,6 +175,15 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
       (request.agent.spec.model.provider === 'anthropic'
         ? request.agent.spec.model.model
         : undefined);
+    const toolPort = this.options.toolPort;
+    const toolNames = toolPort?.listTools() ?? [];
+    const ctx = {
+      sessionId: request.session.id,
+      agentId: request.session.agentId,
+      userId: request.session.userId,
+      channel: request.session.channel,
+    };
+
     return {
       cwd: this.options.cwd ?? process.cwd(),
       model,
@@ -158,6 +193,56 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
       // Continue the transcript the SDK already holds for this Anvio
       // session (issue #63). Without it every turn is a cold start.
       ...(resume ? { resume } : {}),
+      // Harness tool surface (issue #69). Absent without a tool port, so
+      // the standalone runtime keeps its original SDK options.
+      ...(toolPort && toolNames.length > 0
+        ? {
+            mcpServers: { anvio: createAnvioMcpServer(toolPort, ctx) },
+            // Anvio's own tools are the harness output path — prompting for
+            // them would deadlock the reply behind an approval.
+            allowedTools: toolNames.map(mcpToolName),
+            systemPrompt: {
+              type: 'preset' as const,
+              preset: 'claude_code' as const,
+              append: toolPort.getToolInstructions(),
+            },
+          }
+        : {}),
+      ...(this.options.approvalPort ? { canUseTool: this.buildPermissionHandler(request) } : {}),
+    };
+  }
+
+  /**
+   * The SDK asks before running a gated tool; answer from the harness so
+   * the SOUL.md approver policy actually applies on this runtime. Anvio's
+   * own MCP tools are allowed outright (see `allowedTools`) and never reach
+   * here. Fails closed: any error denies.
+   */
+  private buildPermissionHandler(request: RuntimeRequest): NonNullable<Options['canUseTool']> {
+    const approvalPort = this.options.approvalPort!;
+    return async (toolName, input) => {
+      try {
+        const outcome = await approvalPort.requestApproval({
+          sessionId: request.session.id,
+          agentId: request.session.agentId,
+          userId: request.session.userId,
+          channel: request.session.channel,
+          toolName,
+          summary: summarizeToolCall(toolName, input),
+          input,
+        });
+        return outcome.approved
+          ? { behavior: 'allow' as const, updatedInput: input }
+          : {
+              behavior: 'deny' as const,
+              message: outcome.reason ?? 'Human approval was not granted.',
+            };
+      } catch (error) {
+        return {
+          behavior: 'deny' as const,
+          message: error instanceof Error ? error.message : 'Approval failed',
+        };
+      }
     };
   }
 

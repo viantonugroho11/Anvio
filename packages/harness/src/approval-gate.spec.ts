@@ -33,6 +33,50 @@ describe('ApprovalGate', () => {
     vi.useRealTimers();
   });
 
+  it('settles waitFor with the human decision', async () => {
+    const hub = {
+      sendApprovalRequest: vi.fn(),
+      sendMessage: vi.fn(),
+      sendProgress: vi.fn(),
+      sendNotification: vi.fn(),
+    } as unknown as ChannelHubPort;
+
+    const gate = new ApprovalGate({
+      channelHub: hub,
+      getApprovers: () => [{ channel: '*', userId: 'telegram:1', scope: '*', catchall: true }],
+    });
+
+    const requestId = await gate.requestApproval('s1', 'telegram', 'rm -rf', 'Bash');
+    const waiter = gate.waitFor(requestId);
+
+    expect(gate.resolve(requestId, 'telegram:1', true)).toBe(true);
+    await expect(waiter).resolves.toBe(true);
+  });
+
+  it('denies waitFor when the approval times out', async () => {
+    vi.useFakeTimers();
+    const hub = {
+      sendApprovalRequest: vi.fn(),
+      sendMessage: vi.fn(),
+      sendProgress: vi.fn(),
+      sendNotification: vi.fn(),
+    } as unknown as ChannelHubPort;
+
+    const gate = new ApprovalGate({
+      channelHub: hub,
+      getApprovers: () => [],
+      approvalTimeoutSeconds: () => 10,
+    });
+
+    const requestId = await gate.requestApproval('s1', 'telegram', 'drop table', 'Bash');
+    const waiter = gate.waitFor(requestId);
+
+    await vi.advanceTimersByTimeAsync(11_000);
+    await expect(waiter).resolves.toBe(false);
+
+    vi.useRealTimers();
+  });
+
   it('reuses a runtime-minted request id so the channel callback matches', async () => {
     const sent: unknown[] = [];
     const hub = {

@@ -1,6 +1,8 @@
 import type { AgentDefinition } from '../schemas/agent.schema.js';
 import type { AgentRunStatus, TokenUsage } from '../types/common.js';
 import type { AgentStreamEvent, Session, UserInput } from './agent-runtime.port.js';
+import type { RuntimeApprovalPort } from './runtime-approval.port.js';
+import type { RuntimeToolPort } from './runtime-tool.port.js';
 
 export type RuntimeProviderId =
   | 'local'
@@ -66,6 +68,15 @@ export interface RuntimeProvider {
 
 export interface RuntimeFactoryOptions {
   defaultRuntime?: RuntimeProviderId;
+  /**
+   * Tool surface handed to vendor runtimes that can host in-process tools.
+   * The `local` runtime gets its tool port through the agent runtime; a
+   * vendor runtime needs it passed explicitly or the harness channel tools
+   * are unreachable there (issue #69).
+   */
+  runtimeToolPort?: RuntimeToolPort;
+  /** Harness approval bridge for runtimes that gate their own tool calls. */
+  runtimeApprovalPort?: RuntimeApprovalPort;
   acpEndpoint?: string;
   claudeCodeBinary?: string;
   claudeCodeCwd?: string;

@@ -930,6 +930,9 @@ importers:
       '@anvio/harness':
         specifier: workspace:*
         version: link:../harness
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       typescript:
         specifier: ^5.8.3

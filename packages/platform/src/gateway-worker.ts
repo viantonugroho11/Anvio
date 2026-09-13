@@ -100,6 +100,11 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
         await mcpFirstCallGate.approveToolName(event.data.sessionId, pendingToolName);
       }
 
+      // A runtime that gates its own tools is still inside the turn,
+      // blocked on the decision — it continues by itself (issue #69).
+      // Re-dispatching the run here would execute the turn twice.
+      if (stored.metadata?.inlineApprovalRequestId === event.data.requestId) return;
+
       await workspace.sessions.update(event.data.sessionId, {
         pendingApproval: undefined,
         status: 'calling_model',

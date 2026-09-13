@@ -13,6 +13,12 @@ export interface ApprovalGateOptions {
 export class ApprovalGate {
   private readonly pending = new Map<string, HarnessApprovalContext & { channel: ChannelType }>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
+  /**
+   * Callers blocked on `waitFor`. A runtime that gates its own tools holds
+   * the tool call open until a human answers (issue #69), unlike the
+   * checkpoint/resume path where the turn ends and restarts.
+   */
+  private readonly waiters = new Map<string, Array<(approved: boolean) => void>>();
 
   constructor(private readonly options: ApprovalGateOptions) {}
 
@@ -73,7 +79,29 @@ export class ApprovalGate {
     ctx.resolvedBy = 'system:timeout';
     this.pending.delete(requestId);
     this.timers.delete(requestId);
+    this.settleWaiters(requestId, false);
     await this.options.onTimedOut?.(sessionId, requestId);
+  }
+
+  /**
+   * Resolves when the request is decided or times out. Registered before
+   * the decision arrives; a request that is already settled resolves as
+   * denied, since there is no decision left to wait for.
+   */
+  waitFor(requestId: string): Promise<boolean> {
+    if (!this.pending.has(requestId)) return Promise.resolve(false);
+    return new Promise<boolean>((resolve) => {
+      const list = this.waiters.get(requestId) ?? [];
+      list.push(resolve);
+      this.waiters.set(requestId, list);
+    });
+  }
+
+  private settleWaiters(requestId: string, approved: boolean): void {
+    const list = this.waiters.get(requestId);
+    if (!list) return;
+    this.waiters.delete(requestId);
+    for (const resolve of list) resolve(approved);
   }
 
   resolve(requestId: string, userId: string, approved: boolean): boolean {
@@ -93,6 +121,8 @@ export class ApprovalGate {
       clearTimeout(timer);
       this.timers.delete(requestId);
     }
+
+    this.settleWaiters(requestId, approved);
 
     return true;
   }

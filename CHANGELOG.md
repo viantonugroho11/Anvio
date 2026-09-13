@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Approval requests render without action buttons** ([#68](https://github.com/viantonugroho11/Anvio/issues/68)) — the gateway worker delivered `approval_required` through `sendNotification` (plain text), so the ✅/❌ inline controls every adapter already implements were never shown. It now calls `sendApprovalRequest`, and registers the runtime's request id with `ApprovalGate` so the button callback resolves an id the gate actually knows.
+- **`claude-code` runtime bypassed harness approvals** ([#69](https://github.com/viantonugroho11/Anvio/issues/69)) — the vendor runtime never received the harness tool surface and had no permission hook, so Soul-Gate approvers were inert on the default runtime. The tool port is now served to the Agent SDK as an in-process MCP server (`anvio_channel__reply`, `anvio_channel__request_approval`), its instructions are appended to the system prompt, and the SDK's `canUseTool` prompts route through the new `RuntimeApprovalPort` — which blocks on a real channel approval and fails closed.
+- **Telegram gave no progress feedback during a turn** ([#70](https://github.com/viantonugroho11/Anvio/issues/70)) — `sendChatAction` was never implemented, so a buffered reply arrived after total silence. Adapters can now implement `setTyping`; Telegram keeps a 4s "typing…" keepalive per session (forum-topic aware) that the worker starts and stops around every run, and renders run progress as the chat action instead of a text bubble.
+
 ---
 
 ## [2.6.1] - 2026-09-13
