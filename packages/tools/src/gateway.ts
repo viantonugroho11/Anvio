@@ -123,6 +123,8 @@ spec:
       enabled: false
     delegate_task:
       enabled: false
+    a2a_delegate:
+      enabled: false
     cronjob:
       enabled: false
     skills_list:

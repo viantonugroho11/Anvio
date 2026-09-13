@@ -313,6 +313,15 @@ const TOOL_SCHEMAS: Record<string, Record<string, unknown>> = {
     properties: { agent: { type: 'string' }, task: { type: 'string' }, context: { type: 'string' } },
     required: ['agent', 'task'],
   },
+  a2a_delegate: {
+    type: 'object',
+    properties: {
+      alias: { type: 'string' },
+      message: { type: 'string' },
+      contextId: { type: 'string' },
+    },
+    required: ['alias', 'message'],
+  },
   cronjob: {
     type: 'object',
     properties: {

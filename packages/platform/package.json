@@ -13,6 +13,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@a2a-js/sdk": "^1.1.0",
+    "@anvio/a2a": "workspace:*",
     "@anvio/agents": "workspace:*",
     "@anvio/goals": "workspace:*",
     "@anvio/auth": "workspace:*",

@@ -1,6 +1,6 @@
 # ADR-0031: A2A Server Authentication Layer
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-09-12  
 **Deciders:** Platform team, security  
 **Supersedes:** —  

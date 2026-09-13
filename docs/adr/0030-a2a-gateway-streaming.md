@@ -1,6 +1,6 @@
 # ADR-0030: A2A Gateway SSE Streaming Support
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-09-12  
 **Deciders:** Platform team, gateway maintainers  
 **Supersedes:** —  

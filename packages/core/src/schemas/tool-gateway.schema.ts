@@ -62,6 +62,7 @@ export const toolGatewaySpecSchema = z.object({
       browser_dialog: toolGatewayToolSchema.default({ enabled: false }),
       browser_cdp: toolGatewayToolSchema.default({ enabled: false }),
       delegate_task: toolGatewayToolSchema.default({ enabled: false }),
+      a2a_delegate: toolGatewayToolSchema.default({ enabled: false }),
       cronjob: toolGatewayToolSchema.default({ enabled: false }),
       skills_list: toolGatewayToolSchema.default({ enabled: true }),
       skill_view: toolGatewayToolSchema.default({ enabled: true }),

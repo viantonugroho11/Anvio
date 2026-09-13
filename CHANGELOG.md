@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.6.0] - 2026-09-13
+
+**A2A Phase P11a — platform wiring, delegation tool, and integration tests.**
+
+### Added
+
+- **`packages/platform/src/a2a-bootstrap.ts`** — bootstrap helper wires `anvio.yaml` A2A config into a running `A2AServer` (agent discovery, session creation, tool-loop bridging)
+- **`packages/tools/src/builtins/a2a-delegate.ts`** — new `a2a_delegate` built-in tool lets agents delegate tasks to remote A2A peers by alias
+- **`packages/a2a/src/server/anvio-user-builder.ts`** — maps A2A request context into Anvio user identity for session ownership
+- **`tests/integration/a2a.integration.spec.ts`** — end-to-end integration tests for A2A server bootstrap, agent card, task send/receive
+- **`packages/core` workspace schema** — `A2AConfig` Zod schema added (`a2a.enabled`, `a2a.agents`, `a2a.remotes[]` with alias/url/auth)
+- **`packages/core` tool-gateway schema** — `a2a_delegate` registered in tool gateway schema
+- **`packages/tools` tool registry** — `a2a_delegate` wired into built-in tool descriptions, schemas, and gateway index
+
+### Changed
+
+- **`packages/platform/src/gateway-http.ts`** — mounts A2A routes when config enabled
+- **`packages/platform/src/index.ts`** — exports `bootstrapA2A` and integrates into platform boot sequence
+- **`packages/platform/src/platform-context.ts`** — `a2aServer` added to platform context interface
+- **`packages/a2a/src/server/a2a-server.ts`** — accepts `userBuilder` config, passes to executor
+- **`packages/a2a/src/index.ts`** — re-exports `AnvioUserBuilder`
+- **ADR-0027 through ADR-0031** — status updated from `proposed` to `accepted`
+- **`tests/integration/phase-p11a.integration.spec.ts`** — updated with platform wiring assertions
+
 ## [2.5.0] - 2026-09-09
 
 **A2A package refactored to official `@a2a-js/sdk` v1.1.0 — replaces hand-written protocol code.**

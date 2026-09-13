@@ -52,6 +52,7 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   browser_dialog: 'Arm dialog handler. Args: { "action": "accept"|"dismiss", "text"? }',
   browser_cdp: 'Safe browser introspection. Set ANVIO_BROWSER_CDP_GRANT=1 for goto/click/fill. Args: { "method", "params"? }',
   delegate_task: 'Delegate to sub-agent. Args: { "agent", "task", "context"? }',
+  a2a_delegate: 'Delegate task to remote A2A agent. Args: { "alias", "message", "contextId"? }',
   cronjob: 'Manage cron automations. Args: { "action": "list"|"run"|"create", "slug"?, "schedule"?, "agent"?, "prompt"? }',
   skills_list: 'List workspace skills. Args: {}',
   skill_view: 'View skill instructions. Args: { "slug" }',

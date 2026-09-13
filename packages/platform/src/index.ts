@@ -48,6 +48,8 @@ import { createTokenUsageAudit } from './token-usage-audit.js';
 import type { PlatformContext } from './platform-context.js';
 import { storedSessionToRuntime } from './session-runtime.js';
 import { RuntimeRoutingAgentRuntime } from './runtime-routing-agent-runtime.js';
+import { bootstrapA2A } from './a2a-bootstrap.js';
+import { A2ATool, createAnvioUserBuilder } from '@anvio/a2a';
 import { createSlashCommandRegistry } from './slash-commands.js';
 import { registerPlatformExtras } from './slash-commands-extras.js';
 
@@ -823,6 +825,47 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     }
   });
 
+  // A2A protocol server (ADR-0028)
+  let a2aServer: PlatformContext['a2aServer'];
+  if (spec.a2a.enabled) {
+    try {
+      const gatewayPort = process.env.ANVIO_GATEWAY_PORT ?? '3000';
+      const gatewayHost = process.env.ANVIO_GATEWAY_HOST ?? 'http://localhost';
+      a2aServer = await bootstrapA2A({
+        config: spec.a2a,
+        workspace,
+        runtime,
+        gatewayBaseUrl: `${gatewayHost}:${gatewayPort}`,
+        userBuilder: spec.a2a.auth?.enabled ? createAnvioUserBuilder(spec.a2a.auth) : undefined,
+      });
+    } catch {
+      // A2A boot failure is non-fatal
+    }
+  }
+
+  // A2A delegation tools (ADR-0029)
+  if (spec.a2a.remotes && spec.a2a.remotes.length > 0) {
+    const a2aTools = new Map<string, A2ATool>();
+    for (const remote of spec.a2a.remotes) {
+      a2aTools.set(remote.alias, new A2ATool({
+        alias: remote.alias,
+        url: remote.url,
+        apiKey: remote.apiKey,
+        bearerToken: remote.bearerToken,
+        description: remote.description,
+      }));
+    }
+    toolGateway.mergeContext({
+      a2aDelegate: async (alias, message, contextId) => {
+        const tool = a2aTools.get(alias);
+        if (!tool) {
+          throw new Error(`A2A remote '${alias}' not configured. Available: ${[...a2aTools.keys()].join(', ')}`);
+        }
+        return tool.invoke(message, contextId);
+      },
+    });
+  }
+
   let shutdownPromise: Promise<void> | null = null;
   const shutdown = () => {
     if (shutdownPromise) return shutdownPromise;
@@ -832,6 +875,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         Promise.resolve(automationEngine.stop()),
         hookEngine.stop(),
       ];
+      if (a2aServer) {
+        attempts.push(a2aServer.stop());
+      }
       const bus = eventBus as EventBusLikeWithClose;
       if (typeof bus.close === 'function') {
         attempts.push(bus.close());
@@ -861,6 +907,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     toolGateway,
     mcpFirstCallGate,
     slashCommands,
+    a2aServer,
     shutdown,
   };
 }
@@ -903,6 +950,7 @@ export {
 } from './unified-gateway.js';
 
 export type { ChannelHubPort, AgentInbox, WhatsAppChannel };
+export { bootstrapA2A, type A2ABootstrapOptions } from './a2a-bootstrap.js';
 export { findRepoRoot, findWorkspacePath } from './find-workspace.js';
 export { publishAgentRunCompleted, finalizeAgentRun } from './agent-run.js';
 export {

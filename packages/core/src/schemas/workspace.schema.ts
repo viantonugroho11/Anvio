@@ -136,6 +136,45 @@ export const channelsConfigSchema = z.object({
     .optional(),
 });
 
+export const a2aRemoteSchema = z.object({
+  alias: z.string(),
+  url: z.string(),
+  apiKey: z.string().optional(),
+  bearerToken: z.string().optional(),
+  description: z.string().optional(),
+  timeoutMs: z.number().int().positive().default(120_000),
+});
+
+export const a2aApiKeySchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  scopes: z.array(z.string()).default(['*']),
+});
+
+export const a2aAuthConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  apiKeys: z.array(a2aApiKeySchema).default([]),
+  jwt: z.object({
+    issuer: z.string().optional(),
+    audience: z.string().optional(),
+    jwksUrl: z.string().optional(),
+  }).optional(),
+});
+
+export const a2aConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  agents: z.union([z.literal('*'), z.array(z.string())]).default('*'),
+  remotes: z.array(a2aRemoteSchema).default([]),
+  auth: a2aAuthConfigSchema.default({ enabled: false }),
+  provider: z
+    .object({
+      organization: z.string().default('Anvio'),
+      url: z.string().default(''),
+    })
+    .optional(),
+  pushNotifications: z.boolean().default(true),
+});
+
 export const worktreesConfigSchema = z.object({
   enabled: z.boolean().default(false),
   repoPath: z.string().default('..'),
@@ -151,6 +190,7 @@ export const workspaceSpecSchema = z.object({
   credentials: credentialsConfigSchema.default({ encryption: 'disabled' }),
   acp: acpConfigSchema.default({ enabled: false, port: 8765, host: '127.0.0.1' }),
   channels: channelsConfigSchema.optional(),
+  a2a: a2aConfigSchema.default({ enabled: false }),
   worktrees: worktreesConfigSchema.default({ enabled: false, repoPath: '..' }),
   defaultAgent: z.string().optional(),
   defaultSoul: z.string().optional(),
@@ -171,6 +211,10 @@ export type WorkspaceDefinition = z.infer<typeof workspaceDefinitionSchema>;
 export type AuthConfig = z.infer<typeof authConfigSchema>;
 export type StorageConfig = z.infer<typeof storageConfigSchema>;
 export type MemoryConfig = z.infer<typeof memoryConfigSchema>;
+export type A2AConfig = z.infer<typeof a2aConfigSchema>;
+export type A2ARemoteConfig = z.infer<typeof a2aRemoteSchema>;
+export type A2AAuthConfig = z.infer<typeof a2aAuthConfigSchema>;
+export type A2AApiKey = z.infer<typeof a2aApiKeySchema>;
 
 export function parseWorkspaceDefinition(input: unknown): WorkspaceDefinition {
   return workspaceDefinitionSchema.parse(input);

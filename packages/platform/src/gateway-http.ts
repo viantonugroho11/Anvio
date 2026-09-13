@@ -305,8 +305,12 @@ export async function handleGatewayHttp(
     return true;
   }
 
-  // A2A protocol routes (ADR-0026)
-  if (platform.a2aServer && (pathname.startsWith('/a2a') || pathname === '/.well-known/agent.json' || pathname === '/.well-known/agents.json')) {
+  // A2A protocol routes (ADR-0026, ADR-0030 streaming)
+  if (platform.a2aServer && (pathname.startsWith('/a2a') || pathname === '/.well-known/agent.json' || pathname === '/.well-known/agent-card.json' || pathname === '/.well-known/agents.json')) {
+    res.socket?.setNoDelay(true);
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    req.socket.setTimeout(30 * 60 * 1000);
     const handled = await platform.a2aServer.handleRequest(req, res, pathname);
     if (handled) return true;
   }

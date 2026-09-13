@@ -1,6 +1,6 @@
 # ADR-0028: Wire A2A Server into Platform Context and Gateway
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-09-12  
 **Deciders:** Platform team, gateway maintainers  
 **Supersedes:** —  

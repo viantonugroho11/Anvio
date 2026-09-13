@@ -66,6 +66,7 @@ import {
   type HonchoAction,
   type McpDelegateFn,
 } from './niche-tools.js';
+import { a2aDelegateTool, type A2ADelegateFn } from './a2a-delegate.js';
 
 export interface BuiltinToolContext {
   workspaceRoot?: string;
@@ -85,6 +86,7 @@ export interface BuiltinToolContext {
   skillManage?: SkillManageFn;
   callMcpTool?: McpDelegateFn;
   callSkill?: SkillCallFn;
+  a2aDelegate?: A2ADelegateFn;
 }
 
 export { webFetch } from './web-fetch.js';
@@ -699,6 +701,18 @@ export async function runBuiltinTool(
           agent: String(call.arguments.agent ?? ''),
           task: String(call.arguments.task ?? ''),
           context: call.arguments.context ? String(call.arguments.context) : undefined,
+        });
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'a2a_delegate': {
+      try {
+        const out = await a2aDelegateTool(ctx.a2aDelegate, {
+          alias: String(call.arguments.alias ?? ''),
+          message: String(call.arguments.message ?? ''),
+          contextId: call.arguments.contextId ? String(call.arguments.contextId) : undefined,
         });
         return { name: call.name, output: out, status: 'completed' };
       } catch (error) {

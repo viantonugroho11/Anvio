@@ -29,6 +29,7 @@ export interface A2AServerConfig {
   cardOptions: AgentCardBuilderOptions;
   onMessage: AnvioMessageHandler;
   enablePushNotifications?: boolean;
+  userBuilder?: (req: import('express').Request) => Promise<import('@a2a-js/sdk/server').User>;
 }
 
 export interface A2AServerStatus {
@@ -67,17 +68,17 @@ export class A2AServer {
     );
 
     this.app = express();
+    const cardMiddleware = agentCardHandler({ agentCardProvider: this.requestHandler });
+    this.app.use('/.well-known/agent.json', cardMiddleware);
+    this.app.use('/.well-known/agent-card.json', cardMiddleware);
+    const ub = config.userBuilder ?? UserBuilder.noAuthentication;
     this.app.use(
-      '/.well-known/agent.json',
-      agentCardHandler({ agentCardProvider: this.requestHandler }),
+      '/a2a',
+      jsonRpcHandler({ requestHandler: this.requestHandler, userBuilder: ub }),
     );
     this.app.use(
       '/a2a',
-      jsonRpcHandler({ requestHandler: this.requestHandler, userBuilder: UserBuilder.noAuthentication }),
-    );
-    this.app.use(
-      '/a2a',
-      restHandler({ requestHandler: this.requestHandler, userBuilder: UserBuilder.noAuthentication }),
+      restHandler({ requestHandler: this.requestHandler, userBuilder: ub }),
     );
 
     this.app.get('/a2a/health', (_req, res) => {

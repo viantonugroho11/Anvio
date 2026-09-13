@@ -812,6 +812,12 @@ importers:
 
   packages/platform:
     dependencies:
+      '@a2a-js/sdk':
+        specifier: ^1.1.0
+        version: 1.1.0(@grpc/grpc-js@1.14.4)(express@5.2.1)
+      '@anvio/a2a':
+        specifier: workspace:*
+        version: link:../a2a
       '@anvio/agents':
         specifier: workspace:*
         version: link:../agents
@@ -1103,6 +1109,12 @@ importers:
 
   tests/integration:
     devDependencies:
+      '@a2a-js/sdk':
+        specifier: ^1.1.0
+        version: 1.1.0(@grpc/grpc-js@1.14.4)(express@5.2.1)
+      '@anvio/a2a':
+        specifier: workspace:*
+        version: link:../../packages/a2a
       '@anvio/acp':
         specifier: workspace:*
         version: link:../../packages/acp

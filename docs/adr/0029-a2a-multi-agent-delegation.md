@@ -1,6 +1,6 @@
 # ADR-0029: Multi-Agent Delegation via A2A Tool
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-09-12  
 **Deciders:** Platform team, tool gateway maintainers  
 **Supersedes:** —  

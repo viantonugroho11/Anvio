@@ -17,6 +17,8 @@ export { A2AServer, type A2AServerConfig, type A2AServerStatus, type AnvioMessag
 export { AnvioAgentExecutor } from './server/anvio-agent-executor.js';
 export { buildAgentCard, buildAgentCards, type AgentCardBuilderOptions } from './server/agent-card-builder.js';
 
+export { createAnvioUserBuilder } from './server/anvio-user-builder.js';
+
 // Client
 export { A2AClient, type A2AClientOptions } from './client/a2a-client.js';
 export { A2ATool, type A2AToolConfig, type A2AToolResult } from './client/a2a-tool.js';

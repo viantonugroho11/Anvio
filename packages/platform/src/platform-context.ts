@@ -55,6 +55,7 @@ export interface PlatformContext {
       res: import('node:http').ServerResponse,
       pathname: string,
     ): Promise<boolean>;
+    stop(): Promise<void>;
   };
   /**
    * Tear down every background task started by createPlatform — channel

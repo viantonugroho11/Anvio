@@ -1,6 +1,6 @@
 # ADR-0027: A2A End-to-End Integration Testing
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-09-12  
 **Deciders:** Platform team, QA  
 **Supersedes:** —  
