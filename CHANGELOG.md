@@ -17,7 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **`BaseChannelAdapter` owns delivery, not just dispatch** ([#76](https://github.com/viantonugroho11/Anvio/issues/76)) — stream buffering, message chunking and retrying transport moved into the base class, so an adapter declares `maxMessageLength` instead of reimplementing the machinery. Removes five copies of the delta buffer and three of `splitMessage`.
+- **`BaseChannelAdapter` owns delivery, not just dispatch** ([#76](https://github.com/viantonugroho11/Anvio/issues/76)) — stream buffering, message chunking, retrying transport and the typing-indicator lifecycle moved into the base class, so an adapter declares `maxMessageLength`, `supportsNativeTyping` and `typingRefreshMs` instead of reimplementing the machinery. Removes five copies of the delta buffer and three of `splitMessage`.
+
+### Added
+
+- **Native progress indicators on every channel that has one** ([#76](https://github.com/viantonugroho11/Anvio/issues/76)) — Telegram `sendChatAction`, Discord `POST /channels/{id}/typing`, Mattermost `user_typing` over its WebSocket, Matrix `PUT /rooms/{roomId}/typing/{userId}` (when the bot user id is configured), Teams Bot Framework `typing` activity, and WhatsApp `typing_indicator` (which attaches to a specific inbound message, so the adapter now records the inbound message id). Slack has no typing API a normal bot can use, so its progress is silent; the `🔄 phase` text fallback is now restricted to non-chat surfaces, where a bubble per phase does not bury the reply.
 
 ---
 
