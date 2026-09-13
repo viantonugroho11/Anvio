@@ -222,12 +222,27 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                   reason: chunk.request.reason,
                   channel,
                 } satisfies ApprovalRequestedData);
-                await channelHub.sendNotification(channel as ChannelType, sessionId, {
-                  sessionId,
-                  type: 'approval_required',
-                  title: 'Approval required',
-                  body: chunk.request.reason,
-                });
+                // sendNotification renders plain text with no controls, so the
+                // Approve/Reject buttons every adapter already builds were
+                // never shown (issue #68). Route through the harness so the
+                // request is also registered with the approval gate —
+                // otherwise the button callback resolves an id the gate has
+                // never seen and silently no-ops.
+                if (harness.enabled) {
+                  await harness.registerRuntimeApproval(sessionId, channel as ChannelType, {
+                    requestId: chunk.request.id,
+                    toolName: chunk.request.toolName,
+                    reason: chunk.request.reason,
+                  });
+                } else {
+                  await channelHub.sendApprovalRequest(channel as ChannelType, sessionId, {
+                    sessionId,
+                    requestId: chunk.request.id,
+                    toolName: chunk.request.toolName,
+                    reason: chunk.request.reason,
+                    actions: ['approve', 'reject'],
+                  });
+                }
                 return;
               }
               if (chunk.type === 'done' && chunk.usage) {

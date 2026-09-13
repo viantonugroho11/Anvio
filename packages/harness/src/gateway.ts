@@ -224,6 +224,27 @@ export class HarnessGateway implements HarnessGatewayPort {
     }
   }
 
+  /**
+   * Register an approval a runtime raised on its own (an `approval_required`
+   * stream event) so it lands on the channel with native Approve/Reject
+   * controls and resolves through the same approver policy and timeout as
+   * tool-initiated ones. The runtime's request id is reused verbatim —
+   * `resolve` and `session.pendingApproval.id` must agree (issue #68).
+   */
+  async registerRuntimeApproval(
+    sessionId: string,
+    channel: ChannelType,
+    request: { requestId: string; toolName: string; reason: string },
+  ): Promise<void> {
+    await this.approvalGate.requestApproval(
+      sessionId,
+      channel,
+      request.reason,
+      request.toolName,
+      request.requestId,
+    );
+  }
+
   listChannelTools(): string[] {
     if (!this.enabled) return [];
     return [

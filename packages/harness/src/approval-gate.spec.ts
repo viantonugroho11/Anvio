@@ -33,6 +33,35 @@ describe('ApprovalGate', () => {
     vi.useRealTimers();
   });
 
+  it('reuses a runtime-minted request id so the channel callback matches', async () => {
+    const sent: unknown[] = [];
+    const hub = {
+      sendApprovalRequest: vi.fn(async (_c: unknown, _s: unknown, request: unknown) => {
+        sent.push(request);
+      }),
+      sendMessage: vi.fn(),
+      sendProgress: vi.fn(),
+      sendNotification: vi.fn(),
+    } as unknown as ChannelHubPort;
+
+    const gate = new ApprovalGate({
+      channelHub: hub,
+      getApprovers: () => [{ channel: '*', userId: 'telegram:1', scope: '*', catchall: true }],
+    });
+
+    const requestId = await gate.requestApproval(
+      's1',
+      'telegram',
+      'deploy',
+      'tool',
+      'req-from-runtime',
+    );
+
+    expect(requestId).toBe('req-from-runtime');
+    expect(sent[0]).toMatchObject({ requestId: 'req-from-runtime' });
+    expect(gate.resolve('req-from-runtime', 'telegram:1', true)).toBe(true);
+  });
+
   it('resolves only for authorized approver scope', async () => {
     const hub = {
       sendApprovalRequest: vi.fn(),

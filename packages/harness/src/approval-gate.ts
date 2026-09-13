@@ -16,13 +16,20 @@ export class ApprovalGate {
 
   constructor(private readonly options: ApprovalGateOptions) {}
 
+  /**
+   * `existingRequestId` lets a caller register a request whose id was
+   * minted elsewhere — a runtime that emitted `approval_required` with its
+   * own `ApprovalRequest.id`. The id on the channel's buttons has to be the
+   * one `resolve` knows, or the callback silently no-ops (issue #68).
+   */
   async requestApproval(
     sessionId: string,
     channel: ChannelType,
     summary: string,
     toolName = 'harness_action',
+    existingRequestId?: string,
   ): Promise<string> {
-    const requestId = randomUUID();
+    const requestId = existingRequestId ?? randomUUID();
     const ctx: HarnessApprovalContext & { channel: ChannelType } = {
       requestId,
       sessionId,
