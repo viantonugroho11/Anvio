@@ -28,6 +28,13 @@ export { isCursorRuntimeConfigured, parseCursorConnectionPayload } from './curso
 export { SshRuntimeProvider } from './ssh/ssh-runtime.js';
 export { DaytonaRuntimeProvider, ModalRuntimeProvider, type RemoteExecResult } from './remote/remote-runtime-stub.js';
 export { SingularityRuntimeProvider } from './singularity/singularity-runtime.js';
+export {
+  VENDOR_SESSIONS_METADATA_KEY,
+  buildPromptWithHistory,
+  buildResumeAwarePrompt,
+  readVendorSessionId,
+  type PromptWithHistoryOptions,
+} from './shared/session-history.js';
 export { RuntimeFactory, createRuntimeFactory, type RuntimeFactoryDeps } from './runtime-factory.js';
 export {
   buildAgentRuntimeChain,

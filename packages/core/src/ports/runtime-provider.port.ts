@@ -30,6 +30,12 @@ export interface RuntimeCapabilities {
   supportsSubagents: boolean;
   supportsMcp: boolean;
   supportedLanguages: string[];
+  /**
+   * The runtime can continue a prior transcript from a `vendorSessionId`
+   * it issued earlier. When false the gateway replays the conversation
+   * as a prompt prelude instead (issue #63).
+   */
+  supportsNativeResume?: boolean;
 }
 
 export interface RuntimeRequest {
@@ -44,6 +50,8 @@ export interface RuntimeResult {
   usage: TokenUsage;
   status: AgentRunStatus;
   runtimeId: RuntimeProviderId;
+  /** Vendor-side transcript handle; see `AgentStreamEvent`'s `done`. */
+  vendorSessionId?: string;
 }
 
 export type RuntimeStreamEvent = AgentStreamEvent;

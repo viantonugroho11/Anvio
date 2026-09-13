@@ -53,7 +53,14 @@ export interface AgentRuntimeContext {
 export type AgentStreamEvent =
   | { type: 'chunk'; delta?: string }
   | { type: 'progress'; phase: string; status: 'running' | 'completed' | 'failed' }
-  | { type: 'done'; usage?: TokenUsage }
+  /**
+   * `vendorSessionId` is the transcript handle a vendor runtime (Claude
+   * Code, Codex, …) keeps on its own side. The gateway persists it per
+   * runtime id so the next turn can resume that transcript instead of
+   * starting cold (issue #63). Opaque and vendor-scoped — never compare
+   * or reuse one across runtimes.
+   */
+  | { type: 'done'; usage?: TokenUsage; vendorSessionId?: string; runtimeId?: string }
   | { type: 'error'; error?: string }
   | { type: 'approval_required'; request: ApprovalRequest; checkpoint?: Record<string, unknown> };
 

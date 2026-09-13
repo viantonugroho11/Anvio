@@ -237,6 +237,20 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                 metadata: {
                   ...stored.metadata,
                   agentRunCheckpoint: undefined,
+                  // Vendor runtimes keep their own transcript; store the
+                  // handle so the next turn resumes it instead of starting
+                  // cold (issue #63). Keyed per runtime id — a fallback
+                  // chain must not hand one vendor another's session.
+                  ...(chunk.vendorSessionId && chunk.runtimeId
+                    ? {
+                        vendorSessions: {
+                          ...((stored.metadata?.vendorSessions as
+                            | Record<string, string>
+                            | undefined) ?? {}),
+                          [chunk.runtimeId ?? 'unknown']: chunk.vendorSessionId,
+                        },
+                      }
+                    : {}),
                 },
               });
               await finalizeAgentRun(eventBus, {
