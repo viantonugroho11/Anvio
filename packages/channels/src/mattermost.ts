@@ -13,6 +13,8 @@ export interface MattermostChannelOptions {
   sessionBridge: ChannelSessionBridge;
   sessions: SessionStore;
   defaultAgent?: string;
+  /** Server's MaxPostSize when it differs from the 16383 default. */
+  maxPostSize?: number;
   onApproval?: (
     sessionId: string,
     requestId: string,
@@ -45,13 +47,19 @@ export class MattermostChannel extends BaseChannelAdapter {
   private botUserId: string | null = null;
   private readonly apiBase: string;
   private readonly wsUrl: string;
-  private readonly buffer = new Map<string, string>();
+  /**
+   * Mattermost's MaxPostSize defaults to 16383 and is server-configurable, so
+   * an instance can be lower. Overridable per adapter instance rather than
+   * hardcoded (issue #74).
+   */
+  protected readonly maxMessageLength: number;
 
   constructor(private readonly options: MattermostChannelOptions) {
     super();
     const base = options.serverUrl.replace(/\/$/, '');
     this.apiBase = `${base}/api/v4`;
     this.wsUrl = `${base.replace(/^http/, 'ws')}/api/v4/websocket`;
+    this.maxMessageLength = options.maxPostSize ?? 16_383;
   }
 
   private headers(): Record<string, string> {
@@ -62,7 +70,7 @@ export class MattermostChannel extends BaseChannelAdapter {
   }
 
   private async rest<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${this.apiBase}${path}`, {
+    const res = await this.httpRequest(`${this.apiBase}${path}`, {
       method,
       headers: this.headers(),
       body: body ? JSON.stringify(body) : undefined,
@@ -95,22 +103,18 @@ export class MattermostChannel extends BaseChannelAdapter {
     const channelId = meta?.channelId ?? (await this.resolveChannelId(sessionId));
     if (!channelId) return;
 
-    let text = message.content ?? message.delta ?? '';
-    if (message.type === 'chunk' && message.delta) {
-      this.buffer.set(sessionId, (this.buffer.get(sessionId) ?? '') + message.delta);
-      return;
-    }
-    if (message.type === 'done') {
-      text = message.content ?? this.buffer.get(sessionId) ?? text;
-      this.buffer.delete(sessionId);
-    }
+    const text = this.resolveOutboundText(sessionId, message);
     if (!text) return;
 
-    await this.rest('POST', '/posts', {
-      channel_id: channelId,
-      message: text,
-      root_id: meta?.rootId || undefined,
-    });
+    // Mattermost had no chunking either; over MaxPostSize the post is
+    // rejected and the run aborts (issue #74).
+    for (const chunk of this.chunkForDelivery(text)) {
+      await this.rest('POST', '/posts', {
+        channel_id: channelId,
+        message: chunk,
+        root_id: meta?.rootId || undefined,
+      });
+    }
   }
 
   protected async sendApprovalRequestWithActions(
@@ -148,6 +152,7 @@ export class MattermostChannel extends BaseChannelAdapter {
   async stop(): Promise<void> {
     this.ws?.close();
     this.ws = null;
+    this.releaseAllBuffers();
   }
 
   private handleWebSocketMessage(raw: string): void {

@@ -70,14 +70,15 @@ function parseWhatsAppTarget(session: {
 
 export class WhatsAppChannel extends BaseChannelAdapter {
   readonly channelType: ChannelType = 'whatsapp';
-  private readonly buffer = new Map<string, string>();
+  /** WhatsApp Cloud API caps a text body at 4096 characters. */
+  protected readonly maxMessageLength = 4096;
 
   constructor(private readonly options: WhatsAppChannelOptions) {
     super();
   }
 
   private async graphApi(body: Record<string, unknown>): Promise<void> {
-    const res = await fetch(`${GRAPH_API}/${this.options.phoneNumberId}/messages`, {
+    const res = await this.httpRequest(`${GRAPH_API}/${this.options.phoneNumberId}/messages`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.options.accessToken}`,
@@ -97,20 +98,10 @@ export class WhatsAppChannel extends BaseChannelAdapter {
     const target = parseWhatsAppTarget(session);
     if (!target) return;
 
-    if (message.type === 'chunk' && message.delta) {
-      this.buffer.set(sessionId, (this.buffer.get(sessionId) ?? '') + message.delta);
-      return;
-    }
-
-    let text = message.content ?? '';
-    if (message.type === 'done') {
-      text = message.content ?? this.buffer.get(sessionId) ?? text;
-      this.buffer.delete(sessionId);
-    }
+    const text = this.resolveOutboundText(sessionId, message);
     if (!text) return;
 
-    const chunks = splitMessage(text, 4096);
-    for (const chunk of chunks) {
+    for (const chunk of this.chunkForDelivery(text)) {
       await this.graphApi({
         messaging_product: 'whatsapp',
         to: target.waId,
@@ -194,7 +185,9 @@ export class WhatsAppChannel extends BaseChannelAdapter {
     console.log('[WhatsApp] Webhook mode — mount POST /channels/whatsapp/webhook on API');
   }
 
-  async stop(): Promise<void> {}
+  async stop(): Promise<void> {
+    this.releaseAllBuffers();
+  }
 
   private async handleInboundMessage(msg: WhatsAppInboundMessage): Promise<void> {
     const waId = msg.from;
@@ -249,13 +242,3 @@ export class WhatsAppChannel extends BaseChannelAdapter {
   }
 }
 
-function splitMessage(text: string, maxLen: number): string[] {
-  if (text.length <= maxLen) return [text];
-  const chunks: string[] = [];
-  let remaining = text;
-  while (remaining.length > 0) {
-    chunks.push(remaining.slice(0, maxLen));
-    remaining = remaining.slice(maxLen);
-  }
-  return chunks;
-}

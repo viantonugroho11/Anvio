@@ -111,7 +111,8 @@ export class TelegramChannel extends BaseChannelAdapter {
   private offset = 0;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly apiBase: string;
-  private readonly buffer = new Map<string, string>();
+  /** Telegram rejects a sendMessage body over 4096 characters. */
+  protected readonly maxMessageLength = 4096;
   /**
    * One `sendChatAction` keepalive per in-flight session. Telegram expires
    * a chat action after ~5s, so the indicator has to be re-sent until the
@@ -127,7 +128,7 @@ export class TelegramChannel extends BaseChannelAdapter {
   }
 
   private async api<T>(method: string, body?: Record<string, unknown>): Promise<T> {
-    const res = await fetch(`${this.apiBase}/${method}`, {
+    const res = await this.httpRequest(`${this.apiBase}/${method}`, {
       method: body ? 'POST' : 'GET',
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
@@ -144,7 +145,7 @@ export class TelegramChannel extends BaseChannelAdapter {
     if (!target) return;
 
     if (message.type === 'chunk' && message.delta) {
-      this.buffer.set(sessionId, (this.buffer.get(sessionId) ?? '') + message.delta);
+      this.resolveOutboundText(sessionId, message);
       // Deltas are buffered until `done` (per-token editMessageText would
       // blow the Bot API rate limit), so the chat action is the only
       // progress signal the user gets while the turn runs.
@@ -156,15 +157,10 @@ export class TelegramChannel extends BaseChannelAdapter {
     // now see output, so the indicator would be a lie.
     await this.setTyping(sessionId, false);
 
-    let text = message.content ?? '';
-    if (message.type === 'done') {
-      text = message.content ?? this.buffer.get(sessionId) ?? text;
-      this.buffer.delete(sessionId);
-    }
+    const text = this.resolveOutboundText(sessionId, message);
     if (!text) return;
 
-    const chunks = splitMessage(text, 4096);
-    for (const chunk of chunks) {
+    for (const chunk of this.chunkForDelivery(text)) {
       await this.api('sendMessage', {
         chat_id: target.chatId,
         message_thread_id: target.messageThreadId,
@@ -291,6 +287,7 @@ export class TelegramChannel extends BaseChannelAdapter {
     if (this.pollTimer) clearTimeout(this.pollTimer);
     for (const timer of this.typingTimers.values()) clearInterval(timer);
     this.typingTimers.clear();
+    this.releaseAllBuffers();
   }
 
   private async pollLoop(): Promise<void> {
@@ -460,16 +457,6 @@ export class TelegramChannel extends BaseChannelAdapter {
   }
 }
 
-function splitMessage(text: string, maxLen: number): string[] {
-  if (text.length <= maxLen) return [text];
-  const chunks: string[] = [];
-  let remaining = text;
-  while (remaining.length > 0) {
-    chunks.push(remaining.slice(0, maxLen));
-    remaining = remaining.slice(maxLen);
-  }
-  return chunks;
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

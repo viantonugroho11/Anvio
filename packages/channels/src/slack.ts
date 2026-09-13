@@ -77,14 +77,15 @@ function parseSlackTarget(session: {
 export class SlackChannel extends BaseChannelAdapter {
   readonly channelType: ChannelType = 'slack';
   private ws: WebSocket | null = null;
-  private readonly buffer = new Map<string, string>();
+  /** chat.postMessage rejects anything past 40,000 chars with msg_too_long. */
+  protected readonly maxMessageLength = 40_000;
 
   constructor(private readonly options: SlackChannelOptions) {
     super();
   }
 
   private async slackApi<T>(method: string, body: Record<string, unknown>): Promise<T> {
-    const res = await fetch(`${SLACK_API}/${method}`, {
+    const res = await this.httpRequest(`${SLACK_API}/${method}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.options.botToken}`,
@@ -103,23 +104,18 @@ export class SlackChannel extends BaseChannelAdapter {
     const target = parseSlackTarget(session);
     if (!target) return;
 
-    if (message.type === 'chunk' && message.delta) {
-      this.buffer.set(sessionId, (this.buffer.get(sessionId) ?? '') + message.delta);
-      return;
-    }
-
-    let text = message.content ?? '';
-    if (message.type === 'done') {
-      text = message.content ?? this.buffer.get(sessionId) ?? text;
-      this.buffer.delete(sessionId);
-    }
+    const text = this.resolveOutboundText(sessionId, message);
     if (!text) return;
 
-    await this.slackApi('chat.postMessage', {
-      channel: target.channelId,
-      thread_ts: target.threadTs,
-      text,
-    });
+    // Slack had no chunking at all, so an over-limit reply threw and took the
+    // whole run with it (issue #74).
+    for (const chunk of this.chunkForDelivery(text)) {
+      await this.slackApi('chat.postMessage', {
+        channel: target.channelId,
+        thread_ts: target.threadTs,
+        text: chunk,
+      });
+    }
   }
 
   protected async sendApprovalRequestWithActions(
@@ -178,6 +174,7 @@ export class SlackChannel extends BaseChannelAdapter {
   async stop(): Promise<void> {
     this.ws?.close();
     this.ws = null;
+    this.releaseAllBuffers();
   }
 
   private async handleSocketMessage(raw: string): Promise<void> {
