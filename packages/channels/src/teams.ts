@@ -23,6 +23,13 @@ export interface TeamsChannelOptions extends WebhookChannelOptions {
 
 /** Microsoft Teams adapter — Bot Framework webhook delivery when configured. */
 export class TeamsChannel extends WebhookChannelAdapter {
+  protected readonly isLiveChatSurface = true;
+  protected readonly supportsNativeTyping = true;
+  /**
+   * The Bot Framework does not document how long a typing activity shows;
+   * in practice it is a few seconds, so refresh conservatively.
+   */
+  protected readonly typingRefreshMs = 3000;
   readonly channelType: ChannelType = 'teams';
 
   constructor(private readonly teamsOptions: TeamsChannelOptions) {
@@ -180,6 +187,27 @@ export class TeamsChannel extends WebhookChannelAdapter {
         },
       ],
     });
+  }
+
+  protected async sendTypingSignal(sessionId: string): Promise<void> {
+    const session = await this.options.sessions.get(sessionId);
+    const teamsMeta = session?.metadata?.teams as
+      { conversationId?: string; serviceUrl?: string } | undefined;
+    const conversationId = teamsMeta?.conversationId;
+    const serviceUrl = teamsMeta?.serviceUrl ?? this.teamsOptions.serviceUrl;
+    if (
+      !this.teamsOptions.appId ||
+      !this.teamsOptions.appPassword ||
+      !serviceUrl ||
+      !conversationId
+    ) {
+      return;
+    }
+
+    const token = await this.fetchBotToken();
+    if (!token) return;
+
+    await this.postActivity(serviceUrl, conversationId, token, { type: 'typing' });
   }
 
   protected async deliverMessage(sessionId: string, message: OutboundMessage): Promise<void> {

@@ -40,6 +40,8 @@ interface WhatsAppWebhookBody {
 }
 
 interface WhatsAppInboundMessage {
+  /** Needed to reference this message when showing a typing indicator. */
+  id?: string;
   from: string;
   type: string;
   text?: { body: string };
@@ -72,6 +74,13 @@ export class WhatsAppChannel extends BaseChannelAdapter {
   readonly channelType: ChannelType = 'whatsapp';
   /** WhatsApp Cloud API caps a text body at 4096 characters. */
   protected readonly maxMessageLength = 4096;
+  protected readonly isLiveChatSurface = true;
+  protected readonly supportsNativeTyping = true;
+  /**
+   * One-shot: WhatsApp holds the indicator for up to 25s and dismisses it as
+   * soon as the reply lands, so there is nothing to keep alive.
+   */
+  protected readonly typingRefreshMs = 0;
 
   constructor(private readonly options: WhatsAppChannelOptions) {
     super();
@@ -109,6 +118,27 @@ export class WhatsAppChannel extends BaseChannelAdapter {
         text: { body: chunk },
       });
     }
+  }
+
+  /**
+   * Unlike every other channel here, WhatsApp will not show a bare "typing"
+   * state: the call marks a specific inbound message as read and attaches the
+   * indicator to it. Without a stored inbound id there is nothing to attach
+   * to, so the signal is skipped rather than faked.
+   */
+  protected async sendTypingSignal(sessionId: string): Promise<void> {
+    const session = await this.options.sessions.get(sessionId);
+    const meta = session?.metadata?.whatsapp as
+      | { lastInboundMessageId?: string }
+      | undefined;
+    if (!meta?.lastInboundMessageId) return;
+
+    await this.graphApi({
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: meta.lastInboundMessageId,
+      typing_indicator: { type: 'text' },
+    });
   }
 
   protected async sendApprovalRequestWithActions(
@@ -217,11 +247,14 @@ export class WhatsAppChannel extends BaseChannelAdapter {
       this.options.defaultAgent,
     );
 
-    if (!session.metadata?.whatsapp) {
-      await this.options.sessions.update(session.id, {
-        metadata: { ...session.metadata, whatsapp: { waId } },
-      });
-    }
+    // The typing indicator has to reference the message it is replying to,
+    // so the inbound id is kept on the session for `sendTypingSignal`.
+    await this.options.sessions.update(session.id, {
+      metadata: {
+        ...session.metadata,
+        whatsapp: { waId, lastInboundMessageId: msg.id },
+      },
+    });
 
     const normalized = msg.text.body.trim().toLowerCase();
     if (normalized === 'approve' || normalized === 'reject') {

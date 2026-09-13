@@ -5,11 +5,25 @@ import { BaseChannelAdapter } from './base-channel-adapter.js';
 class TestAdapter extends BaseChannelAdapter {
   readonly channelType: ChannelType = 'telegram';
   protected readonly maxMessageLength: number;
+  protected readonly isLiveChatSurface: boolean;
+  protected readonly supportsNativeTyping: boolean;
+  protected readonly typingRefreshMs: number;
   readonly sent: string[] = [];
+  readonly typingSignals: string[] = [];
 
-  constructor(maxMessageLength = 0) {
+  constructor(
+    maxMessageLength = 0,
+    options: { live?: boolean; nativeTyping?: boolean; refreshMs?: number } = {},
+  ) {
     super();
     this.maxMessageLength = maxMessageLength;
+    this.isLiveChatSurface = options.live ?? false;
+    this.supportsNativeTyping = options.nativeTyping ?? false;
+    this.typingRefreshMs = options.refreshMs ?? 0;
+  }
+
+  protected async sendTypingSignal(sessionId: string): Promise<void> {
+    this.typingSignals.push(sessionId);
   }
 
   async sendMessage(sessionId: string, message: OutboundMessage): Promise<void> {
@@ -117,5 +131,65 @@ describe('BaseChannelAdapter chunking', () => {
     await adapter.sendMessage('s1', { sessionId: 's1', type: 'done', content: long });
 
     expect(adapter.sent).toEqual([long]);
+  });
+});
+
+describe('BaseChannelAdapter progress (issue #76)', () => {
+  const running = { sessionId: 's1', phase: 'Calling model', status: 'running' as const };
+
+  it('uses the native indicator when the channel has one', async () => {
+    const adapter = new TestAdapter(0, { live: true, nativeTyping: true });
+
+    await adapter.sendProgress('s1', running);
+
+    expect(adapter.typingSignals).toEqual(['s1']);
+    expect(adapter.sent).toEqual([]);
+  });
+
+  it('stays silent on a live chat surface with no native indicator', async () => {
+    const adapter = new TestAdapter(0, { live: true, nativeTyping: false });
+
+    await adapter.sendProgress('s1', running);
+
+    // A bubble per phase buried the reply on these surfaces (issue #54(a)).
+    expect(adapter.sent).toEqual([]);
+    expect(adapter.typingSignals).toEqual([]);
+  });
+
+  it('keeps the text fallback for non-chat surfaces', async () => {
+    const adapter = new TestAdapter(0, { live: false, nativeTyping: false });
+
+    await adapter.sendProgress('s1', running);
+
+    // Email, SMS and webhooks have no live view to express progress in.
+    expect(adapter.sent).toEqual(['🔄 Calling model']);
+  });
+
+  it('clears the indicator when the phase completes', async () => {
+    const adapter = new TestAdapter(0, { live: true, nativeTyping: true });
+
+    await adapter.sendProgress('s1', running);
+    await adapter.sendProgress('s1', { ...running, status: 'completed' });
+    await adapter.sendProgress('s1', running);
+
+    // Cleared, so a fresh phase starts a new indicator rather than deduping.
+    expect(adapter.typingSignals).toEqual(['s1', 's1']);
+  });
+
+  it('does not start a second keepalive for the same session', async () => {
+    const adapter = new TestAdapter(0, { live: true, nativeTyping: true });
+
+    await adapter.setTyping('s1', true);
+    await adapter.setTyping('s1', true);
+
+    expect(adapter.typingSignals).toEqual(['s1']);
+  });
+
+  it('ignores setTyping entirely when the channel has no indicator', async () => {
+    const adapter = new TestAdapter(0, { live: true, nativeTyping: false });
+
+    await adapter.setTyping('s1', true);
+
+    expect(adapter.typingSignals).toEqual([]);
   });
 });

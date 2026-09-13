@@ -37,6 +37,29 @@ export abstract class BaseChannelAdapter implements ChannelAdapter {
    */
   private readonly streamBuffer = new Map<string, string>();
 
+  /**
+   * True when a human watches messages arrive here in real time. On such a
+   * surface a progress bubble per phase buries the actual reply (issue
+   * #54(a)), so progress is expressed as a native indicator or not at all;
+   * the text fallback is kept for email, SMS and webhooks, which have no
+   * live view to express it in.
+   */
+  protected readonly isLiveChatSurface: boolean = false;
+
+  /** Whether this channel has a native busy indicator at all. */
+  protected readonly supportsNativeTyping: boolean = false;
+
+  /**
+   * How often the native indicator must be re-sent to stay visible; 0 for a
+   * one-shot call that the platform keeps alive itself. Telegram expires a
+   * chat action after ~5s and Discord after 10s, whereas WhatsApp holds one
+   * for 25s or until the reply lands.
+   */
+  protected readonly typingRefreshMs: number = 0;
+
+  /** Sessions currently showing the indicator, with their keepalive if any. */
+  private readonly typingSessions = new Map<string, ReturnType<typeof setInterval> | null>();
+
   onMessage(handler: InboundMessageHandler): void {
     this.handler = handler;
   }
@@ -94,9 +117,65 @@ export abstract class BaseChannelAdapter implements ChannelAdapter {
   /** Release every buffer — adapters call this from `stop()`. */
   protected releaseAllBuffers(): void {
     this.streamBuffer.clear();
+    this.clearAllTyping();
+  }
+
+  /**
+   * One native "busy" call for this session. Adapters with an indicator
+   * override it; the base keeps the lifecycle so no adapter has to
+   * reimplement the keepalive and its cleanup.
+   */
+  protected async sendTypingSignal(_sessionId: string): Promise<void> {}
+
+  async setTyping(sessionId: string, active: boolean): Promise<void> {
+    if (!this.supportsNativeTyping) return;
+
+    if (!active) {
+      const timer = this.typingSessions.get(sessionId);
+      if (timer) clearInterval(timer);
+      this.typingSessions.delete(sessionId);
+      return;
+    }
+    if (this.typingSessions.has(sessionId)) return;
+
+    // Claim the slot before the first await, so two deltas arriving back to
+    // back cannot each start their own keepalive and orphan one.
+    let timer: ReturnType<typeof setInterval> | null = null;
+    if (this.typingRefreshMs > 0) {
+      timer = setInterval(() => void this.safeTypingSignal(sessionId), this.typingRefreshMs);
+      timer.unref?.();
+    }
+    this.typingSessions.set(sessionId, timer);
+    await this.safeTypingSignal(sessionId);
+  }
+
+  /** The indicator is cosmetic — never fail a turn over it. */
+  private async safeTypingSignal(sessionId: string): Promise<void> {
+    try {
+      await this.sendTypingSignal(sessionId);
+    } catch (error) {
+      console.error(
+        `[${this.channelType}] typing indicator failed:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  /** Stop every indicator — adapters call this from `stop()`. */
+  protected clearAllTyping(): void {
+    for (const timer of this.typingSessions.values()) if (timer) clearInterval(timer);
+    this.typingSessions.clear();
   }
 
   async sendProgress(sessionId: string, update: ProgressUpdate): Promise<void> {
+    if (this.supportsNativeTyping) {
+      await this.setTyping(sessionId, update.status === 'running');
+      return;
+    }
+    // A live chat surface with no native indicator says nothing rather than
+    // posting a bubble per phase.
+    if (this.isLiveChatSurface) return;
+
     const emoji = update.emoji ?? (update.status === 'completed' ? '✅' : '🔄');
     await this.sendMessage(sessionId, {
       sessionId,

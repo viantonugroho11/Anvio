@@ -53,6 +53,12 @@ export class MattermostChannel extends BaseChannelAdapter {
    * hardcoded (issue #74).
    */
   protected readonly maxMessageLength: number;
+  protected readonly isLiveChatSurface = true;
+  protected readonly supportsNativeTyping = true;
+  /** Mattermost clears a typing state after ~5s. */
+  protected readonly typingRefreshMs = 4000;
+  /** WebSocket requests carry a client-assigned sequence number. */
+  private wsSeq = 1;
 
   constructor(private readonly options: MattermostChannelOptions) {
     super();
@@ -117,6 +123,28 @@ export class MattermostChannel extends BaseChannelAdapter {
     }
   }
 
+  /**
+   * Mattermost has no REST typing endpoint — the signal goes over the same
+   * WebSocket the adapter already holds open, as a `user_typing` action.
+   */
+  protected async sendTypingSignal(sessionId: string): Promise<void> {
+    if (this.ws?.readyState !== 1) return;
+    const session = await this.options.sessions.get(sessionId);
+    const meta = session?.metadata?.mattermost as
+      | { channelId?: string; rootId?: string }
+      | undefined;
+    const channelId = meta?.channelId ?? (await this.resolveChannelId(sessionId));
+    if (!channelId) return;
+
+    this.ws.send(
+      JSON.stringify({
+        seq: ++this.wsSeq,
+        action: 'user_typing',
+        data: { channel_id: channelId, parent_id: meta?.rootId ?? '' },
+      }),
+    );
+  }
+
   protected async sendApprovalRequestWithActions(
     sessionId: string,
     request: ApprovalRequestMessage,
@@ -135,7 +163,7 @@ export class MattermostChannel extends BaseChannelAdapter {
     this.ws.addEventListener('open', () => {
       this.ws?.send(
         JSON.stringify({
-          seq: 1,
+          seq: this.wsSeq,
           action: 'authentication_challenge',
           data: { token: this.options.botToken },
         }),

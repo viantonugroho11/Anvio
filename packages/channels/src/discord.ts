@@ -67,6 +67,10 @@ export class DiscordChannel extends BaseChannelAdapter {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   /** Discord rejects message content over 2000 characters. */
   protected readonly maxMessageLength = 2000;
+  protected readonly isLiveChatSurface = true;
+  protected readonly supportsNativeTyping = true;
+  /** The indicator expires after 10s, so refresh inside that window. */
+  protected readonly typingRefreshMs = 8000;
 
   constructor(private readonly options: DiscordChannelOptions) {
     super();
@@ -114,6 +118,16 @@ export class DiscordChannel extends BaseChannelAdapter {
     for (const chunk of this.chunkForDelivery(content)) {
       await this.rest('POST', `/channels/${channelId}/messages`, { content: chunk });
     }
+  }
+
+  /**
+   * Discord's docs single this out as the case the endpoint is for: a bot
+   * that expects computation to take several seconds and wants to say so.
+   */
+  protected async sendTypingSignal(sessionId: string): Promise<void> {
+    const channelId = await this.resolveChannelId(sessionId);
+    if (!channelId) return;
+    await this.rest('POST', `/channels/${channelId}/typing`);
   }
 
   protected async sendApprovalRequestWithActions(

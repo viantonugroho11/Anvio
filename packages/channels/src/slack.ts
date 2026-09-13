@@ -79,6 +79,14 @@ export class SlackChannel extends BaseChannelAdapter {
   private ws: WebSocket | null = null;
   /** chat.postMessage rejects anything past 40,000 chars with msg_too_long. */
   protected readonly maxMessageLength = 40_000;
+  /**
+   * Slack has no typing indicator a normal bot can send. `users.setPresence`
+   * is unrelated, and `assistant.threads.setStatus` only accepts assistant
+   * threads — it rejects a regular channel outright and is itself being
+   * migrated to `agents.sessions.setStatus`. So progress on Slack is silent
+   * rather than a bubble per phase (issue #76).
+   */
+  protected readonly isLiveChatSurface = true;
 
   constructor(private readonly options: SlackChannelOptions) {
     super();
