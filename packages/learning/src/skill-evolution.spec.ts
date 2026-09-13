@@ -149,3 +149,52 @@ describe('SkillEvolutionWriter draft lifecycle', () => {
     expect(content).toContain('name: second');
   });
 });
+
+describe('per-session draft dedupe (issue #64)', () => {
+  let draftsDir: string;
+  let writer: SkillEvolutionWriter;
+
+  beforeEach(async () => {
+    draftsDir = await tempDir();
+    writer = new SkillEvolutionWriter(draftsDir);
+  });
+
+  function draft(sessionId: string, instructions: string) {
+    return {
+      slug: 'tech-lead',
+      sessionId,
+      agentId: 'tech-lead',
+      topic: 'x',
+      instructions,
+      sourceExcerpt: 'ex',
+    };
+  }
+
+  it('rewrites the session own draft instead of stacking one per turn', async () => {
+    const first = await writer.proposeDraft(draft('sess-abcdefgh', 'turn one'), {
+      replaceForSession: true,
+    });
+    const second = await writer.proposeDraft(draft('sess-abcdefgh', 'turn two'), {
+      replaceForSession: true,
+    });
+
+    expect(second.path).toBe(first.path);
+    expect(await writer.listDrafts()).toHaveLength(1);
+    // The later turn knows more about the pattern — it wins.
+    expect(await fs.readFile(second.path, 'utf-8')).toContain('turn two');
+  });
+
+  it('keeps drafts from different sessions apart', async () => {
+    await writer.proposeDraft(draft('sess-aaaaaaaa', 'a'), { replaceForSession: true });
+    await writer.proposeDraft(draft('sess-bbbbbbbb', 'b'), { replaceForSession: true });
+    expect(await writer.listDrafts()).toHaveLength(2);
+  });
+
+  it('still writes a distinct draft when dedupe is off (explicit /capture)', async () => {
+    const first = await writer.proposeDraft(draft('sess-abcdefgh', 'one'));
+    await new Promise((r) => setTimeout(r, 2));
+    const second = await writer.proposeDraft(draft('sess-abcdefgh', 'two'));
+    expect(second.path).not.toBe(first.path);
+    expect(await writer.listDrafts()).toHaveLength(2);
+  });
+});

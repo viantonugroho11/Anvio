@@ -22,6 +22,13 @@ export interface SessionLearningInput {
   channel?: string;
 }
 
+/**
+ * Auto-drafting needs at least one full exchange plus a follow-up to have
+ * any repeatable shape in it. Below that the "pattern" is a greeting
+ * (issue #64). The explicit `/capture` path has no floor — the human asked.
+ */
+const MIN_MESSAGES_FOR_AUTO_DRAFT = 4;
+
 export interface SessionLearningResult {
   memoryNudge: { factsStored: number; facts: string[] };
   sessionSummary?: { summary: string; stored: boolean; source?: 'llm' | 'rules' };
@@ -64,10 +71,11 @@ export class LearningEngine {
     // the previous behavior. `mention` only drafts when the session
     // contains a `/capture` marker. `manual` never drafts here — only the
     // explicit captureFromSession path produces a draft.
-    const captureOn = evolution?.captureOn ?? 'always';
+    const captureOn = evolution?.captureOn ?? 'mention';
     const mentionedCapture = hasCaptureMention(input.messages);
+    const longEnough = input.messages.length >= MIN_MESSAGES_FOR_AUTO_DRAFT;
     const shouldAutoDraft =
-      captureOn === 'always' || (captureOn === 'mention' && mentionedCapture);
+      longEnough && (captureOn === 'always' || (captureOn === 'mention' && mentionedCapture));
 
     const memoryNudge = await this.nudge.nudgeFromSession(
       input.sessionId,
@@ -104,7 +112,10 @@ export class LearningEngine {
         sourceUserId: input.userId,
         sourceMessages: input.messages.length,
       };
-      const draft = await this.skillWriter.proposeDraft(draftInput);
+      // This runs on every agent run, not once per session, so keep
+      // rewriting the session's own draft rather than stacking one file
+      // per turn (issue #64).
+      const draft = await this.skillWriter.proposeDraft(draftInput, { replaceForSession: true });
       skillDraft = { path: draft.path, slug: draft.definition.metadata.slug };
     }
 
