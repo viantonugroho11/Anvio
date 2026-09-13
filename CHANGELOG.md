@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.6.1] - 2026-09-13
+
+**Bugfixes for vendor runtime context and learning loop spam.**
+
+### Fixed
+
+- **Vendor runtime conversation context** ([#66](https://github.com/viantonugroho11/Anvio/pull/66)) — vendor runtimes (`claude-code`, `codex`, `cursor`, `antigravity`) now preserve conversation history across turns. `claude-code` uses native `session_id` resume via `vendorSessions` metadata; others get a `buildPromptWithHistory()` transcript prelude budgeted from the tail. First turns remain byte-identical to previous behavior.
+- **Learning loop skill draft spam** ([#67](https://github.com/viantonugroho11/Anvio/pull/67)) — auto-capture fired per agent run (per turn), not per session, creating stacked drafts. Now dedupes per session (later turns overwrite earlier draft), defaults `captureOn` to `mention` instead of `always`, and requires minimum 4 messages before auto-drafting. SOUL.md frontmatter `evolution` field now honored instead of hardcoded. Soul scaffold template fixed from invalid `captureOn: never` to `manual`.
+
+---
+
 ## [2.6.0] - 2026-09-13
 
 **A2A Phase P11a — platform wiring, delegation tool, and integration tests.**
