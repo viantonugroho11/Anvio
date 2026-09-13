@@ -7,11 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.6.2] - 2026-09-14
+
+**Harness approvals reach the user, and actually gate the default runtime.**
+
 ### Fixed
 
 - **Approval requests render without action buttons** ([#68](https://github.com/viantonugroho11/Anvio/issues/68)) — the gateway worker delivered `approval_required` through `sendNotification` (plain text), so the ✅/❌ inline controls every adapter already implements were never shown. It now calls `sendApprovalRequest`, and registers the runtime's request id with `ApprovalGate` so the button callback resolves an id the gate actually knows.
 - **`claude-code` runtime bypassed harness approvals** ([#69](https://github.com/viantonugroho11/Anvio/issues/69)) — the vendor runtime never received the harness tool surface and had no permission hook, so Soul-Gate approvers were inert on the default runtime. The tool port is now served to the Agent SDK as an in-process MCP server (`anvio_channel__reply`, `anvio_channel__request_approval`), its instructions are appended to the system prompt, and the SDK's `canUseTool` prompts route through the new `RuntimeApprovalPort` — which blocks on a real channel approval and fails closed.
 - **Telegram gave no progress feedback during a turn** ([#70](https://github.com/viantonugroho11/Anvio/issues/70)) — `sendChatAction` was never implemented, so a buffered reply arrived after total silence. Adapters can now implement `setTyping`; Telegram keeps a 4s "typing…" keepalive per session (forum-topic aware) that the worker starts and stops around every run, and renders run progress as the chat action instead of a text bubble.
+
+### Known limitations
+
+- `anvio approve <sessionId> <requestId>` does not unblock an approval a runtime is waiting on inline. The CLI runs in a separate process from the in-memory approval gate, and the `APPROVAL_DECIDED` event carries no userId, so the SOUL.md approver policy cannot be checked. The request falls through to its timeout, which denies — fail closed. Channel approvals (Telegram buttons and equivalents) are unaffected.
 
 ---
 
