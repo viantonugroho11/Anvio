@@ -198,9 +198,12 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
       ...(toolPort && toolNames.length > 0
         ? {
             mcpServers: { anvio: createAnvioMcpServer(toolPort, ctx) },
-            // Anvio's own tools are the harness output path — prompting for
-            // them would deadlock the reply behind an approval.
-            allowedTools: toolNames.map(mcpToolName),
+            // Only channel tools are auto-approved: prompting for
+            // anvio_channel__reply would deadlock the reply behind an
+            // approval. Everything else falls through to canUseTool.
+            allowedTools: toolNames
+              .filter((name) => name.startsWith('anvio_channel__'))
+              .map(mcpToolName),
             systemPrompt: {
               type: 'preset' as const,
               preset: 'claude_code' as const,
