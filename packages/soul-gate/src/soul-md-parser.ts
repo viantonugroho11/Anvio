@@ -1,6 +1,6 @@
 import type { SoulDefinition, SoulPolicy } from '@anvio/core';
 import type { ModelProvider } from '@anvio/core';
-import { defaultSoulPolicy, parseSoulPolicy } from '@anvio/core';
+import { defaultSoulPolicy, expandEnvString, parseSoulPolicy } from '@anvio/core';
 import { extractIdsFromLine, parseApproversSection, verifyPolicyIds } from './verifier.js';
 import { hashSoulSource, readCachedPolicy, writeCachedPolicy } from './policy-cache.js';
 import { extractSoulPolicy } from './soul-policy-llm.js';
@@ -118,7 +118,8 @@ export async function loadSoulPolicy(options: {
 }): Promise<SoulPolicy> {
   if (options.soulMdPath) {
     const fs = await import('node:fs/promises');
-    const source = await fs.readFile(options.soulMdPath, 'utf-8');
+    const raw = await fs.readFile(options.soulMdPath, 'utf-8');
+    const source = expandEnvString(raw);
     const hash = hashSoulSource(source);
     const cached = await readCachedPolicy(options.cacheDir, hash);
     if (cached) return cached;
