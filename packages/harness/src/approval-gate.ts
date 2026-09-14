@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { HarnessApprovalContext } from '@anvio/core';
+import type { ApprovalResolveOutcome, HarnessApprovalContext } from '@anvio/core';
 import type { ChannelHubPort, ChannelType } from '@anvio/core';
 import { isAuthorizedApprover } from './approver-matcher.js';
 
@@ -10,24 +10,58 @@ export interface ApprovalGateOptions {
   onTimedOut?: (sessionId: string, requestId: string) => void | Promise<void>;
 }
 
+export interface PendingApprovalRecord {
+  requestId: string;
+  sessionId: string;
+  channel: ChannelType;
+  summary: string;
+  expiresAt?: Date | string;
+}
+
 export class ApprovalGate {
   private readonly pending = new Map<string, HarnessApprovalContext & { channel: ChannelType }>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
-  /**
-   * Callers blocked on `waitFor`. A runtime that gates its own tools holds
-   * the tool call open until a human answers (issue #69), unlike the
-   * checkpoint/resume path where the turn ends and restarts.
-   */
   private readonly waiters = new Map<string, Array<(approved: boolean) => void>>();
 
   constructor(private readonly options: ApprovalGateOptions) {}
 
   /**
-   * `existingRequestId` lets a caller register a request whose id was
-   * minted elsewhere — a runtime that emitted `approval_required` with its
-   * own `ApprovalRequest.id`. The id on the channel's buttons has to be the
-   * one `resolve` knows, or the callback silently no-ops (issue #68).
+   * Restore pending approvals from persisted session state on startup.
+   * Expired entries are immediately timed out; live ones get fresh timers.
    */
+  rehydrate(records: PendingApprovalRecord[]): void {
+    const now = Date.now();
+    for (const record of records) {
+      const expiresAt = record.expiresAt
+        ? new Date(record.expiresAt).getTime()
+        : 0;
+
+      if (expiresAt > 0 && expiresAt <= now) {
+        void this.options.onTimedOut?.(record.sessionId, record.requestId);
+        continue;
+      }
+
+      const ctx: HarnessApprovalContext & { channel: ChannelType } = {
+        requestId: record.requestId,
+        sessionId: record.sessionId,
+        summary: record.summary,
+        createdAt: new Date().toISOString(),
+        channel: record.channel,
+      };
+      this.pending.set(record.requestId, ctx);
+
+      if (expiresAt > 0) {
+        const remainingMs = expiresAt - now;
+        const timer = setTimeout(() => {
+          void this.handleTimeout(record.requestId, record.sessionId);
+        }, remainingMs);
+        this.timers.set(record.requestId, timer);
+      } else {
+        this.scheduleTimeout(record.requestId, record.sessionId);
+      }
+    }
+  }
+
   async requestApproval(
     sessionId: string,
     channel: ChannelType,
@@ -83,11 +117,6 @@ export class ApprovalGate {
     await this.options.onTimedOut?.(sessionId, requestId);
   }
 
-  /**
-   * Resolves when the request is decided or times out. Registered before
-   * the decision arrives; a request that is already settled resolves as
-   * denied, since there is no decision left to wait for.
-   */
   waitFor(requestId: string): Promise<boolean> {
     if (!this.pending.has(requestId)) return Promise.resolve(false);
     return new Promise<boolean>((resolve) => {
@@ -104,12 +133,13 @@ export class ApprovalGate {
     for (const resolve of list) resolve(approved);
   }
 
-  resolve(requestId: string, userId: string, approved: boolean): boolean {
+  resolve(requestId: string, userId: string, approved: boolean): ApprovalResolveOutcome {
     const ctx = this.pending.get(requestId);
-    if (!ctx || ctx.resolvedAt) return false;
+    if (!ctx) return { status: 'not_found' };
+    if (ctx.resolvedAt) return { status: 'already_resolved' };
 
     const ok = isAuthorizedApprover(this.options.getApprovers(), ctx.channel, ctx.summary, userId);
-    if (!ok) return false;
+    if (!ok) return { status: 'not_authorized' };
 
     ctx.resolvedAt = new Date().toISOString();
     ctx.approved = approved;
@@ -124,15 +154,20 @@ export class ApprovalGate {
 
     this.settleWaiters(requestId, approved);
 
-    return true;
+    return { status: 'resolved' };
   }
 
   /** @deprecated Use resolve(requestId, userId, true) */
-  authorize(requestId: string, userId: string): boolean {
+  authorize(requestId: string, userId: string): ApprovalResolveOutcome {
     return this.resolve(requestId, userId, true);
   }
 
   getContext(requestId: string): HarnessApprovalContext | undefined {
     return this.pending.get(requestId);
+  }
+
+  stop(): void {
+    for (const timer of this.timers.values()) clearTimeout(timer);
+    this.timers.clear();
   }
 }

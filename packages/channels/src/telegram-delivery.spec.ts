@@ -116,7 +116,7 @@ describe('Telegram approval callback (issue #73)', () => {
   });
 
   it('resolves against the existing session when there is one', async () => {
-    const onApproval = vi.fn();
+    const onApproval = vi.fn(async () => ({ status: 'resolved' as const }));
     const { channel } = makeChannel({ onApproval });
 
     await (channel as unknown as { handleUpdate(u: unknown): Promise<void> }).handleUpdate({

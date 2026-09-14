@@ -226,8 +226,8 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         await mcpFirstCallGate.approveToolName(sessionId, pendingToolName);
       }
       if (harness.enabled && userId) {
-        const ok = await harness.resolveApproval(sessionId, requestId, userId, approved);
-        if (!ok) return;
+        const outcome = await harness.resolveApproval(sessionId, requestId, userId, approved);
+        if (outcome.status !== 'resolved') return outcome;
       } else {
         await workspace.sessions.update(sessionId, { pendingApproval: undefined });
       }
@@ -236,8 +236,13 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         requestId,
         approved,
       });
+      return { status: 'resolved' as const };
     },
   });
+
+  if (harness.enabled && harness.rehydrateApprovals) {
+    await harness.rehydrateApprovals();
+  }
 
   slidingWindowSummarizer = new SessionSummarizer(memoryProvider, {
     modelProvider:

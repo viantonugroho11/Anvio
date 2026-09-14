@@ -31,7 +31,12 @@ export function extractIdsFromLine(line: string): string[] {
   for (const match of line.matchAll(
     /(?:slack|telegram|whatsapp|discord|cli|matrix|teams|mattermost):[^\s,;:]+/gi,
   )) {
-    ids.push(match[0]);
+    const id = match[0];
+    if (/\$\{/.test(id)) {
+      console.warn(`[soul-gate] Skipping unexpanded placeholder in id: ${id}`);
+      continue;
+    }
+    ids.push(id);
   }
   for (const match of line.matchAll(/<@[^>|]+(?:\|[^>]+)?>|U[A-Z0-9]+|C[A-Z0-9]+|G[A-Z0-9]+|\d{5,}/g)) {
     const token = match[0].replace(/^<@/, '').replace(/\|.*>$/, '').replace(/>$/, '');

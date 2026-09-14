@@ -49,7 +49,7 @@ describe('ApprovalGate', () => {
     const requestId = await gate.requestApproval('s1', 'telegram', 'rm -rf', 'Bash');
     const waiter = gate.waitFor(requestId);
 
-    expect(gate.resolve(requestId, 'telegram:1', true)).toBe(true);
+    expect(gate.resolve(requestId, 'telegram:1', true)).toEqual({ status: 'resolved' });
     await expect(waiter).resolves.toBe(true);
   });
 
@@ -103,7 +103,7 @@ describe('ApprovalGate', () => {
 
     expect(requestId).toBe('req-from-runtime');
     expect(sent[0]).toMatchObject({ requestId: 'req-from-runtime' });
-    expect(gate.resolve('req-from-runtime', 'telegram:1', true)).toBe(true);
+    expect(gate.resolve('req-from-runtime', 'telegram:1', true)).toEqual({ status: 'resolved' });
   });
 
   it('resolves only for authorized approver scope', async () => {
@@ -128,7 +128,7 @@ describe('ApprovalGate', () => {
       'tool',
     );
 
-    expect(gate.resolve(requestId, 'telegram:88', true)).toBe(false);
-    expect(gate.resolve(requestId, 'telegram:99', true)).toBe(true);
+    expect(gate.resolve(requestId, 'telegram:88', true)).toEqual({ status: 'not_authorized' });
+    expect(gate.resolve(requestId, 'telegram:99', true)).toEqual({ status: 'resolved' });
   });
 });

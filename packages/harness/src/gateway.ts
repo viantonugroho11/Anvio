@@ -308,7 +308,7 @@ export class HarnessGateway implements HarnessGatewayPort {
     ];
   }
 
-  async authorizeApproval(sessionId: string, requestId: string, userId: string): Promise<boolean> {
+  async authorizeApproval(sessionId: string, requestId: string, userId: string): Promise<import('@anvio/core').ApprovalResolveOutcome> {
     void sessionId;
     return this.approvalGate.resolve(requestId, userId, true);
   }
@@ -318,19 +318,41 @@ export class HarnessGateway implements HarnessGatewayPort {
     requestId: string,
     userId: string,
     approved: boolean,
-  ): Promise<boolean> {
+  ): Promise<import('@anvio/core').ApprovalResolveOutcome> {
     const stored = await this.sessions.get(sessionId);
-    const ok = this.approvalGate.resolve(requestId, userId, approved);
-    if (!ok) return false;
+    const outcome = this.approvalGate.resolve(requestId, userId, approved);
+    if (outcome.status !== 'resolved') {
+      if (outcome.status === 'not_authorized') {
+        console.warn(
+          `[harness] Unauthorized approval attempt: user=${userId} request=${requestId} session=${sessionId}`,
+        );
+      }
+      return outcome;
+    }
 
-    // An inline approval's own turn clears the session once it wakes up
-    // (`requestApprovalAndWait`). Writing here too would race that clear —
-    // both patches are read-modify-write, so the loser resurrects the
-    // pending state it just cleared.
     if (stored?.metadata?.inlineApprovalRequestId !== requestId) {
       await this.sessions.update(sessionId, { pendingApproval: undefined });
     }
-    return true;
+    return outcome;
+  }
+
+  async rehydrateApprovals(): Promise<void> {
+    const sessions = await this.sessions.list();
+    const records: import('./approval-gate.js').PendingApprovalRecord[] = [];
+    for (const session of sessions) {
+      if (!session.pendingApproval) continue;
+      records.push({
+        requestId: session.pendingApproval.id,
+        sessionId: session.id,
+        channel: session.channel as ChannelType,
+        summary: session.pendingApproval.reason ?? '',
+        expiresAt: session.pendingApproval.expiresAt,
+      });
+    }
+    if (records.length > 0) {
+      this.approvalGate.rehydrate(records);
+      console.info(`[harness] Rehydrated ${records.length} pending approval(s)`);
+    }
   }
 
   formatOutbound(channel: ChannelType, markdown: string): string {

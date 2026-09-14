@@ -20,7 +20,7 @@ export interface WhatsAppChannelOptions {
     requestId: string,
     approved: boolean,
     userId?: string,
-  ) => Promise<void>;
+  ) => Promise<import('@anvio/core').ApprovalResolveOutcome>;
 }
 
 interface WhatsAppTarget {

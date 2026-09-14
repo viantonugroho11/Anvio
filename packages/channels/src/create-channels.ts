@@ -130,7 +130,7 @@ export interface CreateChannelHubOptions {
     requestId: string,
     approved: boolean,
     userId?: string,
-  ) => Promise<void>;
+  ) => Promise<import('@anvio/core').ApprovalResolveOutcome>;
   harness?: HarnessGatewayPort;
   hub?: ChannelHub;
   /**
@@ -165,10 +165,10 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
   );
   const onApproval =
     options.onApproval ??
-    (async (sessionId, requestId, approved, userId?) => {
+    (async (sessionId: string, requestId: string, approved: boolean, userId?: string): Promise<import('@anvio/core').ApprovalResolveOutcome> => {
       if (options.harness?.enabled && userId) {
-        const ok = await options.harness.resolveApproval(sessionId, requestId, userId, approved);
-        if (!ok) return;
+        const outcome = await options.harness.resolveApproval(sessionId, requestId, userId, approved);
+        if (outcome.status !== 'resolved') return outcome;
       } else {
         await options.sessions.update(sessionId, { pendingApproval: undefined });
       }
@@ -177,6 +177,7 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
         requestId,
         approved,
       });
+      return { status: 'resolved' };
     });
 
   const voicePipeline = resolveVoicePipeline(options.channels);
@@ -458,6 +459,8 @@ function createInboundHandler(
           }
           if (result.updateSession.reset) {
             patch.messages = [];
+            patch.pendingApproval = undefined;
+            patch.status = 'idle';
             const stored = await sessions.get(message.sessionId);
             patch.metadata = { ...stored?.metadata, agentRunCheckpoint: undefined };
           }

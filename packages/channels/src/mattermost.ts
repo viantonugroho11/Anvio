@@ -20,7 +20,7 @@ export interface MattermostChannelOptions {
     requestId: string,
     approved: boolean,
     userId?: string,
-  ) => Promise<void>;
+  ) => Promise<import('@anvio/core').ApprovalResolveOutcome>;
 }
 
 interface MattermostPost {

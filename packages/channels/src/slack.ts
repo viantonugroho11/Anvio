@@ -18,7 +18,7 @@ export interface SlackChannelOptions {
     requestId: string,
     approved: boolean,
     userId?: string,
-  ) => Promise<void>;
+  ) => Promise<import('@anvio/core').ApprovalResolveOutcome>;
 }
 
 interface SlackTarget {

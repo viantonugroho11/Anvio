@@ -22,7 +22,7 @@ export interface TelegramChannelOptions {
     requestId: string,
     approved: boolean,
     userId?: string,
-  ) => Promise<void>;
+  ) => Promise<import('@anvio/core').ApprovalResolveOutcome>;
   /**
    * Registry consulted at start() to sync the Bot API `setMyCommands`
    * picker with what the workspace actually exposes. When absent, the
@@ -343,7 +343,12 @@ export class TelegramChannel extends BaseChannelAdapter {
     if (normalized === 'approve' || normalized === 'reject') {
       const pending = session.pendingApproval;
       if (pending && this.options.onApproval) {
-        await this.options.onApproval(session.id, pending.id, normalized === 'approve');
+        const outcome = await this.options.onApproval(session.id, pending.id, normalized === 'approve', userId);
+        if (outcome.status === 'not_authorized') {
+          await this.sendText({ chatId: msg.chat.id, messageThreadId: msg.message_thread_id }, 'You are not an approver for this action.');
+        } else if (outcome.status !== 'resolved') {
+          await this.sendText({ chatId: msg.chat.id, messageThreadId: msg.message_thread_id }, 'This approval is no longer pending.');
+        }
         return;
       }
     }
@@ -440,29 +445,34 @@ export class TelegramChannel extends BaseChannelAdapter {
 
     const chatId = cq.message.chat.id;
     const threadId = threadKey(chatId, cq.message.message_thread_id);
-    // Look up without creating. `resolveOrCreate` falls back to the default
-    // user and agent, so tapping a button whose session is gone used to
-    // fabricate a fresh one and resolve the approval against it — a session
-    // with no pendingApproval and no relation to the request (issue #73).
     const session = await this.options.sessions.getByChannelThread('telegram', threadId);
 
-    // Answer exactly once, and only after the outcome is known: Telegram
-    // ignores a second answer for the same query, so acknowledging up front
-    // would swallow the explanation below.
-    await this.api('answerCallbackQuery', {
-      callback_query_id: cq.id,
-      ...(session
-        ? {}
-        : {
-            text: 'This approval has expired — its session is no longer available.',
-            show_alert: true,
-          }),
-    });
-    if (!session) return;
+    if (!session) {
+      await this.api('answerCallbackQuery', {
+        callback_query_id: cq.id,
+        text: 'This approval has expired — its session is no longer available.',
+        show_alert: true,
+      });
+      return;
+    }
 
     const approved = action === 'approve';
     const tgUser = cq.from?.id ? `telegram:${cq.from.id}` : undefined;
-    await this.options.onApproval(session.id, requestId, approved, tgUser);
+    const outcome = await this.options.onApproval(session.id, requestId, approved, tgUser);
+
+    const TOAST: Record<string, string | undefined> = {
+      resolved: undefined,
+      not_authorized: 'You are not an approver for this action.',
+      not_found: 'This approval is no longer pending.',
+      already_resolved: 'This approval has already been decided.',
+      expired: 'This approval has expired.',
+    };
+    const toast = TOAST[outcome.status];
+
+    await this.api('answerCallbackQuery', {
+      callback_query_id: cq.id,
+      ...(toast ? { text: toast, show_alert: true } : {}),
+    });
   }
 }
 
