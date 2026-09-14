@@ -65,7 +65,12 @@ export class DiscordChannel extends BaseChannelAdapter {
   readonly channelType: ChannelType = 'discord';
   private ws: WebSocket | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  private readonly buffer = new Map<string, string>();
+  /** Discord rejects message content over 2000 characters. */
+  protected readonly maxMessageLength = 2000;
+  protected readonly isLiveChatSurface = true;
+  protected readonly supportsNativeTyping = true;
+  /** The indicator expires after 10s, so refresh inside that window. */
+  protected readonly typingRefreshMs = 8000;
 
   constructor(private readonly options: DiscordChannelOptions) {
     super();
@@ -79,7 +84,7 @@ export class DiscordChannel extends BaseChannelAdapter {
   }
 
   private async rest<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${DISCORD_API}${path}`, {
+    const res = await this.httpRequest(`${DISCORD_API}${path}`, {
       method,
       headers: this.headers(),
       body: body ? JSON.stringify(body) : undefined,
@@ -107,22 +112,22 @@ export class DiscordChannel extends BaseChannelAdapter {
     const channelId = await this.resolveChannelId(sessionId);
     if (!channelId) return;
 
-    let content = message.content ?? message.delta ?? '';
-    if (message.type === 'chunk' && message.delta) {
-      const prev = this.buffer.get(sessionId) ?? '';
-      this.buffer.set(sessionId, prev + message.delta);
-      return;
-    }
-    if (message.type === 'done') {
-      content = message.content ?? this.buffer.get(sessionId) ?? content;
-      this.buffer.delete(sessionId);
-    }
+    const content = this.resolveOutboundText(sessionId, message);
     if (!content) return;
 
-    const chunks = splitMessage(content, 2000);
-    for (const chunk of chunks) {
+    for (const chunk of this.chunkForDelivery(content)) {
       await this.rest('POST', `/channels/${channelId}/messages`, { content: chunk });
     }
+  }
+
+  /**
+   * Discord's docs single this out as the case the endpoint is for: a bot
+   * that expects computation to take several seconds and wants to say so.
+   */
+  protected async sendTypingSignal(sessionId: string): Promise<void> {
+    const channelId = await this.resolveChannelId(sessionId);
+    if (!channelId) return;
+    await this.rest('POST', `/channels/${channelId}/typing`);
   }
 
   protected async sendApprovalRequestWithActions(
@@ -171,6 +176,7 @@ export class DiscordChannel extends BaseChannelAdapter {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     this.ws?.close();
     this.ws = null;
+    this.releaseAllBuffers();
   }
 
   private async handleGatewayMessage(raw: string): Promise<void> {
@@ -356,16 +362,6 @@ export class DiscordChannel extends BaseChannelAdapter {
   }
 }
 
-function splitMessage(text: string, maxLen: number): string[] {
-  if (text.length <= maxLen) return [text];
-  const chunks: string[] = [];
-  let remaining = text;
-  while (remaining.length > 0) {
-    chunks.push(remaining.slice(0, maxLen));
-    remaining = remaining.slice(maxLen);
-  }
-  return chunks;
-}
 
 function isAudioAttachment(
   attachment: NonNullable<DiscordMessage['attachments']>[number],

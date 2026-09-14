@@ -13,6 +13,8 @@ export interface MattermostChannelOptions {
   sessionBridge: ChannelSessionBridge;
   sessions: SessionStore;
   defaultAgent?: string;
+  /** Server's MaxPostSize when it differs from the 16383 default. */
+  maxPostSize?: number;
   onApproval?: (
     sessionId: string,
     requestId: string,
@@ -45,13 +47,25 @@ export class MattermostChannel extends BaseChannelAdapter {
   private botUserId: string | null = null;
   private readonly apiBase: string;
   private readonly wsUrl: string;
-  private readonly buffer = new Map<string, string>();
+  /**
+   * Mattermost's MaxPostSize defaults to 16383 and is server-configurable, so
+   * an instance can be lower. Overridable per adapter instance rather than
+   * hardcoded (issue #74).
+   */
+  protected readonly maxMessageLength: number;
+  protected readonly isLiveChatSurface = true;
+  protected readonly supportsNativeTyping = true;
+  /** Mattermost clears a typing state after ~5s. */
+  protected readonly typingRefreshMs = 4000;
+  /** WebSocket requests carry a client-assigned sequence number. */
+  private wsSeq = 1;
 
   constructor(private readonly options: MattermostChannelOptions) {
     super();
     const base = options.serverUrl.replace(/\/$/, '');
     this.apiBase = `${base}/api/v4`;
     this.wsUrl = `${base.replace(/^http/, 'ws')}/api/v4/websocket`;
+    this.maxMessageLength = options.maxPostSize ?? 16_383;
   }
 
   private headers(): Record<string, string> {
@@ -62,7 +76,7 @@ export class MattermostChannel extends BaseChannelAdapter {
   }
 
   private async rest<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${this.apiBase}${path}`, {
+    const res = await this.httpRequest(`${this.apiBase}${path}`, {
       method,
       headers: this.headers(),
       body: body ? JSON.stringify(body) : undefined,
@@ -95,22 +109,40 @@ export class MattermostChannel extends BaseChannelAdapter {
     const channelId = meta?.channelId ?? (await this.resolveChannelId(sessionId));
     if (!channelId) return;
 
-    let text = message.content ?? message.delta ?? '';
-    if (message.type === 'chunk' && message.delta) {
-      this.buffer.set(sessionId, (this.buffer.get(sessionId) ?? '') + message.delta);
-      return;
-    }
-    if (message.type === 'done') {
-      text = message.content ?? this.buffer.get(sessionId) ?? text;
-      this.buffer.delete(sessionId);
-    }
+    const text = this.resolveOutboundText(sessionId, message);
     if (!text) return;
 
-    await this.rest('POST', '/posts', {
-      channel_id: channelId,
-      message: text,
-      root_id: meta?.rootId || undefined,
-    });
+    // Mattermost had no chunking either; over MaxPostSize the post is
+    // rejected and the run aborts (issue #74).
+    for (const chunk of this.chunkForDelivery(text)) {
+      await this.rest('POST', '/posts', {
+        channel_id: channelId,
+        message: chunk,
+        root_id: meta?.rootId || undefined,
+      });
+    }
+  }
+
+  /**
+   * Mattermost has no REST typing endpoint — the signal goes over the same
+   * WebSocket the adapter already holds open, as a `user_typing` action.
+   */
+  protected async sendTypingSignal(sessionId: string): Promise<void> {
+    if (this.ws?.readyState !== 1) return;
+    const session = await this.options.sessions.get(sessionId);
+    const meta = session?.metadata?.mattermost as
+      | { channelId?: string; rootId?: string }
+      | undefined;
+    const channelId = meta?.channelId ?? (await this.resolveChannelId(sessionId));
+    if (!channelId) return;
+
+    this.ws.send(
+      JSON.stringify({
+        seq: ++this.wsSeq,
+        action: 'user_typing',
+        data: { channel_id: channelId, parent_id: meta?.rootId ?? '' },
+      }),
+    );
   }
 
   protected async sendApprovalRequestWithActions(
@@ -131,7 +163,7 @@ export class MattermostChannel extends BaseChannelAdapter {
     this.ws.addEventListener('open', () => {
       this.ws?.send(
         JSON.stringify({
-          seq: 1,
+          seq: this.wsSeq,
           action: 'authentication_challenge',
           data: { token: this.options.botToken },
         }),
@@ -148,6 +180,7 @@ export class MattermostChannel extends BaseChannelAdapter {
   async stop(): Promise<void> {
     this.ws?.close();
     this.ws = null;
+    this.releaseAllBuffers();
   }
 
   private handleWebSocketMessage(raw: string): void {

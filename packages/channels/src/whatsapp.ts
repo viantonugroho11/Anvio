@@ -40,6 +40,8 @@ interface WhatsAppWebhookBody {
 }
 
 interface WhatsAppInboundMessage {
+  /** Needed to reference this message when showing a typing indicator. */
+  id?: string;
   from: string;
   type: string;
   text?: { body: string };
@@ -70,14 +72,22 @@ function parseWhatsAppTarget(session: {
 
 export class WhatsAppChannel extends BaseChannelAdapter {
   readonly channelType: ChannelType = 'whatsapp';
-  private readonly buffer = new Map<string, string>();
+  /** WhatsApp Cloud API caps a text body at 4096 characters. */
+  protected readonly maxMessageLength = 4096;
+  protected readonly isLiveChatSurface = true;
+  protected readonly supportsNativeTyping = true;
+  /**
+   * One-shot: WhatsApp holds the indicator for up to 25s and dismisses it as
+   * soon as the reply lands, so there is nothing to keep alive.
+   */
+  protected readonly typingRefreshMs = 0;
 
   constructor(private readonly options: WhatsAppChannelOptions) {
     super();
   }
 
   private async graphApi(body: Record<string, unknown>): Promise<void> {
-    const res = await fetch(`${GRAPH_API}/${this.options.phoneNumberId}/messages`, {
+    const res = await this.httpRequest(`${GRAPH_API}/${this.options.phoneNumberId}/messages`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.options.accessToken}`,
@@ -97,20 +107,10 @@ export class WhatsAppChannel extends BaseChannelAdapter {
     const target = parseWhatsAppTarget(session);
     if (!target) return;
 
-    if (message.type === 'chunk' && message.delta) {
-      this.buffer.set(sessionId, (this.buffer.get(sessionId) ?? '') + message.delta);
-      return;
-    }
-
-    let text = message.content ?? '';
-    if (message.type === 'done') {
-      text = message.content ?? this.buffer.get(sessionId) ?? text;
-      this.buffer.delete(sessionId);
-    }
+    const text = this.resolveOutboundText(sessionId, message);
     if (!text) return;
 
-    const chunks = splitMessage(text, 4096);
-    for (const chunk of chunks) {
+    for (const chunk of this.chunkForDelivery(text)) {
       await this.graphApi({
         messaging_product: 'whatsapp',
         to: target.waId,
@@ -118,6 +118,27 @@ export class WhatsAppChannel extends BaseChannelAdapter {
         text: { body: chunk },
       });
     }
+  }
+
+  /**
+   * Unlike every other channel here, WhatsApp will not show a bare "typing"
+   * state: the call marks a specific inbound message as read and attaches the
+   * indicator to it. Without a stored inbound id there is nothing to attach
+   * to, so the signal is skipped rather than faked.
+   */
+  protected async sendTypingSignal(sessionId: string): Promise<void> {
+    const session = await this.options.sessions.get(sessionId);
+    const meta = session?.metadata?.whatsapp as
+      | { lastInboundMessageId?: string }
+      | undefined;
+    if (!meta?.lastInboundMessageId) return;
+
+    await this.graphApi({
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: meta.lastInboundMessageId,
+      typing_indicator: { type: 'text' },
+    });
   }
 
   protected async sendApprovalRequestWithActions(
@@ -194,7 +215,9 @@ export class WhatsAppChannel extends BaseChannelAdapter {
     console.log('[WhatsApp] Webhook mode — mount POST /channels/whatsapp/webhook on API');
   }
 
-  async stop(): Promise<void> {}
+  async stop(): Promise<void> {
+    this.releaseAllBuffers();
+  }
 
   private async handleInboundMessage(msg: WhatsAppInboundMessage): Promise<void> {
     const waId = msg.from;
@@ -224,11 +247,14 @@ export class WhatsAppChannel extends BaseChannelAdapter {
       this.options.defaultAgent,
     );
 
-    if (!session.metadata?.whatsapp) {
-      await this.options.sessions.update(session.id, {
-        metadata: { ...session.metadata, whatsapp: { waId } },
-      });
-    }
+    // The typing indicator has to reference the message it is replying to,
+    // so the inbound id is kept on the session for `sendTypingSignal`.
+    await this.options.sessions.update(session.id, {
+      metadata: {
+        ...session.metadata,
+        whatsapp: { waId, lastInboundMessageId: msg.id },
+      },
+    });
 
     const normalized = msg.text.body.trim().toLowerCase();
     if (normalized === 'approve' || normalized === 'reject') {
@@ -249,13 +275,3 @@ export class WhatsAppChannel extends BaseChannelAdapter {
   }
 }
 
-function splitMessage(text: string, maxLen: number): string[] {
-  if (text.length <= maxLen) return [text];
-  const chunks: string[] = [];
-  let remaining = text;
-  while (remaining.length > 0) {
-    chunks.push(remaining.slice(0, maxLen));
-    remaining = remaining.slice(maxLen);
-  }
-  return chunks;
-}

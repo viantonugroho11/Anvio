@@ -2,7 +2,6 @@ import type {
   ApprovalRequestMessage,
   ChannelType,
   OutboundMessage,
-  ProgressUpdate,
   SessionStore,
   SlashCommandRegistry,
 } from '@anvio/core';
@@ -111,14 +110,12 @@ export class TelegramChannel extends BaseChannelAdapter {
   private offset = 0;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly apiBase: string;
-  private readonly buffer = new Map<string, string>();
-  /**
-   * One `sendChatAction` keepalive per in-flight session. Telegram expires
-   * a chat action after ~5s, so the indicator has to be re-sent until the
-   * reply lands (issue #70). Keyed by sessionId; every exit path must call
-   * `setTyping(id, false)` or the timer leaks.
-   */
-  private readonly typingTimers = new Map<string, ReturnType<typeof setInterval>>();
+  /** Telegram rejects a sendMessage body over 4096 characters. */
+  protected readonly maxMessageLength = 4096;
+  protected readonly isLiveChatSurface = true;
+  protected readonly supportsNativeTyping = true;
+  /** Telegram expires a chat action after ~5s; refresh just inside that. */
+  protected readonly typingRefreshMs = TYPING_REFRESH_MS;
   private botUsername: string | null = null;
 
   constructor(private readonly options: TelegramChannelOptions) {
@@ -127,7 +124,7 @@ export class TelegramChannel extends BaseChannelAdapter {
   }
 
   private async api<T>(method: string, body?: Record<string, unknown>): Promise<T> {
-    const res = await fetch(`${this.apiBase}/${method}`, {
+    const res = await this.httpRequest(`${this.apiBase}/${method}`, {
       method: body ? 'POST' : 'GET',
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
@@ -137,6 +134,33 @@ export class TelegramChannel extends BaseChannelAdapter {
     return json.result as T;
   }
 
+  /**
+   * Legacy `Markdown` treats `_` and `*` as paired delimiters, so ordinary
+   * agent output breaks it constantly — an identifier like
+   * `anvio_channel__reply` is enough to produce `400 can't parse entities`.
+   * The formatted attempt comes first; on a parse failure the same text goes
+   * out unformatted, so the user gets plain text instead of nothing (#71).
+   */
+  private async sendText(target: TelegramChatTarget, text: string): Promise<void> {
+    try {
+      await this.api('sendMessage', {
+        chat_id: target.chatId,
+        message_thread_id: target.messageThreadId,
+        text,
+        parse_mode: 'Markdown',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/can't parse entities|parse_mode|entity/i.test(message)) throw error;
+      console.warn('[Telegram] Markdown rejected, resending as plain text:', message);
+      await this.api('sendMessage', {
+        chat_id: target.chatId,
+        message_thread_id: target.messageThreadId,
+        text,
+      });
+    }
+  }
+
   async sendMessage(sessionId: string, message: OutboundMessage): Promise<void> {
     const session = await this.options.sessions.get(sessionId);
     if (!session) return;
@@ -144,7 +168,7 @@ export class TelegramChannel extends BaseChannelAdapter {
     if (!target) return;
 
     if (message.type === 'chunk' && message.delta) {
-      this.buffer.set(sessionId, (this.buffer.get(sessionId) ?? '') + message.delta);
+      this.resolveOutboundText(sessionId, message);
       // Deltas are buffered until `done` (per-token editMessageText would
       // blow the Bot API rate limit), so the chat action is the only
       // progress signal the user gets while the turn runs.
@@ -156,21 +180,11 @@ export class TelegramChannel extends BaseChannelAdapter {
     // now see output, so the indicator would be a lie.
     await this.setTyping(sessionId, false);
 
-    let text = message.content ?? '';
-    if (message.type === 'done') {
-      text = message.content ?? this.buffer.get(sessionId) ?? text;
-      this.buffer.delete(sessionId);
-    }
+    const text = this.resolveOutboundText(sessionId, message);
     if (!text) return;
 
-    const chunks = splitMessage(text, 4096);
-    for (const chunk of chunks) {
-      await this.api('sendMessage', {
-        chat_id: target.chatId,
-        message_thread_id: target.messageThreadId,
-        text: chunk,
-        parse_mode: 'Markdown',
-      });
+    for (const chunk of this.chunkForDelivery(text)) {
+      await this.sendText(target, chunk);
     }
   }
 
@@ -199,51 +213,16 @@ export class TelegramChannel extends BaseChannelAdapter {
     });
   }
 
-  /**
-   * Telegram renders progress as the native "typing…" action rather than
-   * the base adapter's text bubble — a run emits several phases per turn
-   * and each one as its own message buried the actual reply (issue #54(a)).
-   */
-  async sendProgress(sessionId: string, update: ProgressUpdate): Promise<void> {
-    await this.setTyping(sessionId, update.status === 'running');
-  }
-
-  async setTyping(sessionId: string, active: boolean): Promise<void> {
-    if (!active) {
-      const timer = this.typingTimers.get(sessionId);
-      if (timer) clearInterval(timer);
-      this.typingTimers.delete(sessionId);
-      return;
-    }
-    if (this.typingTimers.has(sessionId)) return;
-
-    // Register the timer before the first await: two deltas arriving back
-    // to back would otherwise both pass the guard above and start their
-    // own keepalive, leaving one orphaned.
-    const timer = setInterval(() => void this.sendChatAction(sessionId), TYPING_REFRESH_MS);
-    timer.unref?.();
-    this.typingTimers.set(sessionId, timer);
-    await this.sendChatAction(sessionId);
-  }
-
-  private async sendChatAction(sessionId: string): Promise<void> {
+  protected async sendTypingSignal(sessionId: string): Promise<void> {
     const session = await this.options.sessions.get(sessionId);
     if (!session) return;
     const target = parseChatTarget(session);
     if (!target) return;
-    try {
-      await this.api('sendChatAction', {
-        chat_id: target.chatId,
-        message_thread_id: target.messageThreadId,
-        action: 'typing',
-      });
-    } catch (error) {
-      // Cosmetic signal — never fail a turn over it.
-      console.error(
-        '[Telegram] sendChatAction failed:',
-        error instanceof Error ? error.message : error,
-      );
-    }
+    await this.api('sendChatAction', {
+      chat_id: target.chatId,
+      message_thread_id: target.messageThreadId,
+      action: 'typing',
+    });
   }
 
   async start(): Promise<void> {
@@ -289,8 +268,7 @@ export class TelegramChannel extends BaseChannelAdapter {
   async stop(): Promise<void> {
     this.polling = false;
     if (this.pollTimer) clearTimeout(this.pollTimer);
-    for (const timer of this.typingTimers.values()) clearInterval(timer);
-    this.typingTimers.clear();
+    this.releaseAllBuffers();
   }
 
   private async pollLoop(): Promise<void> {
@@ -302,8 +280,19 @@ export class TelegramChannel extends BaseChannelAdapter {
           allowed_updates: ['message', 'callback_query'],
         });
         for (const update of updates ?? []) {
+          // Offset advances first, so a failing update is dropped rather than
+          // retried forever. Handling it in its own try/catch is what keeps
+          // that decision to one update instead of silently discarding every
+          // sibling left in the batch (issue #73).
           this.offset = update.update_id + 1;
-          await this.handleUpdate(update);
+          try {
+            await this.handleUpdate(update);
+          } catch (error) {
+            console.error(
+              `[Telegram] Update ${update.update_id} failed:`,
+              error instanceof Error ? error.message : error,
+            );
+          }
         }
       } catch (error) {
         console.error('[Telegram] Poll error:', error instanceof Error ? error.message : error);
@@ -449,27 +438,34 @@ export class TelegramChannel extends BaseChannelAdapter {
     const [action, requestId] = cq.data.split(':');
     if (!requestId || !this.options.onApproval) return;
 
-    await this.api('answerCallbackQuery', { callback_query_id: cq.id });
-
     const chatId = cq.message.chat.id;
     const threadId = threadKey(chatId, cq.message.message_thread_id);
-    const session = await this.options.sessionBridge.resolveOrCreate('telegram', threadId);
+    // Look up without creating. `resolveOrCreate` falls back to the default
+    // user and agent, so tapping a button whose session is gone used to
+    // fabricate a fresh one and resolve the approval against it — a session
+    // with no pendingApproval and no relation to the request (issue #73).
+    const session = await this.options.sessions.getByChannelThread('telegram', threadId);
+
+    // Answer exactly once, and only after the outcome is known: Telegram
+    // ignores a second answer for the same query, so acknowledging up front
+    // would swallow the explanation below.
+    await this.api('answerCallbackQuery', {
+      callback_query_id: cq.id,
+      ...(session
+        ? {}
+        : {
+            text: 'This approval has expired — its session is no longer available.',
+            show_alert: true,
+          }),
+    });
+    if (!session) return;
+
     const approved = action === 'approve';
     const tgUser = cq.from?.id ? `telegram:${cq.from.id}` : undefined;
     await this.options.onApproval(session.id, requestId, approved, tgUser);
   }
 }
 
-function splitMessage(text: string, maxLen: number): string[] {
-  if (text.length <= maxLen) return [text];
-  const chunks: string[] = [];
-  let remaining = text;
-  while (remaining.length > 0) {
-    chunks.push(remaining.slice(0, maxLen));
-    remaining = remaining.slice(maxLen);
-  }
-  return chunks;
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

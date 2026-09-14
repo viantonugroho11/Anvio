@@ -22,6 +22,7 @@ export * from './webhook-channel-base.js';
 export * from './mattermost.js';
 export { parseRawEmail, idleWatchInbox, type ImapIdleOptions } from './imap-client.js';
 export { fetchWithRetry } from './fetch-retry.js';
+export { splitMessage } from './split-message.js';
 export { FeishuChannel } from './feishu-channel.js';
 export { SmsChannel } from './sms-channel.js';
 export { getGoogleChatAccessToken, loadGoogleServiceAccount } from './google-chat-auth.js';
