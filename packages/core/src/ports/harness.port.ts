@@ -64,13 +64,14 @@ export interface HarnessGatewayPort {
   handleInbound(envelope: InboundEnvelope): Promise<InboundGateResult>;
   shouldSuppressRawOutput(channel: ChannelType): boolean;
   createOutputPort(sessionId: string, channel: ChannelType): HarnessOutputPort;
-  authorizeApproval(sessionId: string, requestId: string, userId: string): Promise<boolean>;
+  authorizeApproval(sessionId: string, requestId: string, userId: string): Promise<ApprovalResolveOutcome>;
   resolveApproval(
     sessionId: string,
     requestId: string,
     userId: string,
     approved: boolean,
-  ): Promise<boolean>;
+  ): Promise<ApprovalResolveOutcome>;
+  rehydrateApprovals?(): Promise<void>;
   formatOutbound(channel: ChannelType, markdown: string): string;
   redact(text: string): string;
   recordSessionActivity(sessionId: string): Promise<void>;
@@ -86,6 +87,13 @@ export interface HarnessApprovalContext {
   approved?: boolean;
   resolvedBy?: string;
 }
+
+export type ApprovalResolveOutcome =
+  | { status: 'resolved' }
+  | { status: 'not_authorized' }
+  | { status: 'not_found' }
+  | { status: 'already_resolved' }
+  | { status: 'expired' };
 
 export type HarnessApprovalMessage = ApprovalRequestMessage & {
   summary: string;

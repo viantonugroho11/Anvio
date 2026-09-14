@@ -16,7 +16,7 @@ export interface WebhookChannelOptions {
     requestId: string,
     approved: boolean,
     userId?: string,
-  ) => Promise<void>;
+  ) => Promise<import('@anvio/core').ApprovalResolveOutcome>;
 }
 
 /** Shared in-memory outbound store for webhook-style channel adapters (tests + dry-run). */

@@ -87,7 +87,7 @@ describe('runtime-originated approvals', () => {
     // gate had never seen it and the callback silently no-opped.
     await expect(
       harness.resolveApproval(session.id, 'runtime-req-1', 'telegram:1001', true),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({ status: 'resolved' });
   });
 
   it('blocks requestApprovalAndWait until a human decides (issue #69)', async () => {

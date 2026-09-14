@@ -130,6 +130,6 @@ spec:
       'whatsapp:15551234567',
       true,
     );
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ status: 'resolved' });
   });
 });
