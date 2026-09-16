@@ -21,7 +21,7 @@
   "dependencies": {
     "@anvio/core": "workspace:*",
     "nats": "^2.29.3",
-    "uuid": "^11.1.0"
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@types/uuid": "^10.0.0",
