@@ -19,5 +19,5 @@
     "@anvio/voice": "workspace:*",
     "uuid": "^14.0.0"
   },
-  "devDependencies": { "typescript": "^5.8.3", "vitest": "^3.1.4" }
+  "devDependencies": { "typescript": "^5.8.3", "vitest": "^4.1.11" }
 }
