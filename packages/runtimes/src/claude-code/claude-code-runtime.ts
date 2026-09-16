@@ -224,6 +224,20 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
   private buildPermissionHandler(request: RuntimeRequest): NonNullable<Options['canUseTool']> {
     const approvalPort = this.options.approvalPort!;
     return async (toolName, input) => {
+      // Block SDK built-in WebFetch — agent must use anvio_tools__web_fetch
+      // which has content-size limits and prevents context-window blowup.
+      if (toolName === 'WebFetch') {
+        return {
+          behavior: 'deny' as const,
+          message:
+            'WebFetch is disabled. Use anvio_tools__web_fetch or anvio_tools__web_extract instead — they have content-size limits.',
+        };
+      }
+      // Auto-approve Anvio built-in tools — they have their own safety
+      // limits (size caps, timeouts) and should not block on human approval.
+      if (toolName.startsWith('mcp__anvio__anvio_tools__')) {
+        return { behavior: 'allow' as const, updatedInput: input };
+      }
       try {
         const outcome = await approvalPort.requestApproval({
           sessionId: request.session.id,
