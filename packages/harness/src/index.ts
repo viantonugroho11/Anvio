@@ -114,3 +114,4 @@ export {
   type HarnessBuiltinToolCaller,
 } from './runtime-tool-port.js';
 export { SimulationTransport, runSimulationScenario } from './simulation/transport.js';
+export { createOneOnOneCommand, type ThreadOwnerPort } from './one-on-one-command.js';
