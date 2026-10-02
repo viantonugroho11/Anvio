@@ -7,12 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-10-02
+
+**gbrain memory, a persistent `/1on1` thread lock, an end-to-end simulator, and `/remote` tool execution on your own machine.** Gap analysis against [slaude](https://github.com/barockok/slaude) recorded as ADRs 0032–0035.
+
+### Added
+
+- **gbrain memory provider** ([#88](https://github.com/viantonugroho11/Anvio/pull/88)) — `memory.provider: gbrain` keeps sessions on the filesystem and syncs durable facts (`fact`, `preference`, `summary`) to a [gbrain](https://github.com/garrytan/gbrain) brain over its MEMORY_VERBS v1 MCP surface (`remember`, `recall`, `forget`). Best-effort: when gbrain is unavailable the filesystem keeps working and `healthCheck` reports why. `anvio soul` and `anvio learning` use the same wiring as the platform.
+- **gbrain episodic timeline + consolidation** ([#94](https://github.com/viantonugroho11/Anvio/pull/94), [ADR 0035](docs/adr/0035-gbrain-episodic-timeline-and-consolidation.md)) — `memory.gbrain.episodic: true` (off by default) writes each session's user/assistant turns to `anvio/sessions/<id>` as timeline entries; replays after restart are no-ops. `anvio learning consolidate [--since YYYY-MM-DD]` summarizes recent timelines into gbrain facts, honouring the soul's `evolution.allowAutoUpdate`.
+- **Persistent engagement + `/1on1` thread lock** ([#91](https://github.com/viantonugroho11/Anvio/pull/91), [ADR 0032](docs/adr/0032-channel-agnostic-engagement-and-one-on-one.md)) — engaged threads now survive gateway restarts (`workspace/harness/engagement/`). `/1on1 [on|off|status]` locks a thread to one user: the owner is always heard, everyone else is ignored, and only the owner can release it. Rejected on channels without stable user ids (sms, email, cli, rest).
+- **End-to-end gateway simulator** ([#92](https://github.com/viantonugroho11/Anvio/pull/92), [ADR 0033](docs/adr/0033-end-to-end-gateway-simulator.md)) — full agent turns (harness gate → runtime → tools → approvals → channel formatting) with no channel credentials and no API key: `ScriptedModelProvider`, `SimulatedChannel`, `createPlatform({ simulation })`, YAML scenarios under `tests/simulation/`, and `anvio harness simulate --scenario <file...>`.
+- **Remote tool execution over a tailnet** ([#93](https://github.com/viantonugroho11/Anvio/pull/93), [ADR 0034](docs/adr/0034-remote-tool-execution-over-tailnet.md)) — with `execution.remote.enabled: true` (off by default), `/remote key | <address> <dir> | off | status` runs `file_read`, `file_write`, `list_dir`, `edit_file`, `run_shell` and foreground `terminal` on the binding user's machine over SSH (tailcat / Tailscale). Model loop, credentials and memory stay on the host. Only the binding user can use or release the binding; host-filesystem tools are refused while bound instead of silently running on the host.
+
+### Fixed
+
+- **Slack never engaged on mention** ([#91](https://github.com/viantonugroho11/Anvio/pull/91)) — the Slack adapter did not report `mentionedBot` / `mentionedOther` / `isDm`, so `engageOn: mention` could never engage a Slack thread. Mentions are now detected from `<@U…>` using the bot id from `auth.test`.
+- **Broken lockfile failed every CI install** ([#90](https://github.com/viantonugroho11/Anvio/pull/90)) — `pnpm-lock.yaml` pinned `jose@6.2.8` with no package entry after a dependabot merge (`ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY` since 2026-09-16).
+- **Claude Code `WebFetch` flooded the context** ([#84](https://github.com/viantonugroho11/Anvio/pull/84)) — the SDK's uncapped `WebFetch` is denied in favour of `anvio_tools__web_fetch` / `web_extract`; size-capped Anvio built-in tools are auto-approved.
+
+### Known limitations
+
+- **Slash commands from the Slack client** — Slack intercepts unregistered `/commands` and the adapter does not yet handle Socket Mode `slash_commands` envelopes, so `/1on1`, `/remote` and other Anvio commands do not reach Anvio from Slack. Works on Telegram, Discord, Teams, Mattermost and other channels that deliver `/text` as messages.
+- **Mention detection** exists only for Slack and Telegram; `engageOn: mention` cannot engage on other channels yet (a `/1on1` owner is unaffected).
+- `/remote` stores its ed25519 private key as a `0600` file under `workspace/connections/remote/` (gitignored), not in the encrypted connection broker. Not yet verified against a real tailcat / Tailscale SSH host.
+- gbrain episodic memory scopes per session by slug only (gbrain sources are bound to the MCP client's grant). Not yet verified against a real gbrain.
+
+---
+
+## [2.6.4] - 2026-09-14
+
+**Approval hardening.**
+
 ### Fixed
 
 - **`allowedTools` was broader than its rationale** ([#78](https://github.com/viantonugroho11/Anvio/issues/78)) — every Anvio-provided tool was placed in `allowedTools`, so `canUseTool` was never invoked for any of them. Mutating tools like `anvio_mcp__github__create_issue` and `anvio_tools__http_request` bypassed the SOUL.md approver policy entirely. Narrowed to channel tools only (`anvio_channel__*`), which are the ones where prompting would deadlock.
 - **SOUL.md `${VAR}` placeholders were not expanded** ([#80](https://github.com/viantonugroho11/Anvio/issues/80)) — `loadSoulPolicy` read the file raw without `expandEnvString`, so `telegram:${TELEGRAM_OWNER_USER_ID}` became a literal id that could never match. Now expanded before parsing; unexpanded placeholders in extracted ids are rejected with a warning.
 - **Unauthorized approval tap discarded silently** ([#81](https://github.com/viantonugroho11/Anvio/issues/81)) — tapping Approve when not an authorized approver returned void with no feedback anywhere. `ApprovalGate.resolve` now returns a typed outcome (`resolved | not_authorized | not_found | already_resolved | expired`), and the Telegram adapter shows an alert toast for each failure case. Unauthorized attempts are logged.
 - **Gateway restart orphaned pending approvals** ([#82](https://github.com/viantonugroho11/Anvio/issues/82)) — `ApprovalGate` kept pending approvals and timers in memory only; nothing rehydrated them on restart. Added `rehydrate()` which loads persisted `pendingApproval` records on startup, re-arms timers from `expiresAt`, and immediately expires past-due entries. `/reset` now clears `pendingApproval` and returns `status` to `idle`.
+
+---
+
+## [2.6.3] - 2026-09-14
+
+**Channel delivery hardening and native progress indicators.**
+
+### Fixed
 
 - **A channel failure no longer kills the agent run** ([#71](https://github.com/viantonugroho11/Anvio/issues/71)) — a Telegram `400 can't parse entities` threw out of the adapter, the hub, the worker's stream loop and `LocalEventBus.dispatch`, rejecting the `publish()` that started the run and skipping every handler behind it. The reply was persisted before the send was attempted, so the answer existed but never arrived. Handlers are now isolated on the bus, the worker's outbound sends log and continue, and Telegram retries a Markdown-rejected send as plain text.
 - **`splitMessage` corrupted text at the boundary** ([#72](https://github.com/viantonugroho11/Anvio/issues/72)) — splitting at a raw offset cut surrogate pairs in half and left Markdown entities unbalanced across the seam. Replaced with one shared splitter that breaks on line, then word, then a code-point-safe cut, and closes and reopens code fences across chunks.
@@ -1282,7 +1321,10 @@ Carried forward, recorded rather than fixed:
 
 4. GitHub Actions **Release** workflow validates the build and publishes a GitHub Release with notes extracted from this file.
 
-[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/viantonugroho11/Anvio/compare/v2.6.4...v2.7.0
+[2.6.4]: https://github.com/viantonugroho11/Anvio/compare/v2.6.3...v2.6.4
+[2.6.3]: https://github.com/viantonugroho11/Anvio/compare/v2.6.2...v2.6.3
 [2.0.0]: https://github.com/viantonugroho11/Anvio/compare/v1.27.0...v2.0.0
 [1.27.0]: https://github.com/viantonugroho11/Anvio/compare/v1.26.0...v1.27.0
 [1.26.0]: https://github.com/viantonugroho11/Anvio/compare/v1.25.1...v1.26.0
