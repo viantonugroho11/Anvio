@@ -36,7 +36,7 @@ import { VoicePipeline, createStreamingSttSession, streamTranscribe } from '@anv
 import { createGoalEngine } from '@anvio/goals';
 import { createKanbanEngine } from '@anvio/kanban';
 import { createMemoryProvider } from '@anvio/memory';
-import { createPlatform, gbrainMemoryOptions, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime, aggregateTokenUsage, parseUsageLastFlag, readTokenUsageAudit, exportSessionTrajectory, trajectoryToMarkdown, startUnifiedGateway } from '@anvio/platform';
+import { createPlatform, gbrainMemoryOptions, parseSimulationScenario, prepareSimulationWorkspace, runSimulation, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime, aggregateTokenUsage, parseUsageLastFlag, readTokenUsageAudit, exportSessionTrajectory, trajectoryToMarkdown, startUnifiedGateway } from '@anvio/platform';
 import { createSoulService } from '@anvio/souls';
 import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
 import { ToolGateway } from '@anvio/tools';
@@ -208,6 +208,7 @@ Core
   anvio worktree list|create|remove    Git worktree isolation
   anvio channels status [--json]       Channel adapter health check
   anvio harness status|simulate        Channel harness (Phase G)
+  anvio harness simulate --scenario <file...>  End-to-end scenario run (ADR 0033)
   anvio connect list|put|revoke|login-host|login  Contextual connections broker
   anvio setup-token --claude|--cursor|--codex|--antigravity|--nous  Official runtime OAuth login
 
@@ -945,6 +946,32 @@ async function cmdHarness(sub: string[]) {
       break;
     }
     case 'simulate': {
+      const scenarioIdx = sub.indexOf('--scenario');
+      if (scenarioIdx >= 0) {
+        // ADR 0033: full-turn scenario against a disposable copy of this workspace.
+        const files = sub.slice(scenarioIdx + 1).filter((a) => !a.startsWith('--'));
+        if (files.length === 0) {
+          console.error('Usage: anvio harness simulate --scenario <file.scenario.yaml> [...]');
+          process.exitCode = 1;
+          break;
+        }
+        let failed = 0;
+        for (const file of files) {
+          const scenario = parseSimulationScenario(await fs.readFile(file, 'utf-8'));
+          const simWorkspace = await prepareSimulationWorkspace(wsPath);
+          try {
+            const result = await runSimulation(scenario, { workspacePath: simWorkspace });
+            console.log(`${result.passed ? 'PASS' : 'FAIL'}  ${result.name}`);
+            for (const failure of result.failures) console.log(`      ${failure}`);
+            if (!result.passed) failed++;
+          } finally {
+            await fs.rm(simWorkspace, { recursive: true, force: true });
+          }
+        }
+        // A simulated platform leaves timers (automation, idle tracking) running; this is a
+        // one-shot command, so exit explicitly instead of waiting for the loop to drain.
+        process.exit(failed > 0 ? 1 : 0);
+      }
       const hub = new ChannelHub();
       const harness = createHarnessGateway({
         defaults: { ...defaults, enabled: true },
