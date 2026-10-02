@@ -154,6 +154,41 @@ export class GbrainMemoryProvider implements MemoryProvider {
     return this.delegate.search(query, options);
   }
 
+  /**
+   * ADR 0035 consolidation: read a session's timeline, summarize it with `summarize`
+   * (the learning loop's summarizer), and store the result as a gbrain fact whose
+   * provenance points at the timeline page. Returns the summary, or null when there is
+   * nothing to consolidate or gbrain is unavailable.
+   */
+  async consolidateSession(
+    sessionId: string,
+    summarize: (messages: ChatMessage[]) => Promise<string>,
+  ): Promise<string | null> {
+    if (!this.client) return null;
+    const slug = sessionTimelineSlug(sessionId);
+    const res = (await this.call('get_timeline', { slug, limit: 200 })) as
+      | { entries?: Array<{ summary?: string; detail?: string | null }> }
+      | Array<{ summary?: string; detail?: string | null }>
+      | null;
+    const entries = Array.isArray(res) ? res : (res?.entries ?? []);
+    const messages: ChatMessage[] = entries.flatMap((e) => {
+      const match = /^(user|assistant): ?(.*)$/s.exec(e.summary ?? '');
+      if (!match) return [];
+      return [{ role: match[1] as 'user' | 'assistant', content: e.detail || match[2]! }];
+    });
+    if (messages.length === 0) return null;
+    const summary = (await summarize(messages)).trim();
+    if (!summary) return null;
+    await this.call('remember', {
+      fact: summary,
+      provenance: `anvio session timeline ${slug}`,
+      kind: 'event',
+      // One consolidated fact per session size; re-running on the same timeline is a no-op.
+      request_id: `anvio-consolidate-${sessionId}-${messages.length}`,
+    });
+    return summary;
+  }
+
   /** Expire a gbrain fact (audit-trailed, never deleted). Accepts `gbrain-<id>` or raw fact_id. */
   async forget(id: string, reason?: string): Promise<boolean> {
     const factId = id.startsWith('gbrain-') ? id.slice('gbrain-'.length) : id;

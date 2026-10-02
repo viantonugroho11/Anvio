@@ -102,7 +102,10 @@ describe('GbrainMemoryProvider episodic timeline (ADR 0035)', () => {
         if (name === 'get_page') {
           return pages.has(String(args.slug)) ? { slug: args.slug } : { error: 'not_found', message: 'no page' };
         }
-        if (name === 'put_page') return void pages.add(String(args.slug)) ?? { ok: true };
+        if (name === 'put_page') {
+          pages.add(String(args.slug));
+          return { ok: true };
+        }
         if (name === 'add_timeline_entry') {
           if (!entries.some((e) => e.request_id === args.request_id)) entries.push(args);
           return { ok: true };
@@ -145,5 +148,47 @@ describe('GbrainMemoryProvider episodic timeline (ADR 0035)', () => {
     const off = brain();
     await new GbrainMemoryProvider(delegate, off.client).storeConversation('S3', 'u', [{ role: 'user', content: 'hi' }]);
     expect(off.client.callTool).not.toHaveBeenCalled();
+  });
+});
+
+describe('GbrainMemoryProvider.consolidateSession', () => {
+  it('summarizes the timeline and remembers it with provenance', async () => {
+    const calls: Array<[string, Record<string, unknown>]> = [];
+    const client: GbrainClient = {
+      callTool: async (name, args) => {
+        calls.push([name, args]);
+        if (name === 'get_timeline') {
+          return [
+            { summary: 'user: deploy plan?', detail: null },
+            { summary: 'assistant: Use blue/green.', detail: 'Use blue/green.\nDetails.' },
+            { summary: 'meeting moved', detail: null },
+          ];
+        }
+        return { id: '1', status: 'inserted' };
+      },
+    };
+    const provider = new GbrainMemoryProvider({} as never, client);
+    const summarize = vi.fn(async () => 'Agreed on blue/green deploys.');
+    expect(await provider.consolidateSession('S1', summarize)).toBe('Agreed on blue/green deploys.');
+    expect(summarize).toHaveBeenCalledWith([
+      { role: 'user', content: 'deploy plan?' },
+      { role: 'assistant', content: 'Use blue/green.\nDetails.' },
+    ]);
+    expect(calls.at(-1)).toEqual([
+      'remember',
+      {
+        fact: 'Agreed on blue/green deploys.',
+        provenance: 'anvio session timeline anvio/sessions/s1',
+        kind: 'event',
+        request_id: 'anvio-consolidate-S1-2',
+      },
+    ]);
+  });
+
+  it('returns null for an empty timeline without calling the summarizer', async () => {
+    const summarize = vi.fn(async () => 'x');
+    const provider = new GbrainMemoryProvider({} as never, { callTool: async () => [] });
+    expect(await provider.consolidateSession('S1', summarize)).toBeNull();
+    expect(summarize).not.toHaveBeenCalled();
   });
 });
