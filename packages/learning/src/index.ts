@@ -12,6 +12,14 @@ export interface LearningEngineOptions {
   model?: string;
 }
 
+/** Memory providers that keep per-session episodic timelines (gbrain, ADR 0035). */
+export interface EpisodicMemory {
+  consolidateSession(
+    sessionId: string,
+    summarize: (messages: ChatMessage[]) => Promise<string>,
+  ): Promise<string | null>;
+}
+
 export interface SessionLearningInput {
   sessionId: string;
   userId: string;
@@ -57,6 +65,40 @@ export class LearningEngine {
     this.skillWriter = new SkillEvolutionWriter(`${workspaceRoot}/skills/_drafts`);
     this.summarizer = new SessionSummarizer(memory, options);
     this.skillSummarizer = new SkillEvolutionSummarizer(options.modelProvider, options.model);
+  }
+
+  /**
+   * ADR 0035: fold episodic gbrain timelines into consolidated facts. Sessions whose
+   * soul has `evolution.allowAutoUpdate: false` are skipped, the same gate as the
+   * session-end loop. No-op for memory providers without episodic timelines.
+   */
+  async consolidateEpisodic(
+    sessions: Array<{ sessionId: string; soul?: SoulDefinition }>,
+  ): Promise<{ consolidated: number; skipped: number }> {
+    const memory = this.memory as MemoryProvider & Partial<EpisodicMemory>;
+    if (typeof memory.consolidateSession !== 'function') {
+      return { consolidated: 0, skipped: sessions.length };
+    }
+    let consolidated = 0;
+    let skipped = 0;
+    for (const { sessionId, soul } of sessions) {
+      if (soul?.spec.evolution && !soul.spec.evolution.allowAutoUpdate) {
+        skipped++;
+        continue;
+      }
+      try {
+        const summary = await memory.consolidateSession(
+          sessionId,
+          async (messages) => (await this.summarizer.summarize(messages)).summary,
+        );
+        if (summary) consolidated++;
+        else skipped++;
+      } catch {
+        // Consolidation is background work; one bad session must not stop the rest.
+        skipped++;
+      }
+    }
+    return { consolidated, skipped };
   }
 
   async onSessionCompleted(input: SessionLearningInput): Promise<SessionLearningResult> {
