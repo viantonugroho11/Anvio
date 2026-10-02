@@ -1,0 +1,27 @@
+name: only a SOUL.md approver can approve a harness approval request
+channel: slack
+workspaceFiles:
+  souls/architect-soul/SOUL.md: |
+    # Architect Soul
+    ## Identity
+    - Name: Architect Soul
+    ## Reporting
+    - Manager: slack:U_MANAGER01
+    ## Trusted channels
+    - C0APPROVAL
+    ## Approvers
+    - slack:U_MANAGER01: anything ; catchall
+model:
+  - toolCalls:
+      - name: anvio_channel__request_approval
+        arguments: { summary: "Run the production migration" }
+  - toolCalls:
+      - name: anvio_channel__reply
+        arguments: { text: "Migration approved, running it now." }
+  - text: "done"
+steps:
+  - say: { user: "slack:U_DEV02", thread: "C0APPROVAL", text: "<@UBOT> migrate prod", mentionedBot: true }
+  - expect: { thread: "C0APPROVAL", approval: "anvio_channel__request_approval" }
+  - approve: { user: "slack:U_DEV02", thread: "C0APPROVAL", expectStatus: not_authorized }
+  - approve: { user: "slack:U_MANAGER01", thread: "C0APPROVAL" }
+  - expect: { thread: "C0APPROVAL", replyContains: "Migration approved" }

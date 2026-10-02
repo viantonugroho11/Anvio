@@ -93,6 +93,17 @@ export interface PlatformOptions {
    * gateway/worker/api entrypoints, which do want inbound.
    */
   startChannels?: boolean;
+  /**
+   * End-to-end simulation (ADR 0033): every model provider id resolves to `modelProvider`
+   * (env API keys are ignored) and `adapters` are registered over the built-in channels.
+   * Real channel listeners are never started in this mode.
+   */
+  /** Repo root for bundled catalogs (configs/skills, …); found by walking up from the workspace when omitted. */
+  repoRoot?: string;
+  simulation?: {
+    modelProvider: ModelProvider;
+    adapters: NonNullable<Parameters<typeof createChannelHub>[0]['extraAdapters']>;
+  };
 }
 
 /**
@@ -140,17 +151,17 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       return summary;
     },
   });
-  const repoRoot = findRepoRoot(workspacePath);
+  const repoRoot = options.repoRoot ?? findRepoRoot(workspacePath);
   const personaService = new PersonaService(workspace.loader);
   const skillCatalog = createSkillCatalogResolver(workspacePath, repoRoot);
   const skillRegistry = new SkillRegistry(workspace.loader, skillCatalog);
   const soulService = createSoulService(workspace.storage, memoryProvider);
 
-  const providerMap = createModelProviderRegistryFromEnv({
-    anthropicApiKey: options.anthropicApiKey,
-  });
+  const providerMap = options.simulation
+    ? new Map<string, ModelProvider>()
+    : createModelProviderRegistryFromEnv({ anthropicApiKey: options.anthropicApiKey });
   if (providerMap.size === 0) {
-    const mock = createMockModelProvider();
+    const mock = options.simulation?.modelProvider ?? createMockModelProvider();
     for (const id of allKnownProviderIds()) {
       providerMap.set(id, mock);
     }
@@ -181,9 +192,12 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     channelHub,
     sessions: workspace.sessions,
     soulDefinition,
-    modelProvider:
-      modelProviders.getOptional('anthropic') ??
-      (modelProviders.first()?.providerId !== 'mock' ? modelProviders.first() : undefined),
+    // Simulation keeps the scripted model for agent turns only; SOUL.md extraction falls
+    // back to the rule-based parser so it cannot consume scripted turns.
+    modelProvider: options.simulation
+      ? undefined
+      : (modelProviders.getOptional('anthropic') ??
+        (modelProviders.first()?.providerId !== 'mock' ? modelProviders.first() : undefined)),
     onApprovalTimedOut: async (sessionId, requestId) => {
       await workspace.sessions.update(sessionId, {
         pendingApproval: undefined,
@@ -199,7 +213,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     },
   });
 
-  const learningModelProvider = modelProviders.getOptional('anthropic') ?? modelProviders.first();
+  const learningModelProvider = options.simulation
+    ? undefined
+    : (modelProviders.getOptional('anthropic') ?? modelProviders.first());
   const learningEngine = new LearningEngine(memoryProvider, workspacePath, {
     modelProvider:
       learningModelProvider && learningModelProvider.providerId !== 'mock'
@@ -244,6 +260,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     channels: spec.channels,
     harness,
     slashCommands,
+    extraAdapters: options.simulation?.adapters,
     onApproval: async (sessionId, requestId, approved, userId) => {
       const stored = await workspace.sessions.get(sessionId);
       const pendingToolName = stored?.pendingApproval?.toolName;
@@ -513,7 +530,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     spec.runtime.default,
   );
 
-  const startChannels = options.startChannels ?? true;
+  const startChannels = options.simulation ? false : (options.startChannels ?? true);
   if (startChannels) {
     await channelHub.startAll();
   }
@@ -1057,3 +1074,11 @@ export {
   type WebhookSecrets,
   type JwksSource,
 } from './webhook-auth.js';
+export {
+  runSimulation,
+  parseSimulationScenario,
+  prepareSimulationWorkspace,
+  type SimulationScenario,
+  type SimulationStep,
+  type SimulationResult,
+} from './simulation.js';

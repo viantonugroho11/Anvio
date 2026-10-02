@@ -26,3 +26,4 @@ export { splitMessage } from './split-message.js';
 export { FeishuChannel } from './feishu-channel.js';
 export { SmsChannel } from './sms-channel.js';
 export { getGoogleChatAccessToken, loadGoogleServiceAccount } from './google-chat-auth.js';
+export { SimulatedChannel, type SimulatedChannelOptions, type SimulatedInbound, type SimulatedOutbound } from './simulated-channel.js';

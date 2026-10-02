@@ -47,3 +47,4 @@ export {
   type CircuitState,
 } from './circuit-breaker.js';
 export { ModelRouter, createModelRouter, type ModelRouterDeps, type RoutedChatResponse } from './model-router.js';
+export { ScriptedModelProvider, createScriptedModelProvider, type ScriptedTurn } from './scripted-provider.js';
