@@ -45,7 +45,7 @@ import type { EventBusLike } from '@anvio/events';
 import { EventSubjects } from '@anvio/events';
 import { probeAllChannels, summarizeChannelHealth } from '@anvio/channels';
 import type { HarnessGateway } from '@anvio/harness';
-import { resolveChannelProfile } from '@anvio/harness';
+import { createOneOnOneCommand, resolveChannelProfile } from '@anvio/harness';
 import { KnowledgeBaseStore } from '@anvio/knowledge';
 import { aggregateTokenUsage, readTokenUsageAudit } from './usage-stats.js';
 
@@ -930,6 +930,8 @@ export function registerPlatformExtras(opts: ExtrasOptions): void {
         };
       },
     });
+
+    registry.register(createOneOnOneCommand(harness));
 
     if (harness.connectBroker) {
       const broker = harness.connectBroker;
