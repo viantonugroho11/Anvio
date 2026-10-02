@@ -49,6 +49,7 @@ workspace/state.db
 workspace/.gateway/
 workspace/worktrees/
 workspace/artifacts/
+workspace/harness/engagement/
 # Encrypted credential pools and vendor-CLI OAuth tokens. Encrypted, but the
 # passphrase is the operator's and never the repo's — these must not be pushed.
 workspace/credentials/
