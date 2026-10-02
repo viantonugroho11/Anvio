@@ -1,4 +1,4 @@
-import type { BuiltinToolCall, BuiltinToolResult, CodeExecutor, KanbanColumn, KanbanStore, ToolGatewaySpec } from '@anvio/core';
+import type { BuiltinToolCall, BuiltinToolResult, CodeExecutor, KanbanColumn, KanbanStore, ToolGatewaySpec, ExecTarget } from '@anvio/core';
 import { executeCodeWithExecutor, fileRead, fileWrite, listDir, editFile, pathExists, fileDelete, appendFile } from './filesystem.js';
 import { browserAction } from './browser.js';
 import {
@@ -87,6 +87,8 @@ export interface BuiltinToolContext {
   callMcpTool?: McpDelegateFn;
   callSkill?: SkillCallFn;
   a2aDelegate?: A2ADelegateFn;
+  /** Session-bound remote target for shell/file tools (ADR 0034); undefined = host. */
+  resolveExecTarget?: (sessionId: string, userId?: string) => Promise<ExecTarget | undefined>;
 }
 
 export { webFetch } from './web-fetch.js';

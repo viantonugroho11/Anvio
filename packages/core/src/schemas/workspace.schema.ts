@@ -53,6 +53,10 @@ export const runtimeConfigSchema = z.object({
 export const executionConfigSchema = z.object({
   defaultTimeoutMs: z.number().int().positive().default(30000),
   networkEnabled: z.boolean().default(false),
+  /** `/remote` tool execution on users' machines over a tailnet (ADR 0034). Off by default. */
+  remote: z
+    .object({ enabled: z.boolean().default(false) })
+    .default({ enabled: false }),
 });
 
 export const credentialsConfigSchema = z.object({
@@ -196,7 +200,11 @@ export const workspaceSpecSchema = z.object({
   memory: memoryConfigSchema.default({ provider: 'filesystem', basePath: 'memory' }),
   events: eventsConfigSchema.default({ provider: 'local' }),
   runtime: runtimeConfigSchema.default({ default: 'local' }),
-  execution: executionConfigSchema.default({ defaultTimeoutMs: 30000, networkEnabled: false }),
+  execution: executionConfigSchema.default({
+    defaultTimeoutMs: 30000,
+    networkEnabled: false,
+    remote: { enabled: false },
+  }),
   credentials: credentialsConfigSchema.default({ encryption: 'disabled' }),
   acp: acpConfigSchema.default({ enabled: false, port: 8765, host: '127.0.0.1' }),
   channels: channelsConfigSchema.optional(),

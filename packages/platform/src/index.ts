@@ -60,6 +60,7 @@ import { bootstrapA2A } from './a2a-bootstrap.js';
 import { A2ATool, createAnvioUserBuilder } from '@anvio/a2a';
 import { createSlashCommandRegistry } from './slash-commands.js';
 import { registerPlatformExtras } from './slash-commands-extras.js';
+import { createRemoteBinding } from './remote-binding.js';
 
 /**
  * Channels that show a picker where /promote and /discard mean something.
@@ -298,7 +299,13 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     allowedRuntimes: ['shell', 'python', 'node', 'go', 'docker'],
   });
   const kanbanEngine = createKanbanEngine({ storage: workspace.storage });
+  // ADR 0034: off unless execution.remote.enabled — then /remote binds a thread's
+  // shell/file tools to the binding user's machine.
+  const remoteBinding = spec.execution.remote.enabled
+    ? createRemoteBinding({ sessions: workspace.sessions, workspacePath })
+    : undefined;
   const toolGateway = await ToolGateway.load(workspacePath, {
+    resolveExecTarget: remoteBinding?.resolveExecTarget,
     codeExecutor,
     workspaceRoot: workspacePath,
     kanban: kanbanEngine,
@@ -659,6 +666,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   // noun the CLI covers is now reachable from `/`. Goal engine also gets
   // its closure assigned now that sharedGoalEngine exists.
   sharedGoalEngineRef = sharedGoalEngine;
+  if (remoteBinding) slashCommands.register(remoteBinding.command);
   registerPlatformExtras({
     registry: slashCommands,
     workspace,
