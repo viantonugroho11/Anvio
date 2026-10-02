@@ -48,6 +48,22 @@ interface SlackMessageEvent {
   thread_ts?: string;
   ts?: string;
   bot_id?: string;
+  channel_type?: string;
+}
+
+/**
+ * Facts for the harness engagement gate (ADR 0032): did this message mention the bot,
+ * and did it mention anyone else? The adapter reports; the harness decides.
+ */
+export function detectSlackMentions(
+  text: string,
+  botUserId: string | undefined,
+): { mentionedBot: boolean; mentionedOther: boolean } {
+  // Without our own id we cannot tell the bot apart from other users; report nothing
+  // rather than risk a bot mention being read as mention_other and disengaging.
+  if (!botUserId) return { mentionedBot: false, mentionedOther: false };
+  const ids = [...text.matchAll(/<@([UW][A-Z0-9]+)(?:\|[^>]*)?>/g)].map((m) => m[1]);
+  return { mentionedBot: ids.includes(botUserId), mentionedOther: ids.some((id) => id !== botUserId) };
 }
 
 const SLACK_API = 'https://slack.com/api';
@@ -77,6 +93,7 @@ function parseSlackTarget(session: {
 export class SlackChannel extends BaseChannelAdapter {
   readonly channelType: ChannelType = 'slack';
   private ws: WebSocket | null = null;
+  private botUserId: Promise<string | undefined> | null = null;
   /** chat.postMessage rejects anything past 40,000 chars with msg_too_long. */
   protected readonly maxMessageLength = 40_000;
   /**
@@ -206,6 +223,14 @@ export class SlackChannel extends BaseChannelAdapter {
     }
   }
 
+  /** Bot's own Slack user id via auth.test, cached; undefined if the call fails. */
+  private resolveBotUserId(): Promise<string | undefined> {
+    this.botUserId ??= this.slackApi<{ ok: boolean; user_id?: string }>('auth.test', {})
+      .then((res) => (res.ok ? res.user_id : undefined))
+      .catch(() => undefined);
+    return this.botUserId;
+  }
+
   private async handleMessage(event: SlackMessageEvent): Promise<void> {
     if (event.subtype || event.bot_id || !event.text || !event.user) return;
 
@@ -237,12 +262,16 @@ export class SlackChannel extends BaseChannelAdapter {
       }
     }
 
+    const isDm = event.channel_type === 'im' || event.channel.startsWith('D');
+    const mentions = detectSlackMentions(event.text, await this.resolveBotUserId());
+
     await this.dispatchInbound({
       sessionId: session.id,
       userId,
       content: event.text,
       channel: 'slack',
       channelThreadId: threadId,
+      metadata: { isDm, ...mentions },
     });
   }
 
