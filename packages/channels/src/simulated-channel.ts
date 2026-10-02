@@ -24,7 +24,8 @@ export interface SimulatedChannelOptions {
   /** Channel this adapter impersonates, so its harness profile and formatting apply. */
   channelType: ChannelType;
   sessionBridge: ChannelSessionBridge;
-  defaultAgent: string;
+  /** Agent for new sessions; the bridge's workspace default when omitted. */
+  defaultAgent?: string;
   onApproval?: (
     sessionId: string,
     requestId: string,

@@ -98,6 +98,8 @@ export interface PlatformOptions {
    * (env API keys are ignored) and `adapters` are registered over the built-in channels.
    * Real channel listeners are never started in this mode.
    */
+  /** Repo root for bundled catalogs (configs/skills, …); found by walking up from the workspace when omitted. */
+  repoRoot?: string;
   simulation?: {
     modelProvider: ModelProvider;
     adapters: NonNullable<Parameters<typeof createChannelHub>[0]['extraAdapters']>;
@@ -149,7 +151,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       return summary;
     },
   });
-  const repoRoot = findRepoRoot(workspacePath);
+  const repoRoot = options.repoRoot ?? findRepoRoot(workspacePath);
   const personaService = new PersonaService(workspace.loader);
   const skillCatalog = createSkillCatalogResolver(workspacePath, repoRoot);
   const skillRegistry = new SkillRegistry(workspace.loader, skillCatalog);
@@ -1072,3 +1074,11 @@ export {
   type WebhookSecrets,
   type JwksSource,
 } from './webhook-auth.js';
+export {
+  runSimulation,
+  parseSimulationScenario,
+  prepareSimulationWorkspace,
+  type SimulationScenario,
+  type SimulationStep,
+  type SimulationResult,
+} from './simulation.js';

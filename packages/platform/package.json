@@ -5,7 +5,12 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
@@ -16,7 +21,6 @@
     "@a2a-js/sdk": "^1.1.0",
     "@anvio/a2a": "workspace:*",
     "@anvio/agents": "workspace:*",
-    "@anvio/goals": "workspace:*",
     "@anvio/auth": "workspace:*",
     "@anvio/automation": "workspace:*",
     "@anvio/batch": "workspace:*",
@@ -24,28 +28,33 @@
     "@anvio/channels": "workspace:*",
     "@anvio/core": "workspace:*",
     "@anvio/credentials": "workspace:*",
-    "@anvio/execution": "workspace:*",
     "@anvio/events": "workspace:*",
+    "@anvio/execution": "workspace:*",
+    "@anvio/goals": "workspace:*",
+    "@anvio/harness": "workspace:*",
     "@anvio/hooks": "workspace:*",
     "@anvio/integrations": "workspace:*",
-    "@anvio/memory": "workspace:*",
-    "@anvio/models": "workspace:*",
-    "@anvio/personas": "workspace:*",
-    "@anvio/skills": "workspace:*",
-    "@anvio/souls": "workspace:*",
-    "@anvio/storage": "workspace:*",
-    "@anvio/learning": "workspace:*",
-    "@anvio/observability": "workspace:*",
-    "@anvio/runtimes": "workspace:*",
-    "@anvio/tools": "workspace:*",
-    "@anvio/harness": "workspace:*",
     "@anvio/kanban": "workspace:*",
     "@anvio/knowledge": "workspace:*",
+    "@anvio/learning": "workspace:*",
+    "@anvio/memory": "workspace:*",
+    "@anvio/models": "workspace:*",
+    "@anvio/observability": "workspace:*",
+    "@anvio/personas": "workspace:*",
+    "@anvio/runtimes": "workspace:*",
+    "@anvio/skills": "workspace:*",
     "@anvio/soul-gate": "workspace:*",
+    "@anvio/souls": "workspace:*",
+    "@anvio/storage": "workspace:*",
+    "@anvio/tools": "workspace:*",
     "@anvio/workflows": "workspace:*",
     "@anvio/workspace": "workspace:*",
-    "ws": "^8.18.2"
+    "ws": "^8.18.2",
+    "yaml": "^2.8.0"
   },
   "devDependencies": {
-    "@types/ws": "^8.18.1", "typescript": "^5.8.3", "vitest": "^3.1.4" }
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
 }
