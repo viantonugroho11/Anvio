@@ -22,6 +22,8 @@ export interface GbrainConfig {
   recallLimit?: number;
   /** Token budget passed to `recall` (server-side packing). */
   budgetTokens?: number;
+  /** ADR 0035: write session turns as a gbrain timeline page. */
+  episodic?: boolean;
 }
 
 interface GbrainFact {
@@ -66,9 +68,21 @@ const TYPE_BY_KIND: Record<string, MemoryEntryType> = {
  * (`gbrain serve --surface verbs`). gbrain calls are best-effort: if the brain is
  * unreachable the delegate keeps working and healthCheck reports it.
  */
+/** gbrain page holding one Anvio session's episodic timeline (ADR 0035). */
+export function sessionTimelineSlug(sessionId: string): string {
+  return `anvio/sessions/${sessionId.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
+}
+
+const SUMMARY_CHARS = 160;
+const DETAIL_CHARS = 2000;
+
 export class GbrainMemoryProvider implements MemoryProvider {
   readonly providerId = 'gbrain';
   private lastError: string | null = null;
+  /** Sessions whose timeline page is known to exist. */
+  private readonly pagesReady = new Set<string>();
+  /** Messages already appended per session (in-process; request_id makes replays no-ops). */
+  private readonly syncedTurns = new Map<string, number>();
 
   constructor(
     private readonly delegate: MemoryProvider,
@@ -140,6 +154,41 @@ export class GbrainMemoryProvider implements MemoryProvider {
     return this.delegate.search(query, options);
   }
 
+  /**
+   * ADR 0035 consolidation: read a session's timeline, summarize it with `summarize`
+   * (the learning loop's summarizer), and store the result as a gbrain fact whose
+   * provenance points at the timeline page. Returns the summary, or null when there is
+   * nothing to consolidate or gbrain is unavailable.
+   */
+  async consolidateSession(
+    sessionId: string,
+    summarize: (messages: ChatMessage[]) => Promise<string>,
+  ): Promise<string | null> {
+    if (!this.client) return null;
+    const slug = sessionTimelineSlug(sessionId);
+    const res = (await this.call('get_timeline', { slug, limit: 200 })) as
+      | { entries?: Array<{ summary?: string; detail?: string | null }> }
+      | Array<{ summary?: string; detail?: string | null }>
+      | null;
+    const entries = Array.isArray(res) ? res : (res?.entries ?? []);
+    const messages: ChatMessage[] = entries.flatMap((e) => {
+      const match = /^(user|assistant): ?(.*)$/s.exec(e.summary ?? '');
+      if (!match) return [];
+      return [{ role: match[1] as 'user' | 'assistant', content: e.detail || match[2]! }];
+    });
+    if (messages.length === 0) return null;
+    const summary = (await summarize(messages)).trim();
+    if (!summary) return null;
+    await this.call('remember', {
+      fact: summary,
+      provenance: `anvio session timeline ${slug}`,
+      kind: 'event',
+      // One consolidated fact per session size; re-running on the same timeline is a no-op.
+      request_id: `anvio-consolidate-${sessionId}-${messages.length}`,
+    });
+    return summary;
+  }
+
   /** Expire a gbrain fact (audit-trailed, never deleted). Accepts `gbrain-<id>` or raw fact_id. */
   async forget(id: string, reason?: string): Promise<boolean> {
     const factId = id.startsWith('gbrain-') ? id.slice('gbrain-'.length) : id;
@@ -159,8 +208,59 @@ export class GbrainMemoryProvider implements MemoryProvider {
     await this.call('remember', args);
   }
 
-  storeConversation(sessionId: string, userId: string, messages: ChatMessage[]): Promise<void> {
-    return this.delegate.storeConversation(sessionId, userId, messages);
+  async storeConversation(sessionId: string, userId: string, messages: ChatMessage[]): Promise<void> {
+    await this.delegate.storeConversation(sessionId, userId, messages);
+    if (this.config.episodic && this.client) await this.appendTimeline(sessionId, userId, messages);
+  }
+
+  /** put_page REPLACES a page, so it only runs when get_page reports the page missing. */
+  private async ensureTimelinePage(sessionId: string, userId: string): Promise<boolean> {
+    if (this.pagesReady.has(sessionId)) return true;
+    const slug = sessionTimelineSlug(sessionId);
+    const existing = await this.call('get_page', { slug });
+    if (existing == null) {
+      if (!this.lastError?.includes('not_found')) return false;
+      const content = [
+        '---',
+        `title: Anvio session ${sessionId}`,
+        'type: conversation',
+        `anvio_session: ${sessionId}`,
+        `anvio_user: ${userId}`,
+        '---',
+        '',
+        `Episodic timeline of Anvio session \`${sessionId}\`.`,
+        '',
+      ].join('\n');
+      if ((await this.call('put_page', { slug, content })) == null) return false;
+    }
+    this.pagesReady.add(sessionId);
+    return true;
+  }
+
+  private async appendTimeline(sessionId: string, userId: string, messages: ChatMessage[]): Promise<void> {
+    const from = this.syncedTurns.get(sessionId) ?? 0;
+    const turns = messages.slice(from).filter((m) => m.role === 'user' || m.role === 'assistant');
+    if (turns.length === 0 || !(await this.ensureTimelinePage(sessionId, userId))) return;
+    const slug = sessionTimelineSlug(sessionId);
+    const date = new Date().toISOString().slice(0, 10);
+    for (const [offset, message] of messages.slice(from).entries()) {
+      if (message.role !== 'user' && message.role !== 'assistant') continue;
+      const text = message.content.trim();
+      if (!text) continue;
+      const firstLine = text.split('\n')[0]!;
+      const ok = await this.call('add_timeline_entry', {
+        slug,
+        date,
+        summary: `${message.role}: ${firstLine.slice(0, SUMMARY_CHARS)}`,
+        detail: text.length > firstLine.length || firstLine.length > SUMMARY_CHARS ? text.slice(0, DETAIL_CHARS) : undefined,
+        source: `anvio:session/${sessionId}`,
+        // Deterministic per turn: a replay after restart is a no-op in gbrain.
+        request_id: `anvio-${sessionId}-${from + offset}`,
+      });
+      if (ok == null) return; // stop at the first failure; the next call retries from here
+      this.syncedTurns.set(sessionId, from + offset + 1);
+    }
+    this.syncedTurns.set(sessionId, messages.length);
   }
 
   storeEntry(entry: MemoryEntry): Promise<void> {

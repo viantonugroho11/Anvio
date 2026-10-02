@@ -240,7 +240,7 @@ Execution & Providers
   anvio mcp list|test|health|preset    MCP integration servers
   anvio tools list|test                Built-in tool gateway (Phase H)
   anvio kb list|ingest|sync|import-manifest   Knowledge base pipeline
-  anvio learning drafts|promote|summarize-sessions
+  anvio learning drafts|promote|summarize-sessions|consolidate
   anvio workflow list|validate|run     Standalone DAG workflow engine (Phase I)
   anvio voice transcribe|stream-transcribe|realtime-transcribe|speak
   anvio gateway start|stop|status         Unified Hermes-style gateway daemon
@@ -2101,6 +2101,34 @@ async function cmdLearning(sub: string[]) {
   const engine = new LearningEngine(memory, wsPath);
 
   switch (action) {
+    case 'consolidate': {
+      // ADR 0035: fold gbrain episodic timelines of recently active sessions into facts.
+      // Schedule it nightly with an automation that runs `anvio learning consolidate`.
+      const sinceIdx = sub.indexOf('--since');
+      const since = sinceIdx >= 0 ? new Date(sub[sinceIdx + 1] ?? '') : new Date(Date.now() - 24 * 3600_000);
+      if (Number.isNaN(since.getTime())) {
+        console.error('Usage: anvio learning consolidate [--since YYYY-MM-DD]');
+        process.exit(1);
+      }
+      if (workspace.config.spec.memory.provider !== 'gbrain' || !workspace.config.spec.memory.gbrain?.episodic) {
+        console.log('Nothing to do: requires memory.provider: gbrain with memory.gbrain.episodic: true');
+        process.exit(0);
+      }
+      const souls = createSoulService(workspace.storage, memory);
+      const recent = (await workspace.sessions.list()).filter((s) => new Date(s.lastActiveAt) >= since);
+      const items = await Promise.all(
+        recent.map(async (s) => {
+          const agent = await loadAgent(workspace, s.agentName).catch(() => null);
+          const soulSlug = agent?.spec.soul;
+          const soul = soulSlug ? ((await souls.get(soulSlug).catch(() => null)) ?? undefined) : undefined;
+          return { sessionId: s.id, soul };
+        }),
+      );
+      const result = await engine.consolidateEpisodic(items);
+      console.log(`Consolidated ${result.consolidated} session(s), skipped ${result.skipped} (since ${since.toISOString().slice(0, 10)}).`);
+      // The gbrain MCP child process keeps the event loop alive.
+      process.exit(0);
+    }
     case 'drafts': {
       if (sub[1] === 'prune') {
         const olderIdx = sub.indexOf('--older-than');

@@ -120,12 +120,15 @@ export function gbrainMemoryOptions(
   return {
     gbrainClient: createMcpStdioClient({
       command: g?.command ?? 'gbrain',
-      args: g?.args ?? ['serve', '--surface', 'verbs'],
+      // Timeline writes (episodic) need operations beyond the seven MEMORY_VERBS.
+      args: g?.args ?? (g?.episodic ? ['serve'] : ['serve', '--surface', 'verbs']),
       env: g?.env ?? {},
       enabled: true,
       transport: 'stdio',
     }),
-    gbrain: g ? { recallLimit: g.recallLimit, budgetTokens: g.budgetTokens } : undefined,
+    gbrain: g
+      ? { recallLimit: g.recallLimit, budgetTokens: g.budgetTokens, episodic: g.episodic }
+      : undefined,
   };
 }
 
