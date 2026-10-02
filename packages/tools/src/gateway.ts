@@ -10,6 +10,7 @@ import type {
 } from '@anvio/core';
 import { parseToolGatewayConfig } from '@anvio/core';
 import { runBuiltinTool, type BuiltinToolContext } from './builtins/index.js';
+import { HOST_ONLY_TOOLS, REMOTE_ROUTED_TOOLS, runRemoteTool } from './remote-dispatch.js';
 import { renderToolInstructions } from './tool-descriptions.js';
 import { buildModelToolDefinitions } from './tool-schemas.js';
 
@@ -231,16 +232,42 @@ export class ToolGateway {
     return buildModelToolDefinitions(this.listTools());
   }
 
-  async call(
+  private async dispatch(
     call: BuiltinToolCall,
     runtimeCtx?: ToolGatewayCallContext,
   ): Promise<BuiltinToolResult> {
-    const result = await runBuiltinTool(this.spec, call, {
+    const toolKey = call.name.replace(/^anvio_tools__/, '');
+    const target =
+      runtimeCtx?.sessionId && this.ctx.resolveExecTarget
+        ? await this.ctx.resolveExecTarget(runtimeCtx.sessionId)
+        : undefined;
+    if (target) {
+      if (!this.spec.enabled || !this.spec.tools[toolKey as keyof ToolGatewaySpec['tools']]?.enabled) {
+        return { name: call.name, output: null, status: 'skipped', error: 'Tool disabled' };
+      }
+      if (REMOTE_ROUTED_TOOLS.has(toolKey)) return runRemoteTool(target, toolKey, call);
+      if (HOST_ONLY_TOOLS.has(toolKey)) {
+        return {
+          name: call.name,
+          output: null,
+          status: 'failed',
+          error: `${toolKey} runs on the Anvio host and is unavailable while this session is bound to ${target.label} (/remote off to use it)`,
+        };
+      }
+    }
+    return runBuiltinTool(this.spec, call, {
       ...this.ctx,
       userId: runtimeCtx?.userId,
       sessionId: runtimeCtx?.sessionId,
       agentId: runtimeCtx?.agentId,
     });
+  }
+
+  async call(
+    call: BuiltinToolCall,
+    runtimeCtx?: ToolGatewayCallContext,
+  ): Promise<BuiltinToolResult> {
+    const result = await this.dispatch(call, runtimeCtx);
     if (runtimeCtx && result.status === 'completed' && this.onToolCompleted) {
       await this.onToolCompleted(runtimeCtx, call, result);
     }
@@ -248,4 +275,5 @@ export class ToolGateway {
   }
 }
 
+export { REMOTE_ROUTED_TOOLS, HOST_ONLY_TOOLS, runRemoteTool } from './remote-dispatch.js';
 export { runBuiltinTool, webFetch, webSearch, executeCode } from './builtins/index.js';
