@@ -4574,7 +4574,7 @@ snapshots:
 
   '@a2a-js/sdk@1.1.0(@grpc/grpc-js@1.14.4)(express@5.2.1)':
     dependencies:
-      jose: 6.2.8
+      jose: 6.2.10
     optionalDependencies:
       '@grpc/grpc-js': 1.14.4
       express: 5.2.1
