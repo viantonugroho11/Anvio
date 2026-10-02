@@ -26,6 +26,17 @@ File-first by default · SQLite when you need it · Vendor OAuth optional · No 
 >
 > **Start simple:** filesystem sessions, model API key (or mock mode), no Docker. Add SQLite, vendor OAuth, gateway, or PostgreSQL only when you need them.
 
+### What's new in v2.7.0
+
+| Track | Highlights |
+|-------|------------|
+| **gbrain memory** | `memory.provider: gbrain` syncs durable facts to a [gbrain](https://github.com/garrytan/gbrain) brain over MCP; opt-in episodic timelines + `anvio learning consolidate` |
+| **`/1on1` thread lock** | Lock a thread to one user; engagement state now survives gateway restarts |
+| **E2E simulator** | `anvio harness simulate --scenario tests/simulation/*.yaml` — full turns with no channel credentials or API key |
+| **`/remote`** | Run shell/file tools on your own machine over a tailnet while the model, keys and memory stay on the host (opt-in) |
+
+Design notes: [ADR 0032–0035](docs/adr/) · Full list: [CHANGELOG](CHANGELOG.md#270---2026-10-02)
+
 ### What's new in v1.24.0
 
 | Track | Highlights |
@@ -492,6 +503,23 @@ Security-focused code reviewer.
 
 Legacy YAML agents still load — `.md` is preferred. See [workspace artifacts](docs/49-workspace-artifacts.md).
 
+### gbrain memory (v2.7+)
+
+```yaml
+# anvio.yaml
+memory:
+  provider: gbrain
+  gbrain:
+    episodic: false   # true = also write session turns as gbrain timeline pages
+```
+
+```bash
+gbrain init --pglite --no-embedding   # keyless local brain, no Docker
+anvio learning consolidate --since 2026-10-01   # episodic only: fold timelines into facts
+```
+
+Sessions stay on the filesystem; `fact` / `preference` / `summary` entries sync to gbrain (`remember` / `recall` / `forget`). If gbrain is down, Anvio keeps working on the filesystem. PGLite allows one writer — share a single `gbrain serve --http` when gateway and CLI run together. See [ADR 0035](docs/adr/0035-gbrain-episodic-timeline-and-consolidation.md).
+
 ### Souls (long-lived identity + evolution)
 
 ```bash
@@ -573,6 +601,17 @@ anvio runtime exec modal -- npm test
 # Singularity/Apptainer — local HPC container runtime (v1.22+)
 ANVIO_SINGULARITY_MOCK=1 anvio runtime exec singularity -- echo hello
 ```
+
+**`/remote` (v2.7+, opt-in)** — set `execution.remote.enabled: true` in `anvio.yaml`, then from a chat thread:
+
+```text
+/remote key                       # prints the public key + tailcat commands to run on your machine
+/remote my-mac.tailnet /home/me/repo
+/remote status
+/remote off
+```
+
+While bound, `file_read`, `file_write`, `list_dir`, `edit_file`, `run_shell` and foreground `terminal` run on your machine over SSH; the model, credentials and memory stay on the Anvio host. Only the user who bound the thread can use or release it, and host-filesystem tools are refused instead of silently running on the server. See [ADR 0034](docs/adr/0034-remote-tool-execution-over-tailnet.md).
 
 ### Contextual connections (OAuth broker)
 
@@ -860,6 +899,16 @@ anvio harness simulate telegram greeting
 anvio harness status
 ```
 
+**Engagement & `/1on1`** — engaged threads persist under `workspace/harness/engagement/`. In any channel with stable user ids, `/1on1` locks the thread to you (others are ignored until `/1on1 off`); `/1on1 status` shows the owner. Not available on sms, email, cli or rest. Slack currently intercepts unregistered `/commands` before they reach Anvio.
+
+**End-to-end simulation** — replay full agent turns (harness gate → runtime → tools → approvals → channel formatting) against a disposable copy of the workspace, with a scripted model and no channel credentials:
+
+```bash
+anvio harness simulate --scenario tests/simulation/mention-engages.scenario.yaml tests/simulation/approval-gate.scenario.yaml
+```
+
+Scenarios are YAML (`say` / `approve` / `reject` / `expect`) and can override workspace files such as `SOUL.md`; see [ADR 0033](docs/adr/0033-end-to-end-gateway-simulator.md).
+
 Voice notes (Telegram) and audio attachments (Discord) transcribe via Whisper when `OPENAI_API_KEY` is set. Use **Realtime STT** for live transcription: `anvio voice realtime-transcribe`.
 
 **Recommended:** run everything via unified gateway:
@@ -982,7 +1031,7 @@ Anvio/
 │   ├── tools/         Built-in tool gateway (73 tools)
 │   ├── harness/       Channel harness & connections
 │   ├── models/        Providers & routing
-│   ├── memory/        FTS5, Honcho delegate
+│   ├── memory/        FTS5, Honcho delegate, gbrain (MCP)
 │   ├── channels/      Multi-platform adapters
 │   ├── voice/         STT/TTS pipeline
 │   ├── knowledge/     Raw → wiki ingest
@@ -1217,6 +1266,7 @@ Architecture: [docs/02-architecture.md](docs/02-architecture.md) · Development:
 
 | Version | Highlights |
 |---------|------------|
+| **[v2.7.0](https://github.com/viantonugroho11/Anvio/releases/tag/v2.7.0)** | gbrain memory + episodic timelines, `/1on1` thread lock, end-to-end simulator, `/remote` tool execution over a tailnet |
 | **[v1.24.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.24.0)** | Skill versioning/testing, step output piping, `skill` workflow node, goal-skill integration |
 | [v1.23.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.23.0) | Skill execution engine — mechanical step runner, trigger matcher, composable skills, `skill_call` tool |
 | **[v1.22.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.22.0)** | Web dashboard, Yuanbao/Honcho/video tools, IMAP IDLE, Nous OAuth, Singularity runtime, CI automation |
