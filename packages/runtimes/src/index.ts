@@ -68,3 +68,4 @@ export {
   type RuntimeSetupTokenResult,
   type RuntimeSetupTokenVendor,
 } from './setup-token/index.js';
+export { TailnetSshTarget, shellQuote, type TailnetSshTargetOptions, type SshSpawn } from './remote/tailnet-ssh-target.js';
