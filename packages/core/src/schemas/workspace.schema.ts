@@ -28,9 +28,19 @@ export const storageConfigSchema = z.object({
 
 export const memoryConfigSchema = z.object({
   provider: z
-    .enum(['filesystem', 'sqlite', 'postgresql', 'qdrant', 'redis', 'honcho'])
+    .enum(['filesystem', 'sqlite', 'postgresql', 'qdrant', 'redis', 'honcho', 'gbrain'])
     .default('filesystem'),
   basePath: z.string().default('memory'),
+  /** Used when provider is 'gbrain': MCP stdio server exposing MEMORY_VERBS v1. */
+  gbrain: z
+    .object({
+      command: z.string().min(1).default('gbrain'),
+      args: z.array(z.string()).default(['serve', '--surface', 'verbs']),
+      env: z.record(z.string()).default({}),
+      recallLimit: z.number().int().positive().default(5),
+      budgetTokens: z.number().int().positive().optional(),
+    })
+    .optional(),
   fts: z.boolean().default(false),
   maxShortTermMessages: z.number().int().min(0).default(0),
   summarizeOnOverflow: z.boolean().default(true),

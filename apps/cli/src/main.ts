@@ -36,7 +36,7 @@ import { VoicePipeline, createStreamingSttSession, streamTranscribe } from '@anv
 import { createGoalEngine } from '@anvio/goals';
 import { createKanbanEngine } from '@anvio/kanban';
 import { createMemoryProvider } from '@anvio/memory';
-import { createPlatform, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime, aggregateTokenUsage, parseUsageLastFlag, readTokenUsageAudit, exportSessionTrajectory, trajectoryToMarkdown, startUnifiedGateway } from '@anvio/platform';
+import { createPlatform, gbrainMemoryOptions, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime, aggregateTokenUsage, parseUsageLastFlag, readTokenUsageAudit, exportSessionTrajectory, trajectoryToMarkdown, startUnifiedGateway } from '@anvio/platform';
 import { createSoulService } from '@anvio/souls';
 import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
 import { ToolGateway } from '@anvio/tools';
@@ -624,7 +624,12 @@ async function cmdSoul(sub: string[]) {
   const action = sub[0] ?? 'list';
   const wsPath = resolveWorkspacePath();
   const workspace = await Workspace.open(wsPath);
-  const memory = createMemoryProvider(workspace.config.spec.memory.provider, workspace.storage);
+  const memory = createMemoryProvider(
+    workspace.config.spec.memory.provider,
+    workspace.storage,
+    undefined,
+    gbrainMemoryOptions(workspace.config.spec.memory),
+  );
   const souls = createSoulService(workspace.storage, memory);
 
   switch (action) {
@@ -2060,7 +2065,12 @@ async function cmdLearning(sub: string[]) {
   const action = sub[0] ?? 'drafts';
   const wsPath = resolveWorkspacePath();
   const workspace = await Workspace.open(wsPath);
-  const memory = createMemoryProvider(workspace.config.spec.memory.provider, workspace.storage);
+  const memory = createMemoryProvider(
+    workspace.config.spec.memory.provider,
+    workspace.storage,
+    undefined,
+    gbrainMemoryOptions(workspace.config.spec.memory),
+  );
   const engine = new LearningEngine(memory, wsPath);
 
   switch (action) {
