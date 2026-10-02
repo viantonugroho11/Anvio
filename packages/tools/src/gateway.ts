@@ -239,7 +239,7 @@ export class ToolGateway {
     const toolKey = call.name.replace(/^anvio_tools__/, '');
     const target =
       runtimeCtx?.sessionId && this.ctx.resolveExecTarget
-        ? await this.ctx.resolveExecTarget(runtimeCtx.sessionId)
+        ? await this.ctx.resolveExecTarget(runtimeCtx.sessionId, runtimeCtx.userId)
         : undefined;
     if (target) {
       if (!this.spec.enabled || !this.spec.tools[toolKey as keyof ToolGatewaySpec['tools']]?.enabled) {

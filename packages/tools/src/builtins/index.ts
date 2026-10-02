@@ -88,7 +88,7 @@ export interface BuiltinToolContext {
   callSkill?: SkillCallFn;
   a2aDelegate?: A2ADelegateFn;
   /** Session-bound remote target for shell/file tools (ADR 0034); undefined = host. */
-  resolveExecTarget?: (sessionId: string) => Promise<ExecTarget | undefined>;
+  resolveExecTarget?: (sessionId: string, userId?: string) => Promise<ExecTarget | undefined>;
 }
 
 export { webFetch } from './web-fetch.js';
