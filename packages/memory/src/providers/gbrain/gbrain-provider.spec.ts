@@ -81,3 +81,69 @@ describe('GbrainMemoryProvider', () => {
     expect((await provider.healthCheck()).details).toContain('no gbrain client');
   });
 });
+
+describe('GbrainMemoryProvider episodic timeline (ADR 0035)', () => {
+  let root: string;
+  let delegate: FilesystemMemoryProvider;
+
+  beforeEach(async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'anvio-gbrain-ep-'));
+    delegate = new FilesystemMemoryProvider(new FilesystemStorageProvider(root));
+  });
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  function brain() {
+    const pages = new Set<string>();
+    const entries: Array<Record<string, unknown>> = [];
+    const client: GbrainClient = {
+      callTool: vi.fn(async (name: string, args: Record<string, unknown>) => {
+        if (name === 'get_page') {
+          return pages.has(String(args.slug)) ? { slug: args.slug } : { error: 'not_found', message: 'no page' };
+        }
+        if (name === 'put_page') return void pages.add(String(args.slug)) ?? { ok: true };
+        if (name === 'add_timeline_entry') {
+          if (!entries.some((e) => e.request_id === args.request_id)) entries.push(args);
+          return { ok: true };
+        }
+        return {};
+      }),
+    };
+    return { client, pages, entries };
+  }
+
+  it('creates the session page once and appends only new user/assistant turns', async () => {
+    const { client, pages, entries } = brain();
+    const provider = new GbrainMemoryProvider(delegate, client, { episodic: true });
+    await provider.storeConversation('S1', 'u1', [
+      { role: 'system', content: 'sys' },
+      { role: 'user', content: 'deploy plan?' },
+      { role: 'assistant', content: 'Use blue/green.\nDetails follow.' },
+    ]);
+    await provider.storeConversation('S1', 'u1', [
+      { role: 'system', content: 'sys' },
+      { role: 'user', content: 'deploy plan?' },
+      { role: 'assistant', content: 'Use blue/green.\nDetails follow.' },
+      { role: 'user', content: 'ok go' },
+    ]);
+
+    expect([...pages]).toEqual(['anvio/sessions/s1']);
+    expect(vi.mocked(client.callTool).mock.calls.filter(([n]) => n === 'put_page')).toHaveLength(1);
+    expect(entries.map((e) => e.summary)).toEqual(['user: deploy plan?', 'assistant: Use blue/green.', 'user: ok go']);
+    expect(entries[1]).toMatchObject({ detail: 'Use blue/green.\nDetails follow.', request_id: 'anvio-S1-2' });
+  });
+
+  it('never overwrites an existing page and stays off unless episodic', async () => {
+    const { client, pages } = brain();
+    pages.add('anvio/sessions/s2');
+    await new GbrainMemoryProvider(delegate, client, { episodic: true }).storeConversation('S2', 'u', [
+      { role: 'user', content: 'hi' },
+    ]);
+    expect(vi.mocked(client.callTool).mock.calls.some(([n]) => n === 'put_page')).toBe(false);
+
+    const off = brain();
+    await new GbrainMemoryProvider(delegate, off.client).storeConversation('S3', 'u', [{ role: 'user', content: 'hi' }]);
+    expect(off.client.callTool).not.toHaveBeenCalled();
+  });
+});
