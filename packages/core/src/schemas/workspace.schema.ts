@@ -35,10 +35,17 @@ export const memoryConfigSchema = z.object({
   gbrain: z
     .object({
       command: z.string().min(1).default('gbrain'),
-      args: z.array(z.string()).default(['serve', '--surface', 'verbs']),
+      /** Defaults to `serve --surface verbs`, or full `serve` when episodic is on. */
+      args: z.array(z.string()).optional(),
       env: z.record(z.string()).default({}),
       recallLimit: z.number().int().positive().default(5),
       budgetTokens: z.number().int().positive().optional(),
+      /**
+       * ADR 0035: also write each session's turns as a gbrain timeline page
+       * (`anvio/sessions/<id>`). Needs the full operation surface; off by default
+       * because full turns leave the filesystem.
+       */
+      episodic: z.boolean().default(false),
     })
     .optional(),
   fts: z.boolean().default(false),

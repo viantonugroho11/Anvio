@@ -22,6 +22,8 @@ export interface GbrainConfig {
   recallLimit?: number;
   /** Token budget passed to `recall` (server-side packing). */
   budgetTokens?: number;
+  /** ADR 0035: write session turns as a gbrain timeline page. */
+  episodic?: boolean;
 }
 
 interface GbrainFact {
