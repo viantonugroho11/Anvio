@@ -107,14 +107,18 @@ export class HarnessGateway implements HarnessGatewayPort {
     const engaged = evaluateEngagement(profile, currentEngagement, {
       mentionedBot: envelope.mentionedBot,
       mentionedOther: envelope.mentionedOther,
+      senderId: envelope.userId,
     });
 
-    await this.engagementStore.set({
-      channel: envelope.channel,
-      threadId: envelope.threadId,
-      engaged,
-      updatedAt: new Date().toISOString(),
-    });
+    // A locked thread's state is owned by /1on1; non-owner traffic must not rewrite it.
+    if (!currentEngagement?.owner) {
+      await this.engagementStore.set({
+        channel: envelope.channel,
+        threadId: envelope.threadId,
+        engaged,
+        updatedAt: new Date().toISOString(),
+      });
+    }
 
     if (!engaged && profile.engageOn !== 'always') {
       debugDrop(envelope, 'not_engaged', {
@@ -129,6 +133,31 @@ export class HarnessGateway implements HarnessGatewayPort {
     }
 
     return { decision: 'allow', envelope, sessionId: envelope.sessionId };
+  }
+
+  /**
+   * `/1on1` lock: pass a userId to lock the thread to that user, or null to release it.
+   * Returns the previous owner so callers can refuse a takeover.
+   */
+  async setThreadOwner(
+    channel: ChannelType,
+    threadId: string,
+    userId: string | null,
+  ): Promise<{ previousOwner?: string }> {
+    const current = await this.engagementStore.get(channel, threadId);
+    const now = new Date().toISOString();
+    await this.engagementStore.set({
+      channel,
+      threadId,
+      engaged: userId != null ? true : (current?.engaged ?? false),
+      updatedAt: now,
+      owner: userId != null ? { userId, since: now } : undefined,
+    });
+    return { previousOwner: current?.owner?.userId };
+  }
+
+  async getThreadOwner(channel: ChannelType, threadId: string): Promise<string | undefined> {
+    return (await this.engagementStore.get(channel, threadId))?.owner?.userId;
   }
 
   shouldSuppressRawOutput(channel: ChannelType): boolean {

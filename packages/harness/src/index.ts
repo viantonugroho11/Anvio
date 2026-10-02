@@ -4,6 +4,7 @@ import { loadSoulPolicy } from '@anvio/soul-gate';
 import { ConnectionBroker, ConnectionStore } from './connect/broker.js';
 import { loadHarnessConfig, loadHarnessProfiles } from './config-loader.js';
 import { createHarnessGateway, HarnessGateway } from './gateway.js';
+import { FilesystemEngagementStore } from './engagement.js';
 
 export interface CreateHarnessOptions {
   workspaceRoot: string;
@@ -64,6 +65,9 @@ export async function createHarnessFromWorkspace(
     policy,
     channelHub: options.channelHub,
     sessions: options.sessions,
+    engagementStore: new FilesystemEngagementStore(
+      path.join(options.workspaceRoot, 'harness', 'engagement'),
+    ),
     connectBroker,
     onApprovalTimedOut: options.onApprovalTimedOut,
   });
@@ -77,7 +81,13 @@ export {
   DEFAULT_HARNESS_YAML,
   DEFAULT_PROFILES_YAML,
 } from './config-loader.js';
-export { evaluateEngagement, MemoryEngagementStore } from './engagement.js';
+export {
+  evaluateEngagement,
+  MemoryEngagementStore,
+  FilesystemEngagementStore,
+  type EngagementState,
+  type EngagementStore,
+} from './engagement.js';
 export {
   canAccessRestrictedZone,
   isUserBlocked,
@@ -104,3 +114,4 @@ export {
   type HarnessBuiltinToolCaller,
 } from './runtime-tool-port.js';
 export { SimulationTransport, runSimulationScenario } from './simulation/transport.js';
+export { createOneOnOneCommand, type ThreadOwnerPort } from './one-on-one-command.js';
