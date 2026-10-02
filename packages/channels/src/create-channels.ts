@@ -144,6 +144,14 @@ export interface CreateChannelHubOptions {
    * remain unaffected.
    */
   slashCommands?: SlashCommandRegistry;
+  /**
+   * Extra adapters registered after the built-ins (same channelType replaces the
+   * built-in). Used by simulation mode (ADR 0033) to swap in SimulatedChannel.
+   */
+  extraAdapters?: (deps: {
+    sessionBridge: ChannelSessionBridge;
+    onApproval: NonNullable<CreateChannelHubOptions['onApproval']>;
+  }) => ChannelAdapter[];
 }
 
 export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBundle {
@@ -386,6 +394,10 @@ export function createChannelHub(options: CreateChannelHubOptions): ChannelHubBu
       }),
       onInbound,
     );
+  }
+
+  for (const adapter of options.extraAdapters?.({ sessionBridge: bridge, onApproval }) ?? []) {
+    registerAdapter(hub, adapter, onInbound);
   }
 
   return { hub, whatsapp };
