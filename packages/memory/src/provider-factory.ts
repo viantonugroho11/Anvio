@@ -9,6 +9,11 @@ import type {
 } from '@anvio/core';
 import type { FilesystemStorageProvider } from '@anvio/storage';
 import { createHonchoProvider, type HonchoConfig } from './providers/honcho/honcho-provider.js';
+import {
+  createGbrainProvider,
+  type GbrainClient,
+  type GbrainConfig,
+} from './providers/gbrain/gbrain-provider.js';
 import { MemoryRecallIndex } from './recall-index.js';
 import { openSqliteFtsRecall, type SqliteFtsRecall } from './providers/sqlite/sqlite-fts-recall.js';
 import path from 'node:path';
@@ -270,6 +275,9 @@ export function createMemoryProvider(
     maxShortTermMessages?: number;
     summarizeOnOverflow?: boolean;
     summarize?: SummarizerFn;
+    /** MCP client for `gbrain serve --surface verbs`; required for provider 'gbrain' to sync. */
+    gbrainClient?: GbrainClient;
+    gbrain?: GbrainConfig;
   },
 ): MemoryProvider {
   const enableFts = memoryConfig?.fts === true || provider === 'sqlite';
@@ -302,6 +310,12 @@ export function createMemoryProvider(
         config,
       );
     }
+    case 'gbrain':
+      return createGbrainProvider(
+        new FilesystemMemoryProvider(storage, 'memory/sessions', 'memory', opts),
+        memoryConfig?.gbrainClient,
+        memoryConfig?.gbrain,
+      );
     case 'postgresql':
     case 'redis':
       return createStubProvider(provider);

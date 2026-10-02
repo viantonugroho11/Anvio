@@ -4,6 +4,7 @@ import {
   createIntegrationRegistry,
   createMcpBridge,
   createMcpFirstCallGate,
+  createMcpStdioClient,
   createMcpToolPort,
   loadMcpToolCatalog,
 } from '@anvio/integrations';
@@ -22,9 +23,10 @@ import type {
   ModelProvider,
   ChannelType,
   RuntimeApprovalPort,
+  MemoryConfig,
 } from '@anvio/core';
 import { createEventBus, EventSubjects } from '@anvio/events';
-import { createMemoryProvider } from '@anvio/memory';
+import { createMemoryProvider, type GbrainClient, type GbrainConfig } from '@anvio/memory';
 import { createCredentialPoolManager } from '@anvio/credentials';
 import {
   createModelProviderRegistryFromEnv,
@@ -93,6 +95,28 @@ export interface PlatformOptions {
   startChannels?: boolean;
 }
 
+/**
+ * gbrain wiring for createMemoryProvider: an MCP stdio client for `gbrain serve`
+ * (spawned lazily on first call). Empty for every other provider. Exported so
+ * CLI entrypoints that build their own MemoryProvider stay in sync with the platform.
+ */
+export function gbrainMemoryOptions(
+  memory: MemoryConfig,
+): { gbrainClient?: GbrainClient; gbrain?: GbrainConfig } {
+  if (memory.provider !== 'gbrain') return {};
+  const g = memory.gbrain;
+  return {
+    gbrainClient: createMcpStdioClient({
+      command: g?.command ?? 'gbrain',
+      args: g?.args ?? ['serve', '--surface', 'verbs'],
+      env: g?.env ?? {},
+      enabled: true,
+      transport: 'stdio',
+    }),
+    gbrain: g ? { recallLimit: g.recallLimit, budgetTokens: g.budgetTokens } : undefined,
+  };
+}
+
 export async function createPlatform(options: PlatformOptions = {}): Promise<PlatformContext> {
   const workspacePath = options.workspacePath ?? findWorkspacePath();
   const workspace = await Workspace.open(workspacePath);
@@ -106,6 +130,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
 
   let slidingWindowSummarizer: SessionSummarizer | null = null;
   const memoryProvider = createMemoryProvider(spec.memory.provider, workspace.storage, undefined, {
+    ...gbrainMemoryOptions(spec.memory),
     fts: spec.memory.fts,
     maxShortTermMessages: spec.memory.maxShortTermMessages,
     summarizeOnOverflow: spec.memory.summarizeOnOverflow,
