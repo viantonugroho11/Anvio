@@ -39,6 +39,12 @@ describe('/1on1', () => {
     expect((await cmd.handler(ctx('U1', ['status']))).reply).toBe('Thread is not locked.');
   });
 
+  it('mentions the bare platform id for prefixed session user ids', async () => {
+    const cmd = createOneOnOneCommand(fakeHarness());
+    await cmd.handler(ctx('slack:U1'));
+    expect((await cmd.handler(ctx('slack:U2'))).reply).toBe('Thread already locked to <@U1>.');
+  });
+
   it('rejects channels without stable user ids', async () => {
     const res = await createOneOnOneCommand(fakeHarness()).handler(ctx('+62811', [], 'sms'));
     expect(res).toEqual({ swallow: true, reply: '/1on1 is not supported on sms.' });
