@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import type { HarnessChannelProfile } from '@anvio/core';
 
 export interface EngagementState {
@@ -25,6 +27,35 @@ export class MemoryEngagementStore implements EngagementStore {
 
   async set(state: EngagementState): Promise<void> {
     this.states.set(this.key(state.channel, state.threadId), state);
+  }
+}
+
+/**
+ * Level 1 persistent store: one JSON file per thread under `<root>/<channel>/`.
+ * Survives gateway restarts without a database.
+ */
+export class FilesystemEngagementStore implements EngagementStore {
+  constructor(private readonly root: string) {}
+
+  private file(channel: string, threadId: string): string {
+    return path.join(this.root, encodeURIComponent(channel), `${encodeURIComponent(threadId)}.json`);
+  }
+
+  async get(channel: string, threadId: string): Promise<EngagementState | null> {
+    try {
+      return JSON.parse(await fs.readFile(this.file(channel, threadId), 'utf-8')) as EngagementState;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    }
+  }
+
+  async set(state: EngagementState): Promise<void> {
+    const file = this.file(state.channel, state.threadId);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const tmp = `${file}.${process.pid}.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(state, null, 2));
+    await fs.rename(tmp, file);
   }
 }
 
