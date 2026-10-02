@@ -1,0 +1,22 @@
+name: mention engages a Slack thread and the agent replies through the harness
+channel: slack
+workspaceFiles:
+  souls/architect-soul/SOUL.md: |
+    # Architect Soul
+    ## Identity
+    - Name: Architect Soul
+    ## Reporting
+    - Manager: slack:U_MANAGER01
+    ## Approvers
+    - slack:U_MANAGER01: anything ; catchall
+model:
+  - toolCalls:
+      - name: anvio_channel__reply
+        arguments: { text: "Hello from the scripted architect." }
+  - text: "done"
+steps:
+  # engageOn: mention — a plain message is ignored
+  - say: { user: "slack:U_MANAGER01", thread: "t-engage", text: "hi there" }
+  - expect: { thread: "t-engage", silent: true }
+  - say: { user: "slack:U_MANAGER01", thread: "t-engage", text: "<@UBOT> hello", mentionedBot: true }
+  - expect: { thread: "t-engage", replyContains: "scripted architect" }
