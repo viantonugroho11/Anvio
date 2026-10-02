@@ -7,6 +7,8 @@ export interface EngagementState {
   threadId: string;
   engaged: boolean;
   updatedAt: string;
+  /** `/1on1` lock: only this user can steer the thread while set. */
+  owner?: { userId: string; since: string };
 }
 
 export interface EngagementStore {
@@ -62,8 +64,14 @@ export class FilesystemEngagementStore implements EngagementStore {
 export function evaluateEngagement(
   profile: HarnessChannelProfile,
   current: EngagementState | null,
-  input: { mentionedBot?: boolean; mentionedOther?: boolean },
+  input: { mentionedBot?: boolean; mentionedOther?: boolean; senderId?: string },
 ): boolean {
+  if (current?.owner) {
+    // Locked thread: the owner is always engaged, everyone else is ignored
+    // (their mentions of other people must not disengage the owner's thread).
+    return input.senderId === current.owner.userId;
+  }
+
   let engaged = current?.engaged ?? profile.engageOn === 'always';
 
   if (profile.engageOn === 'mention' && input.mentionedBot) {
