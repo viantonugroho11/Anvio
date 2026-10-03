@@ -1,9 +1,27 @@
 import type { SoulDefinition, SoulPolicy } from '@anvio/core';
 import type { ModelProvider } from '@anvio/core';
-import { defaultSoulPolicy, expandEnvString, parseSoulPolicy } from '@anvio/core';
+import { defaultSoulPolicy, expandEnvDeep, expandEnvString, parseSoulPolicy } from '@anvio/core';
 import { extractIdsFromLine, parseApproversSection, verifyPolicyIds } from './verifier.js';
 import { hashSoulSource, readCachedPolicy, writeCachedPolicy } from './policy-cache.js';
 import { extractSoulPolicy } from './soul-policy-llm.js';
+
+/**
+ * Warn about `${VAR}` placeholders whose variable is unset. They expand to an
+ * empty string, so an approver like `telegram:${OWNER_ID}` silently vanishes
+ * and approvals hang until timeout (issue #101). Placeholders with a
+ * `:-default` fallback are skipped.
+ */
+export function warnUnsetSoulEnv(source: string, env: NodeJS.ProcessEnv = process.env): string[] {
+  const missing = new Set<string>();
+  for (const match of source.matchAll(/(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)(:\?[^}]*)?\}/g)) {
+    const name = match[1]!;
+    if (env[name] === undefined || env[name] === '') missing.add(name);
+  }
+  for (const name of missing) {
+    console.warn(`[soul-gate] SOUL.md references unset env var \${${name}}; entries using it are ignored`);
+  }
+  return [...missing];
+}
 
 function sectionLines(source: string, heading: string): string[] {
   const pattern = new RegExp(`^##\\s+${heading}\\s*$`, 'im');
@@ -80,7 +98,9 @@ export function parseSoulMd(source: string, slug?: string): SoulPolicy {
 export function policyFromSoulDefinition(definition: SoulDefinition): SoulPolicy {
   const { spec, metadata } = definition;
   const ext = spec.extensions as Record<string, unknown> | undefined;
-  const policyExt = ext?.policy as Partial<SoulPolicy> | undefined;
+  const rawPolicyExt = ext?.policy as Partial<SoulPolicy> | undefined;
+  if (rawPolicyExt) warnUnsetSoulEnv(JSON.stringify(rawPolicyExt));
+  const policyExt = rawPolicyExt ? expandEnvDeep(rawPolicyExt) : undefined;
 
   if (policyExt) {
     return parseSoulPolicy({
@@ -119,6 +139,7 @@ export async function loadSoulPolicy(options: {
   if (options.soulMdPath) {
     const fs = await import('node:fs/promises');
     const raw = await fs.readFile(options.soulMdPath, 'utf-8');
+    warnUnsetSoulEnv(raw);
     const source = expandEnvString(raw);
     const hash = hashSoulSource(source);
     const cached = await readCachedPolicy(options.cacheDir, hash);
