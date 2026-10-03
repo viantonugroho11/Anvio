@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.1] - 2026-10-03
+
+**Persona and soul now reach the Claude Code runtime, Node 24 works, and unset SOUL.md env vars are no longer silent.**
+
+### Fixed
+
+- **`claude-code` runtime ignored persona/soul** ([#104](https://github.com/viantonugroho11/Anvio/pull/104), [#102](https://github.com/viantonugroho11/Anvio/issues/102)) — vendor runtimes received `{ session, agent, input }` with no system prompt, so `personas/*.md`, skills and soul context never reached the model, which behaved like an interactive CLI (e.g. pointing users at `claude mcp add`). `RuntimeRequest` gains an optional `systemPrompt`, filled by the routing runtime for non-`local` runtimes. The `claude_code` preset now appends an Anvio preamble (not an interactive CLI; tools are `mcp__anvio__anvio_tools__<name>` / `mcp__anvio__anvio_channel__<name>`), the persona prompt, then the tool instructions.
+- **Gateway crash on Node 24** ([#98](https://github.com/viantonugroho11/Anvio/pull/98), [#97](https://github.com/viantonugroho11/Anvio/issues/97)) — `better-sqlite3` 11.x had no Node 24 support (ABI mismatch, then a `RemoveEnvironmentCleanupHook` abort during GC). Upgraded to `^12.11.1` (Node 20–26). `better-sqlite3` is listed in `pnpm.onlyBuiltDependencies` so `pnpm install` / `pnpm rebuild` actually build it. Added `.nvmrc` (`22`).
+- **SOUL.md approvers vanished silently** ([#103](https://github.com/viantonugroho11/Anvio/pull/103), [#101](https://github.com/viantonugroho11/Anvio/issues/101)) — an unset `${VAR}` expanded to an empty string and its approver was dropped, so approvals hung until timeout. Unset or empty variables are now logged at load time. YAML souls (`spec.extensions.policy`) now expand `${VAR}` like SOUL.md.
+
+### Dependencies
+
+- `ip-address` 10.7.3 ([#95](https://github.com/viantonugroho11/Anvio/pull/95)), `fast-uri` 4.2.1 ([#87](https://github.com/viantonugroho11/Anvio/pull/87)), `hono` 4.13.12 ([#62](https://github.com/viantonugroho11/Anvio/pull/62)), `next` 15.5.24 ([#61](https://github.com/viantonugroho11/Anvio/pull/61)).
+
+### Known limitations
+
+- Sessions that already replayed refusals via `<conversation_history>` keep them until `/reset`.
+- Cursor, Codex and Antigravity runtimes do not read `request.systemPrompt` yet.
+
+---
+
 ## [2.8.0] - 2026-10-03
 
 **Agents can extend themselves: create skills, install MCP servers (local or remote), no restart.** Recorded as ADRs 0036–0037.
@@ -1348,7 +1369,9 @@ Carried forward, recorded rather than fixed:
 
 4. GitHub Actions **Release** workflow validates the build and publishes a GitHub Release with notes extracted from this file.
 
-[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.7.0...HEAD
+[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.8.1...HEAD
+[2.8.1]: https://github.com/viantonugroho11/Anvio/compare/v2.8.0...v2.8.1
+[2.8.0]: https://github.com/viantonugroho11/Anvio/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/viantonugroho11/Anvio/compare/v2.6.4...v2.7.0
 [2.6.4]: https://github.com/viantonugroho11/Anvio/compare/v2.6.3...v2.6.4
 [2.6.3]: https://github.com/viantonugroho11/Anvio/compare/v2.6.2...v2.6.3
