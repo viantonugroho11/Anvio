@@ -105,6 +105,22 @@ function escapeSdkSlashPrompt(text: string): string {
   return text.startsWith('/') ? `\u200b${text}` : text;
 }
 
+const ANVIO_RUNTIME_PREAMBLE = `You are running as an Anvio agent, not an interactive Claude Code CLI session.
+There is no human at a terminal: slash commands (/mcp, /config, …) and \`claude …\` CLI commands are unavailable to the user.
+Anvio tools are exposed over MCP as \`mcp__anvio__anvio_tools__<name>\` and channel tools as \`mcp__anvio__anvio_channel__<name>\`; call them by those exact names.
+Follow the agent persona and instructions below; they take precedence over generic Claude Code habits.`;
+
+/**
+ * Text appended to the \`claude_code\` preset: the Anvio preamble, the
+ * agent's persona/soul prompt, then the tool instructions. Without it the
+ * model believed it was an interactive CLI and ignored the persona (#102).
+ */
+export function buildClaudeCodeAppend(request: RuntimeRequest, toolInstructions?: string): string {
+  return [ANVIO_RUNTIME_PREAMBLE, request.systemPrompt?.trim(), toolInstructions?.trim()]
+    .filter(Boolean)
+    .join('\n\n---\n\n');
+}
+
 export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
   readonly runtimeId = 'claude-code' as const;
   private readonly options: ClaudeCodeRuntimeOptions;
@@ -204,13 +220,13 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
             allowedTools: toolNames
               .filter((name) => name.startsWith('anvio_channel__'))
               .map(mcpToolName),
-            systemPrompt: {
-              type: 'preset' as const,
-              preset: 'claude_code' as const,
-              append: toolPort.getToolInstructions(),
-            },
           }
         : {}),
+      systemPrompt: {
+        type: 'preset' as const,
+        preset: 'claude_code' as const,
+        append: buildClaudeCodeAppend(request, toolPort?.getToolInstructions()),
+      },
       ...(this.options.approvalPort ? { canUseTool: this.buildPermissionHandler(request) } : {}),
     };
   }
@@ -231,6 +247,16 @@ export class ClaudeCodeRuntimeProvider implements RuntimeProvider {
           behavior: 'deny' as const,
           message:
             'WebFetch is disabled. Use anvio_tools__web_fetch or anvio_tools__web_extract instead — they have content-size limits.',
+        };
+      }
+      // AskUserQuestion renders only in an interactive Claude Code terminal.
+      // On a channel it waits forever for a choice nobody can make, so the
+      // run hangs even after the approval button is pressed.
+      if (toolName === 'AskUserQuestion') {
+        return {
+          behavior: 'deny' as const,
+          message:
+            'AskUserQuestion is unavailable on this channel. Ask the user in plain text via anvio_channel__reply and wait for their next message.',
         };
       }
       // Auto-approve Anvio built-in tools — they have their own safety

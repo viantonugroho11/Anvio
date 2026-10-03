@@ -108,11 +108,30 @@ describe('claude-code harness wiring (issue #69)', () => {
     expect(seen.options?.systemPrompt).toMatchObject({
       type: 'preset',
       preset: 'claude_code',
-      append: 'HARNESS INSTRUCTIONS',
+      append: expect.stringContaining('HARNESS INSTRUCTIONS'),
     });
   });
 
-  it('leaves the SDK options untouched when no tool port is supplied', async () => {
+  it('appends the Anvio preamble and the persona prompt before the tools (#102)', async () => {
+    const seen: { options?: Options } = {};
+    const provider = new ClaudeCodeRuntimeProvider({
+      oauthToken: 'sk-ant-oat01-test',
+      toolPort: toolPortStub(),
+      queryImpl: (params) => {
+        seen.options = params.options;
+        return emptyResultStream();
+      },
+    });
+
+    await provider.run({ ...mockRequest(), systemPrompt: 'PERSONA: use mcp_manage' });
+
+    const append = (seen.options?.systemPrompt as { append: string }).append;
+    expect(append).toContain('not an interactive Claude Code CLI session');
+    expect(append).toContain('mcp__anvio__anvio_tools__<name>');
+    expect(append.indexOf('PERSONA: use mcp_manage')).toBeLessThan(append.indexOf('HARNESS INSTRUCTIONS'));
+  });
+
+  it('adds no MCP server or permission gate when no tool port is supplied', async () => {
     const seen: { options?: Options } = {};
     const provider = new ClaudeCodeRuntimeProvider({
       oauthToken: 'sk-ant-oat01-test',
@@ -125,7 +144,8 @@ describe('claude-code harness wiring (issue #69)', () => {
     await captureOptions(provider, seen);
 
     expect(seen.options?.mcpServers).toBeUndefined();
-    expect(seen.options?.systemPrompt).toBeUndefined();
+    // The persona/preamble still applies without a tool port (#102).
+    expect(seen.options?.systemPrompt).toMatchObject({ type: 'preset', preset: 'claude_code' });
     expect(seen.options?.canUseTool).toBeUndefined();
   });
 

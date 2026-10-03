@@ -391,6 +391,14 @@ export class DefaultAgentRuntime implements AgentRuntime {
     });
   }
 
+  /**
+   * Persona + skills + soul prompt for vendor runtimes that run their own
+   * loop and cannot call `assembleSystemPrompt` themselves (issue #102).
+   */
+  async buildSystemPrompt(agent: AgentDefinition, userId: string, message = ''): Promise<string> {
+    return (await this.assembleSystemPrompt(agent, userId, message)).systemPrompt;
+  }
+
   private async assembleSystemPrompt(
     agent: AgentDefinition,
     userId: string,

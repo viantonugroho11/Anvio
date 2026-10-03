@@ -78,4 +78,34 @@ describe('RuntimeRoutingAgentRuntime', () => {
     const result = await routing.run(session, agent, { content: 'Hello' });
     expect(result.content).toBe('local: Hello');
   });
+
+  it('passes the persona prompt to vendor runtimes but not to local (#102)', async () => {
+    const seen: Array<string | undefined> = [];
+    const factory = {
+      get: () => ({
+        id: 'claude-code',
+        isConfigured: () => true,
+        async run(request: { systemPrompt?: string; session: Session }) {
+          seen.push(request.systemPrompt);
+          return {
+            sessionId: request.session.id,
+            content: 'ok',
+            usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+            status: 'completed',
+          };
+        },
+      }),
+    };
+    const local = {
+      ...createMockLocalRuntime(),
+      buildSystemPrompt: async () => 'PERSONA PROMPT',
+      stop: async () => {},
+    };
+    const runtime = new RuntimeRoutingAgentRuntime(local as never, factory as never);
+
+    await runtime.run(session, mockAgent({ provider: 'claude-code', fallbacks: [] }), { content: 'hi' });
+    await runtime.run(session, mockAgent({ provider: 'local', fallbacks: [] }), { content: 'hi' });
+
+    expect(seen).toEqual(['PERSONA PROMPT', undefined]);
+  });
 });

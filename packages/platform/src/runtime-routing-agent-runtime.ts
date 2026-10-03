@@ -4,6 +4,7 @@ import type {
   AgentRuntime,
   ApprovalDecision,
   RuntimeProviderId,
+  RuntimeRequest,
   Session,
   UserInput,
 } from '@anvio/core';
@@ -32,7 +33,7 @@ export class RuntimeRoutingAgentRuntime implements AgentRuntime {
     const result = await runWithRuntimeFallback(
       this.factory,
       effective,
-      { session, agent: effective, input },
+      await this.buildRequest(session, effective, input),
       this.defaultRuntime,
     );
 
@@ -49,9 +50,31 @@ export class RuntimeRoutingAgentRuntime implements AgentRuntime {
     yield* streamWithRuntimeFallback(
       this.factory,
       effective,
-      { session, agent: effective, input },
+      await this.buildRequest(session, effective, input),
       this.defaultRuntime,
     );
+  }
+
+  /**
+   * Vendor runtimes run their own loop, so hand them the persona/soul prompt
+   * the local runtime would have used (issue #102). Skipped when the chain
+   * starts at `local`, which assembles it itself. Best-effort: a persona
+   * lookup failure must not block the run.
+   */
+  private async buildRequest(
+    session: Session,
+    agent: AgentDefinition,
+    input: UserInput,
+  ): Promise<RuntimeRequest> {
+    const request: RuntimeRequest = { session, agent, input };
+    const primary = agent.spec.runtime?.provider ?? this.defaultRuntime;
+    if (primary === 'local') return request;
+    try {
+      request.systemPrompt = await this.local.buildSystemPrompt(agent, session.userId, input.content);
+    } catch {
+      // persona/soul optional for vendor runtimes
+    }
+    return request;
   }
 
   async resume(
