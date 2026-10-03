@@ -17,13 +17,34 @@ export interface SkillMdFrontmatter {
   triggers?: Array<string | { event: string; condition?: string; channel?: string }>;
   composable?: boolean;
   timeout?: number;
+  /** agentskills.io / Hermes vendor namespace, e.g. `metadata.hermes.tags`. */
+  metadata?: Record<string, { tags?: string[] } | undefined>;
+}
+
+export interface ParseSkillMdOptions {
+  /** Workspace-relative folder of a `skills/<slug>/SKILL.md` skill, so bundled `scripts/` etc. resolve. */
+  baseDir?: string;
+}
+
+function collectTags(frontmatter: SkillMdFrontmatter): string[] {
+  const vendorTags = Object.values(frontmatter.metadata ?? {}).flatMap((ns) =>
+    Array.isArray(ns?.tags) ? ns.tags : [],
+  );
+  return [...new Set([...(frontmatter.tags ?? []), ...vendorTags])];
 }
 
 /** Parse agentskills.io / Hermes-style SKILL.md into Anvio SkillDefinition. */
-export function parseSkillMd(source: string, slug: string): SkillDefinition {
+export function parseSkillMd(
+  source: string,
+  slug: string,
+  options: ParseSkillMdOptions = {},
+): SkillDefinition {
   const { frontmatter, body } = parseFrontmatter<SkillMdFrontmatter>(source);
   const titleMatch = body.match(/^#\s+(.+)$/m);
   const name = frontmatter.name ?? titleMatch?.[1]?.trim() ?? slug;
+  const instructions = options.baseDir
+    ? `Skill files live in \`${options.baseDir}/\` (workspace-relative); resolve relative paths such as \`scripts/...\` against it.\n\n${body.trim()}`
+    : body.trim();
 
   return parseSkillDefinition({
     apiVersion: 'anvio.io/v1',
@@ -36,11 +57,11 @@ export function parseSkillMd(source: string, slug: string): SkillDefinition {
     spec: {
       name,
       description: frontmatter.description ?? `Skill ${slug}`,
-      instructions: body.trim(),
+      instructions,
       permissions: frontmatter.permissions ?? [],
       toolRequirements: frontmatter.toolRequirements ?? [],
       contextRequirements: frontmatter.contextRequirements ?? [],
-      tags: frontmatter.tags ?? [],
+      tags: collectTags(frontmatter),
       parameters: frontmatter.parameters ?? [],
       steps: frontmatter.steps ?? [],
       outputs: frontmatter.outputs ?? [],
