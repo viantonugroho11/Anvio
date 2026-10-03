@@ -156,6 +156,8 @@ spec:
       enabled: false
     skill_manage:
       enabled: false
+    mcp_manage:
+      enabled: false
     spotify_search:
       enabled: false
     feishu_doc_read:

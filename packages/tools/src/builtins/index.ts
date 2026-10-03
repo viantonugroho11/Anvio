@@ -40,6 +40,7 @@ import {
   sendMessageTool,
   mixtureOfAgentsTool,
   skillManageTool,
+  mcpManageTool,
   type CronjobFn,
   type DelegateTaskFn,
   type GetSkillFn,
@@ -47,6 +48,7 @@ import {
   type SendMessageFn,
   type MixtureOfAgentsFn,
   type SkillManageFn,
+  type McpManageFn,
 } from './orchestration-tools.js';
 import { skillCallTool, type SkillCallFn } from './skill-call.js';
 import { haListEntities, haGetState, haListServices, haCallService } from './homeassistant-tools.js';
@@ -84,6 +86,7 @@ export interface BuiltinToolContext {
   sendMessage?: SendMessageFn;
   mixtureOfAgents?: MixtureOfAgentsFn;
   skillManage?: SkillManageFn;
+  mcpManage?: McpManageFn;
   callMcpTool?: McpDelegateFn;
   callSkill?: SkillCallFn;
   a2aDelegate?: A2ADelegateFn;
@@ -811,9 +814,34 @@ export async function runBuiltinTool(
       );
     case 'skill_manage': {
       try {
+        const a = call.arguments;
+        const action = a.action === 'promote' || a.action === 'create' ? a.action : 'list_drafts';
         const out = await skillManageTool(ctx.skillManage, {
-          action: call.arguments.action === 'promote' ? 'promote' : 'list_drafts',
-          slug: call.arguments.slug ? String(call.arguments.slug) : undefined,
+          action,
+          slug: a.slug ? String(a.slug) : undefined,
+          description: a.description ? String(a.description) : undefined,
+          instructions: a.instructions ? String(a.instructions) : undefined,
+          tags: Array.isArray(a.tags) ? a.tags.map(String) : undefined,
+        });
+        return { name: call.name, output: out, status: 'completed' };
+      } catch (error) {
+        return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    case 'mcp_manage': {
+      try {
+        const a = call.arguments;
+        const action = a.action === 'add' || a.action === 'remove' ? a.action : 'list';
+        const out = await mcpManageTool(ctx.mcpManage, {
+          action,
+          id: a.id ? String(a.id) : undefined,
+          command: a.command ? String(a.command) : undefined,
+          args: Array.isArray(a.args) ? a.args.map(String) : undefined,
+          env:
+            a.env && typeof a.env === 'object'
+              ? Object.fromEntries(Object.entries(a.env as Record<string, unknown>).map(([k, v]) => [k, String(v)]))
+              : undefined,
+          allowedTools: Array.isArray(a.allowedTools) ? a.allowedTools.map(String) : undefined,
         });
         return { name: call.name, output: out, status: 'completed' };
       } catch (error) {

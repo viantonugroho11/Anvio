@@ -38,8 +38,22 @@ export type MixtureOfAgentsFn = (input: {
 }>;
 
 export type SkillManageFn = (input: {
-  action: 'promote' | 'list_drafts';
+  action: 'promote' | 'list_drafts' | 'create';
   slug?: string;
+  /** create: one-line purpose. */
+  description?: string;
+  /** create: markdown body — the instructions the skill carries. */
+  instructions?: string;
+  tags?: string[];
+}) => Promise<unknown>;
+
+export type McpManageFn = (input: {
+  action: 'list' | 'add' | 'remove';
+  id?: string;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  allowedTools?: string[];
 }) => Promise<unknown>;
 
 export async function delegateTaskTool(
@@ -98,8 +112,16 @@ export async function mixtureOfAgentsTool(
 
 export async function skillManageTool(
   fn: SkillManageFn | undefined,
-  input: { action: 'promote' | 'list_drafts'; slug?: string },
+  input: Parameters<SkillManageFn>[0],
 ): Promise<unknown> {
   if (!fn) throw new Error('skillManage handler not configured');
+  return fn(input);
+}
+
+export async function mcpManageTool(
+  fn: McpManageFn | undefined,
+  input: Parameters<McpManageFn>[0],
+): Promise<unknown> {
+  if (!fn) throw new Error('mcpManage handler not configured');
   return fn(input);
 }

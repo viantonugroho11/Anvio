@@ -418,14 +418,25 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
 
   let toolPort = harness.enabled ? createHarnessAwareToolPort(toolGateway, harness) : toolGateway;
 
-  if (mcpCatalog.names.length > 0) {
-    toolPort = createMcpToolPort(toolPort, {
-      mcpBridge,
-      gate: mcpFirstCallGate,
-      mcpToolNames: mcpCatalog.names,
-      mcpToolDefinitions: mcpCatalog.definitions,
-    });
-  }
+  // Always wrapped, even with an empty catalog: mcp_manage (ADR-0036) can add
+  // a server at runtime, and the port is where the new tools get swapped in.
+  // With no MCP tools the wrapper is a pass-through.
+  const mcpToolPort = createMcpToolPort(toolPort, {
+    mcpBridge,
+    gate: mcpFirstCallGate,
+    mcpToolNames: mcpCatalog.names,
+    mcpToolDefinitions: mcpCatalog.definitions,
+  });
+  toolPort = mcpToolPort;
+  const reloadMcpCatalog = async () => {
+    const servers = (await integrationRegistry.listEnabled()).map((entry) => ({
+      id: entry.id,
+      allowedTools: entry.server.allowedTools,
+    }));
+    const catalog = await loadMcpToolCatalog(mcpBridge, servers);
+    mcpToolPort.setCatalog(catalog);
+    return catalog;
+  };
 
   // Credential pools reach the request path for the first time here. Without a
   // passphrase the feature stays off rather than falling back to a known key:
@@ -797,7 +808,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       });
       return { agentResults, synthesis: synthesisResult.content };
     },
-    skillManage: async ({ action, slug }) => {
+    skillManage: async ({ action, slug, description, instructions, tags }) => {
       if (action === 'list_drafts') {
         return { drafts: await learningEngine.listDrafts() };
       }
@@ -805,7 +816,62 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         const promotedPath = await learningEngine.promoteDraft(slug, workspacePath);
         return { promotedPath };
       }
+      if (action === 'create') {
+        if (!slug || !/^[a-z0-9][a-z0-9-]{1,63}$/.test(slug)) {
+          throw new Error('create needs a kebab-case slug (a-z, 0-9, -)');
+        }
+        if (!instructions?.trim()) throw new Error('create needs instructions');
+        const draft = await learningEngine.createDraft({
+          slug,
+          sessionId: 'skill_manage',
+          agentId: 'agent',
+          instructions,
+          description,
+          tags,
+        });
+        return { ...draft, next: `Draft only — call skill_manage promote with slug "${draft.slug}" to make it live.` };
+      }
       throw new Error('slug required for promote action');
+    },
+    mcpManage: async ({ action, id, command, args, env, allowedTools }) => {
+      if (action === 'list') {
+        return { servers: (await integrationRegistry.list()).map((e) => ({ id: e.id, command: e.server.command, args: e.server.args, enabled: e.enabled })) };
+      }
+      if (!id || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id)) {
+        throw new Error('id must be lowercase a-z, 0-9, _ or -');
+      }
+      if (action === 'remove') {
+        const removed = await integrationRegistry.remove(id);
+        mcpBridge.invalidate(id);
+        await reloadMcpCatalog();
+        return { removed };
+      }
+      if (!command) throw new Error('add needs a command');
+      const allowed = (await integrationRegistry.load()).spec.agentAllowedCommands;
+      const executable = command.split('/').pop() ?? command;
+      if (command.includes('/') || !allowed.includes(executable)) {
+        throw new Error(
+          `command "${command}" is not in mcp/servers.yaml spec.agentAllowedCommands (${allowed.join(', ')}). Ask a human to add the server.`,
+        );
+      }
+      await integrationRegistry.upsert(id, {
+        command,
+        args: args ?? [],
+        env: env ?? {},
+        enabled: true,
+        transport: 'stdio',
+        ...(allowedTools?.length ? { allowedTools } : {}),
+      });
+      mcpBridge.invalidate(id);
+      const catalog = await reloadMcpCatalog();
+      const tools = catalog.names.filter((name) => name.startsWith(`anvio_mcp__${id}__`));
+      return {
+        added: id,
+        tools,
+        note: tools.length
+          ? 'Tools are live from the next turn; first use of each still needs approval.'
+          : 'Server saved but listed no tools — check the command, args and env.',
+      };
     },
     callMcpTool: async (serverId, toolName, args) => {
       const result = await mcpBridge.callTool({ serverId, toolName, arguments: args });

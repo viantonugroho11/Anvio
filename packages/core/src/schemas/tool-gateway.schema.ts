@@ -78,6 +78,7 @@ export const toolGatewaySpecSchema = z.object({
       computer_use: toolGatewayToolSchema.default({ enabled: false }),
       discord_admin: toolGatewayToolSchema.default({ enabled: false }),
       skill_manage: toolGatewayToolSchema.default({ enabled: false }),
+      mcp_manage: toolGatewayToolSchema.default({ enabled: false }),
       spotify_search: toolGatewayToolSchema.default({ enabled: false }),
       feishu_doc_read: toolGatewayToolSchema.default({ enabled: false }),
       rl_tool: toolGatewayToolSchema.default({ enabled: false }),

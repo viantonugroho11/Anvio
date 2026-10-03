@@ -326,8 +326,19 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                     }),
                   );
                 } else if (fullContent.trim() && !harness.hasDeliveredReply(sessionId)) {
+                  // Strict mode used to drop the whole answer here, so a model
+                  // that forgot anvio_channel__reply left the user with nothing
+                  // (or only an earlier one-line status ping). Deliver the raw
+                  // turn instead — silence is never the better failure.
                   console.warn(
-                    `[gateway] Harness strict: session ${sessionId} completed without anvio_channel__reply`,
+                    `[gateway] Harness strict: session ${sessionId} completed without anvio_channel__reply; delivering raw output`,
+                  );
+                  await deliver('reply', sessionId, channel, () =>
+                    channelHub.sendMessage(channel as ChannelType, sessionId, {
+                      sessionId,
+                      type: 'done',
+                      content: fullContent,
+                    }),
                   );
                 }
                 // task_completed used to fire unconditionally, so every chat

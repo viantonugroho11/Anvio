@@ -67,7 +67,10 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   video_generate: 'Generate video (MCP video-gen server or mock). Args: { "prompt" }',
   computer_use: 'Desktop automation (macOS CUA). Args: { "action", "target"? }',
   discord_admin: 'Discord guild admin. Args: { "action": "list_channels"|"list_members", "guild_id" }',
-  skill_manage: 'Manage skill drafts. Args: { "action": "promote"|"list_drafts", "slug"? }',
+  skill_manage:
+    'Manage skills. "create" writes a new draft (then "promote" it to make it live). Args: { "action": "create"|"promote"|"list_drafts", "slug"?, "description"?, "instructions"?, "tags"? }',
+  mcp_manage:
+    'Register or remove MCP servers; new tools are available on the next turn. Put secrets in env as "${VAR}" placeholders, never literal values. Args: { "action": "list"|"add"|"remove", "id"?, "command"?, "args"?, "env"?, "allowedTools"? }',
   spotify_search: 'Search Spotify (MCP or API). Args: { "query" }',
   feishu_doc_read: 'Read Feishu doc (MCP). Args: { "document_id" }',
   rl_tool: 'RL training ops via MCP, direct Tinker-Atropos HTTP, or mock. Args: { "action", "params"? }',
