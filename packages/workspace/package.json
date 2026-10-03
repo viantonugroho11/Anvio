@@ -15,7 +15,7 @@
   "dependencies": {
     "@anvio/core": "workspace:*",
     "@anvio/storage": "workspace:*",
-    "better-sqlite3": "^11.9.1",
+    "better-sqlite3": "^12.11.1",
     "uuid": "^14.0.0",
     "yaml": "^2.8.0"
   },
