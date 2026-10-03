@@ -44,6 +44,12 @@ export interface RuntimeRequest {
   session: Session;
   agent: AgentDefinition;
   input: UserInput;
+  /**
+   * Persona + skills + soul prompt assembled by the agent runtime. Vendor
+   * runtimes (Claude Code, …) never see `personas/*.md` otherwise, so the
+   * agent's identity and rules were silently dropped (issue #102).
+   */
+  systemPrompt?: string;
 }
 
 export interface RuntimeResult {
