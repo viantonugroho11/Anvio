@@ -376,8 +376,10 @@ export class WorkspaceConfigLoader implements ConfigLoader {
   }
 
   async loadSkill(slug: string): Promise<SkillDefinition> {
-    const md = await this.readText(`skills/${slug}.md`, `skills/${slug}/SKILL.md`);
-    if (md) return parseSkillMd(md, slug);
+    const flat = await this.readText(`skills/${slug}.md`);
+    if (flat) return parseSkillMd(flat, slug);
+    const nested = await this.readText(`skills/${slug}/SKILL.md`);
+    if (nested) return parseSkillMd(nested, slug, { baseDir: `skills/${slug}` });
     const yaml = await this.readYaml(`skills/${slug}.yaml`, `skills/${slug}.yml`);
     return parseSkillDefinition(yaml);
   }

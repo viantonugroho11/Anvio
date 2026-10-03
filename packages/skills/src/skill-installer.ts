@@ -1,14 +1,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import type { SkillDefinition } from '@anvio/core';
+import { parseSkillMd, type SkillDefinition } from '@anvio/core';
 import type { SkillCatalogResolver } from './catalog-resolver.js';
 
 export interface InstalledSkillManifest {
   apiVersion: 'anvio.io/v1';
   kind: 'SkillManifest';
   spec: {
-    installed: Array<{ slug: string; version: string; source: 'bundled' | 'url'; installedAt: string }>;
+    installed: Array<{ slug: string; version: string; source: 'bundled' | 'url' | 'dir'; installedAt: string }>;
   };
 }
 
@@ -32,6 +32,24 @@ export class SkillInstaller {
     await fs.mkdir(this.workspaceSkillsDir, { recursive: true });
     await fs.writeFile(path.join(this.workspaceSkillsDir, `${slug}.yaml`), raw, 'utf-8');
     await this.recordInstall(skill, 'bundled');
+    return skill;
+  }
+
+  /**
+   * Install an agentskills.io / Hermes-style skill folder (`<dir>/SKILL.md` plus
+   * optional `scripts/`, `references/`, …) into `skills/<slug>/`.
+   */
+  async installFromDir(srcDir: string, slug = path.basename(path.resolve(srcDir))): Promise<SkillDefinition> {
+    const raw = await fs.readFile(path.join(srcDir, 'SKILL.md'), 'utf-8').catch(() => null);
+    if (!raw) {
+      throw new Error(`No SKILL.md found in ${srcDir}`);
+    }
+    const skill = parseSkillMd(raw, slug, { baseDir: `skills/${slug}` });
+
+    const dest = path.join(this.workspaceSkillsDir, slug);
+    await fs.rm(dest, { recursive: true, force: true });
+    await fs.cp(srcDir, dest, { recursive: true });
+    await this.recordInstall(skill, 'dir');
     return skill;
   }
 
@@ -63,12 +81,13 @@ export class SkillInstaller {
 
   async remove(slug: string): Promise<void> {
     await fs.rm(path.join(this.workspaceSkillsDir, `${slug}.yaml`), { force: true });
+    await fs.rm(path.join(this.workspaceSkillsDir, slug), { recursive: true, force: true });
     const manifest = await this.readManifest();
     manifest.spec.installed = manifest.spec.installed.filter((s) => s.slug !== slug);
     await this.writeManifest(manifest);
   }
 
-  private async recordInstall(skill: SkillDefinition, source: 'bundled' | 'url'): Promise<void> {
+  private async recordInstall(skill: SkillDefinition, source: 'bundled' | 'url' | 'dir'): Promise<void> {
     const manifest = await this.readManifest();
     const entry = {
       slug: skill.metadata.slug,
