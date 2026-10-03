@@ -233,6 +233,33 @@ export class LearningEngine {
   }
 
   /**
+   * Write an agent-authored skill draft (ADR-0036 `skill_manage create`).
+   * It lands in `_drafts` like learning-loop output, so going live still needs
+   * `promoteDraft` — the same review step every other draft passes through.
+   */
+  createDraft(input: {
+    slug: string;
+    sessionId: string;
+    agentId: string;
+    instructions: string;
+    description?: string;
+    tags?: string[];
+  }): Promise<{ path: string; slug: string }> {
+    return this.skillWriter
+      .proposeDraft({
+        slug: input.slug,
+        sessionId: input.sessionId,
+        agentId: input.agentId,
+        topic: input.description ?? input.slug,
+        instructions: input.instructions,
+        sourceExcerpt: '(authored by agent via skill_manage)',
+        description: input.description,
+        tags: input.tags,
+      })
+      .then((draft) => ({ path: draft.path, slug: draft.definition.metadata.slug }));
+  }
+
+  /**
    * Promote a draft to workspace/skills. Returns { path, alreadyExisted,
    * diff? }. When the target already exists and differs, the write is
    * refused unless `force: true` and `diff` carries the change so the

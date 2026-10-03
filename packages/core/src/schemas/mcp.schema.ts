@@ -18,6 +18,12 @@ export const mcpConfigSchema = z.object({
   }),
   spec: z.object({
     firstCallApproval: z.boolean().default(true),
+    /**
+     * Executables the `mcp_manage` tool may register (ADR-0036). An agent can
+     * only add a server whose `command` basename is listed here; humans editing
+     * servers.yaml directly are not constrained.
+     */
+    agentAllowedCommands: z.array(z.string()).default(['npx', 'uvx', 'node', 'python3', 'docker']),
     servers: z.record(mcpServerSpecSchema).default({}),
   }),
 });

@@ -96,7 +96,8 @@ export function harnessToolDefinitions(): Array<{
   return [
     {
       name: 'anvio_channel__reply',
-      description: 'Send a reply to the user on the current channel',
+      description:
+        'Send your answer to the user on the current channel. `text` is everything the user will see: put the complete, final answer here (full length, markdown allowed) — not a summary or status line.',
       inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
     },
     {

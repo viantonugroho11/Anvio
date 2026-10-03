@@ -53,8 +53,8 @@ function pendingApprovalResult(
 
 /** Exposes MCP bridge tools to the agent runtime with optional first-call approval. */
 export class McpToolPort implements RuntimeToolPort {
-  private readonly mcpToolNames: string[];
-  private readonly mcpToolDefinitions: ModelToolDefinition[];
+  private mcpToolNames: string[];
+  private mcpToolDefinitions: ModelToolDefinition[];
 
   constructor(
     private readonly inner: RuntimeToolPort,
@@ -62,6 +62,12 @@ export class McpToolPort implements RuntimeToolPort {
   ) {
     this.mcpToolNames = options.mcpToolNames ?? [];
     this.mcpToolDefinitions = options.mcpToolDefinitions ?? [];
+  }
+
+  /** Swap the MCP catalog in place after a server is added or removed (ADR-0036). */
+  setCatalog(catalog: { names: string[]; definitions: ModelToolDefinition[] }): void {
+    this.mcpToolNames = catalog.names;
+    this.mcpToolDefinitions = catalog.definitions;
   }
 
   listTools(): string[] {
@@ -165,7 +171,7 @@ export async function loadMcpToolCatalog(
   return { names, definitions };
 }
 
-export function createMcpToolPort(inner: RuntimeToolPort, options: McpToolPortOptions): RuntimeToolPort {
+export function createMcpToolPort(inner: RuntimeToolPort, options: McpToolPortOptions): McpToolPort {
   return new McpToolPort(inner, options);
 }
 

@@ -185,6 +185,11 @@ export class McpBridge {
     }
   }
 
+  /** Drop a cached stdio client so the next call respawns from current config. */
+  invalidate(serverId: string): void {
+    this.invalidateStdioClient(serverId);
+  }
+
   private invalidateStdioClient(serverId: string): void {
     const client = this.clients.get(serverId);
     if (client) {

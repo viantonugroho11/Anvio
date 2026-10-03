@@ -58,6 +58,7 @@ export class HarnessAwareToolPort implements RuntimeToolPort {
         [
           '## Channel output tools (all channels)',
           'On external channels, send user-visible text via `anvio_channel__reply`.',
+          'Text outside that tool is NOT shown to the user, so pass your complete answer as `text` — do not shorten it into a summary.',
           'Before mutating actions, call `anvio_channel__request_approval` with a plan summary.',
           'Approvers are matched from SOUL.md on any connected channel (Slack, Telegram, WhatsApp, …).',
           '',

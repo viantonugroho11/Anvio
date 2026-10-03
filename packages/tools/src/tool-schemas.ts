@@ -388,7 +388,25 @@ const TOOL_SCHEMAS: Record<string, Record<string, unknown>> = {
   },
   skill_manage: {
     type: 'object',
-    properties: { action: { type: 'string', enum: ['promote', 'list_drafts'] }, slug: { type: 'string' } },
+    properties: {
+      action: { type: 'string', enum: ['promote', 'list_drafts', 'create'] },
+      slug: { type: 'string' },
+      description: { type: 'string' },
+      instructions: { type: 'string' },
+      tags: { type: 'array', items: { type: 'string' } },
+    },
+    required: ['action'],
+  },
+  mcp_manage: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['list', 'add', 'remove'] },
+      id: { type: 'string' },
+      command: { type: 'string' },
+      args: { type: 'array', items: { type: 'string' } },
+      env: { type: 'object', additionalProperties: { type: 'string' } },
+      allowedTools: { type: 'array', items: { type: 'string' } },
+    },
     required: ['action'],
   },
   spotify_search: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },

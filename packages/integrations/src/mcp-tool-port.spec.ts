@@ -156,3 +156,22 @@ describe('McpToolPort × McpFirstCallGate', () => {
     expect(instr).toContain('anvio_mcp__github__search_code');
   });
 });
+
+describe('McpToolPort.setCatalog (ADR-0036)', () => {
+  it('exposes tools added after construction', () => {
+    const port = new McpToolPort(makeInnerPort(), {
+      mcpBridge: makeBridge(),
+      gate: createMcpFirstCallGate({ enabled: false }),
+    });
+    expect(port.listTools()).toEqual(['builtin:noop']);
+
+    port.setCatalog({
+      names: ['anvio_mcp__fs__read'],
+      definitions: [{ name: 'anvio_mcp__fs__read', description: 'read', inputSchema: {} }],
+    });
+
+    expect(port.listTools()).toEqual(['builtin:noop', 'anvio_mcp__fs__read']);
+    expect(port.getModelToolDefinitions().map((d) => d.name)).toEqual(['anvio_mcp__fs__read']);
+    expect(port.getToolInstructions()).toContain('anvio_mcp__fs__read');
+  });
+});
