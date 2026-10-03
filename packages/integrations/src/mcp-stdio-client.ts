@@ -16,10 +16,32 @@ interface JsonRpcMessage {
   error?: { code: number; message: string };
 }
 
+/** Shared by every MCP transport: a single text part is unwrapped (and JSON-parsed when it is JSON). */
+export function unwrapCallToolResult(raw: unknown): unknown {
+  const result = raw as { content?: Array<{ type: string; text?: string }>; isError?: boolean };
+  const textParts = (result.content ?? [])
+    .filter((part) => part.type === 'text' && part.text)
+    .map((part) => part.text!);
+
+  if (textParts.length === 1) {
+    try {
+      return JSON.parse(textParts[0]!);
+    } catch {
+      return textParts[0];
+    }
+  }
+
+  return { content: result.content, isError: result.isError };
+}
+
+export function resolvePlaceholders(value: string): string {
+  return value.replace(/\$\{(\w+)\}/g, (_, name: string) => process.env[name] ?? '');
+}
+
 function resolveEnv(env: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = { ...process.env } as Record<string, string>;
   for (const [key, value] of Object.entries(env)) {
-    out[key] = value.replace(/\$\{(\w+)\}/g, (_, name: string) => process.env[name] ?? '');
+    out[key] = resolvePlaceholders(value);
   }
   return out;
 }
@@ -44,6 +66,7 @@ export class McpStdioClient {
   }
 
   private async spawnProcess(): Promise<void> {
+    if (!this.spec.command) throw new Error('MCP stdio server has no command');
     this.proc = spawn(this.spec.command, this.spec.args, {
       env: resolveEnv(this.spec.env),
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -97,24 +120,7 @@ export class McpStdioClient {
 
   async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
     await this.ensureRunning();
-    const result = (await this.request('tools/call', { name, arguments: args })) as {
-      content?: Array<{ type: string; text?: string }>;
-      isError?: boolean;
-    };
-
-    const textParts = (result.content ?? [])
-      .filter((part) => part.type === 'text' && part.text)
-      .map((part) => part.text!);
-
-    if (textParts.length === 1) {
-      try {
-        return JSON.parse(textParts[0]!);
-      } catch {
-        return textParts[0];
-      }
-    }
-
-    return { content: result.content, isError: result.isError };
+    return unwrapCallToolResult(await this.request('tools/call', { name, arguments: args }));
   }
 
   getRestartCount(): number {

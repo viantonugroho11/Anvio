@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-10-03
+
+**Agents can extend themselves: create skills, install MCP servers (local or remote), no restart.** Recorded as ADRs 0036–0037.
+
+### Added
+
+- **`skill_manage create`** ([#99](https://github.com/viantonugroho11/Anvio/pull/99), [ADR 0036](docs/adr/0036-agent-managed-skills-and-mcp-servers.md)) — an agent can author a new skill. It lands in `workspace/skills/_drafts` like learning-loop output; `promote` is still the only way to make it live.
+- **`mcp_manage` tool** ([#99](https://github.com/viantonugroho11/Anvio/pull/99), [ADR 0036](docs/adr/0036-agent-managed-skills-and-mcp-servers.md)) — `list | add | remove` MCP servers at runtime. New tools are available on the next turn without a gateway restart (`McpToolPort.setCatalog`). `servers.yaml` is edited as raw YAML, so `${ENV}` secrets of other servers are never written back expanded.
+- **Remote MCP servers over HTTP** ([#100](https://github.com/viantonugroho11/Anvio/pull/100), [ADR 0037](docs/adr/0037-remote-mcp-servers-over-http.md)) — `transport: http` with `url` and `headers` (`${VAR}` placeholders allowed). Speaks Streamable HTTP (JSON or SSE replies, `Mcp-Session-Id`) and falls back to the legacy HTTP+SSE transport. `mcp_manage add` accepts a `url`, so "add this MCP: <link>" works for hosted servers.
+
+### Fixed
+
+- **Telegram replies cut down to one-liners** ([#99](https://github.com/viantonugroho11/Anvio/pull/99)) — in harness strict mode (`suppressRawOutput: true`) only the text passed to `anvio_channel__reply` reached the user, and models filled it with a summary. The tool and instructions now ask for the complete answer, and a turn that never calls `reply` delivers its raw output instead of dropping it.
+- **CI red on `main` after #99** ([#100](https://github.com/viantonugroho11/Anvio/pull/100)) — the built-in tool-count assertion still expected 75 keys.
+
+### Security
+
+- `skill_manage` and `mcp_manage` are **disabled by default**. Local `add` is restricted to `mcp/servers.yaml` `spec.agentAllowedCommands` (default `npx, uvx, node, python3, docker`). That restricts the launcher, not the package: `npx -y <anything>` is still arbitrary code. Remote urls must be `https` (plain `http` only for localhost). First-call approval still gates every new MCP tool.
+
+### Known limitations
+
+- Remote MCP servers that require the OAuth browser flow are not supported; only static headers work.
+- Server-initiated MCP requests (sampling, elicitation) and resumable streams are not handled.
+- The legacy SSE fallback is covered by unit tests only; Streamable HTTP was verified against a live public server.
+
+---
+
 ## [2.7.0] - 2026-10-02
 
 **gbrain memory, a persistent `/1on1` thread lock, an end-to-end simulator, and `/remote` tool execution on your own machine.** Gap analysis against [slaude](https://github.com/barockok/slaude) recorded as ADRs 0032–0035.

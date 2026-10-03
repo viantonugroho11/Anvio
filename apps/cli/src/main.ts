@@ -2498,7 +2498,7 @@ async function cmdMcp(sub: string[]) {
     case 'list': {
       const entries = await registry.list();
       for (const entry of entries) {
-        console.log(`  ${entry.id} [${entry.enabled ? 'enabled' : 'disabled'}] ${entry.server.command}`);
+        console.log(`  ${entry.id} [${entry.enabled ? 'enabled' : 'disabled'}] ${entry.server.command ?? entry.server.url}`);
       }
       break;
     }

@@ -837,10 +837,9 @@ export async function runBuiltinTool(
           id: a.id ? String(a.id) : undefined,
           command: a.command ? String(a.command) : undefined,
           args: Array.isArray(a.args) ? a.args.map(String) : undefined,
-          env:
-            a.env && typeof a.env === 'object'
-              ? Object.fromEntries(Object.entries(a.env as Record<string, unknown>).map(([k, v]) => [k, String(v)]))
-              : undefined,
+          env: toStringRecord(a.env),
+          url: a.url ? String(a.url) : undefined,
+          headers: toStringRecord(a.headers),
           allowedTools: Array.isArray(a.allowedTools) ? a.allowedTools.map(String) : undefined,
         });
         return { name: call.name, output: out, status: 'completed' };
@@ -884,4 +883,9 @@ export async function runBuiltinTool(
     default:
       return { name: call.name, output: null, status: 'skipped', error: 'Not implemented' };
   }
+}
+
+function toStringRecord(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, String(v)]));
 }

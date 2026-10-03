@@ -1,14 +1,32 @@
 import { z } from 'zod';
 
-export const mcpServerSpecSchema = z.object({
-  command: z.string().min(1),
-  args: z.array(z.string()).default([]),
-  env: z.record(z.string()).default({}),
-  enabled: z.boolean().default(true),
-  transport: z.enum(['stub', 'stdio']).default('stdio'),
-  /** When set, only these MCP tool names are exposed to the agent for this server. */
-  allowedTools: z.array(z.string()).optional(),
-});
+export const mcpServerSpecSchema = z
+  .object({
+    /** stdio: executable to spawn. */
+    command: z.string().min(1).optional(),
+    args: z.array(z.string()).default([]),
+    env: z.record(z.string()).default({}),
+    enabled: z.boolean().default(true),
+    /**
+     * `http` is a remote server (ADR-0037): Streamable HTTP, falling back to
+     * the legacy HTTP+SSE transport when the endpoint rejects a POST.
+     */
+    transport: z.enum(['stub', 'stdio', 'http']).default('stdio'),
+    /** http: server endpoint, e.g. https://mcp.example.com/mcp or …/sse. */
+    url: z.string().url().optional(),
+    /** http: extra request headers; values may use ${VAR} placeholders. */
+    headers: z.record(z.string()).default({}),
+    /** When set, only these MCP tool names are exposed to the agent for this server. */
+    allowedTools: z.array(z.string()).optional(),
+  })
+  .superRefine((spec, ctx) => {
+    if (spec.transport === 'http' && !spec.url) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['url'], message: 'url is required for transport http' });
+    }
+    if (spec.transport !== 'http' && !spec.command) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['command'], message: 'command is required for stdio/stub' });
+    }
+  });
 
 export const mcpConfigSchema = z.object({
   apiVersion: z.literal('anvio.io/v1'),

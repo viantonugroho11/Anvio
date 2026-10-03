@@ -291,7 +291,7 @@ export function createSlashCommandRegistry(
             reply: entries
               .map(
                 (e) =>
-                  `  ${e.id} [${e.enabled ? 'enabled' : 'disabled'}] ${e.server.command}`,
+                  `  ${e.id} [${e.enabled ? 'enabled' : 'disabled'}] ${e.server.command ?? e.server.url}`,
               )
               .join('\n'),
           };
