@@ -123,6 +123,7 @@ export function gbrainMemoryOptions(
       // Timeline writes (episodic) need operations beyond the seven MEMORY_VERBS.
       args: g?.args ?? (g?.episodic ? ['serve'] : ['serve', '--surface', 'verbs']),
       env: g?.env ?? {},
+      headers: {},
       enabled: true,
       transport: 'stdio',
     }),
@@ -833,9 +834,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       }
       throw new Error('slug required for promote action');
     },
-    mcpManage: async ({ action, id, command, args, env, allowedTools }) => {
+    mcpManage: async ({ action, id, command, args, env, url, headers, allowedTools }) => {
       if (action === 'list') {
-        return { servers: (await integrationRegistry.list()).map((e) => ({ id: e.id, command: e.server.command, args: e.server.args, enabled: e.enabled })) };
+        return { servers: (await integrationRegistry.list()).map((e) => ({ id: e.id, command: e.server.command, args: e.server.args, url: e.server.url, transport: e.server.transport, enabled: e.enabled })) };
       }
       if (!id || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id)) {
         throw new Error('id must be lowercase a-z, 0-9, _ or -');
@@ -846,7 +847,29 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         await reloadMcpCatalog();
         return { removed };
       }
-      if (!command) throw new Error('add needs a command');
+      if (url) {
+        let parsed: URL;
+        try {
+          parsed = new URL(url);
+        } catch {
+          throw new Error(`invalid url: ${url}`);
+        }
+        const local = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
+        if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && local)) {
+          throw new Error('remote MCP url must be https (plain http only for localhost)');
+        }
+        // Remote servers run nowhere locally, so the command allow-list does not apply.
+        await integrationRegistry.upsert(id, {
+          url,
+          headers: headers ?? {},
+          args: [],
+          env: {},
+          enabled: true,
+          transport: 'http',
+          ...(allowedTools?.length ? { allowedTools } : {}),
+        });
+      } else {
+      if (!command) throw new Error('add needs a command (local) or url (remote)');
       const allowed = (await integrationRegistry.load()).spec.agentAllowedCommands;
       const executable = command.split('/').pop() ?? command;
       if (command.includes('/') || !allowed.includes(executable)) {
@@ -858,10 +881,12 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         command,
         args: args ?? [],
         env: env ?? {},
+        headers: {},
         enabled: true,
         transport: 'stdio',
         ...(allowedTools?.length ? { allowedTools } : {}),
       });
+      }
       mcpBridge.invalidate(id);
       const catalog = await reloadMcpCatalog();
       const tools = catalog.names.filter((name) => name.startsWith(`anvio_mcp__${id}__`));
@@ -870,7 +895,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         tools,
         note: tools.length
           ? 'Tools are live from the next turn; first use of each still needs approval.'
-          : 'Server saved but listed no tools — check the command, args and env.',
+          : url
+            ? 'Server saved but listed no tools — check the url and auth headers (env vars set?).'
+            : 'Server saved but listed no tools — check the command, args and env.',
       };
     },
     callMcpTool: async (serverId, toolName, args) => {

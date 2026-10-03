@@ -1,5 +1,9 @@
 import type { IntegrationEntry, IntegrationRegistry } from './integration-registry.js';
+import { createMcpHttpClient, McpHttpClient } from './mcp-http-client.js';
 import { createMcpStdioClient, McpStdioClient } from './mcp-stdio-client.js';
+
+type McpClient = McpStdioClient | McpHttpClient;
+type LiveTransport = 'stdio' | 'http';
 
 export interface McpToolCall {
   serverId: string;
@@ -13,7 +17,7 @@ export interface McpToolResult {
   output: unknown;
   status: 'completed' | 'failed' | 'skipped';
   error?: string;
-  transport?: 'stub' | 'stdio';
+  transport?: 'stub' | LiveTransport;
 }
 
 export interface McpToolDescriptor {
@@ -24,7 +28,7 @@ export interface McpToolDescriptor {
 export interface McpServerHealth {
   serverId: string;
   enabled: boolean;
-  transport: 'stub' | 'stdio';
+  transport: 'stub' | LiveTransport;
   connected: boolean;
   restartCount: number;
   toolCount: number;
@@ -32,7 +36,7 @@ export interface McpServerHealth {
 }
 
 export class McpBridge {
-  private readonly clients = new Map<string, McpStdioClient>();
+  private readonly clients = new Map<string, McpClient>();
 
   constructor(
     private readonly registry: IntegrationRegistry,
@@ -97,7 +101,7 @@ export class McpBridge {
       return { ok: false, tools: [], message: `Server disabled: ${serverId}` };
     }
     const tools = await this.listTools(serverId);
-    const transport = usesStdioTransport(entry) ? 'stdio' : 'stub';
+    const transport = liveTransport(entry) ?? 'stub';
     return { ok: true, tools, message: `Server ${serverId} ready (${tools.length} tools, ${transport})` };
   }
 
@@ -125,7 +129,7 @@ export class McpBridge {
         continue;
       }
 
-      const transport = usesStdioTransport(entry) ? 'stdio' : 'stub';
+      const transport = liveTransport(entry) ?? 'stub';
       const client = this.clients.get(entry.id);
       const tools = await this.listTools(entry.id);
       report.push({
@@ -143,16 +147,23 @@ export class McpBridge {
   }
 
   private async tryListStdioTools(entry: IntegrationEntry): Promise<McpToolDescriptor[] | null> {
-    if (!usesStdioTransport(entry)) return null;
+    const transport = liveTransport(entry);
+    if (!transport) return null;
     try {
-      const client = await this.getStdioClient(entry);
+      const client = await this.getClient(entry);
       const tools = await client.listTools();
       return tools.map((tool) => ({
         name: tool.name,
         description: tool.description ?? '',
       }));
-    } catch {
+    } catch (error) {
       this.invalidateStdioClient(entry.id);
+      // A stub `ping` stands in for a broken stdio server (existing behaviour);
+      // for a remote server that would advertise a tool that cannot exist.
+      if (transport === 'http') {
+        console.error(`[mcp-http] ${entry.id}: ${error instanceof Error ? error.message : String(error)}`);
+        return [];
+      }
       return null;
     }
   }
@@ -161,16 +172,17 @@ export class McpBridge {
     entry: IntegrationEntry,
     call: McpToolCall,
   ): Promise<McpToolResult | null> {
-    if (!usesStdioTransport(entry)) return null;
+    const transport = liveTransport(entry);
+    if (!transport) return null;
     try {
-      const client = await this.getStdioClient(entry);
+      const client = await this.getClient(entry);
       const output = await client.callTool(call.toolName, call.arguments ?? {});
       return {
         serverId: call.serverId,
         toolName: call.toolName,
         output,
         status: 'completed',
-        transport: 'stdio',
+        transport,
       };
     } catch (error) {
       this.invalidateStdioClient(entry.id);
@@ -180,7 +192,7 @@ export class McpBridge {
         output: null,
         status: 'failed',
         error: error instanceof Error ? error.message : String(error),
-        transport: 'stdio',
+        transport,
       };
     }
   }
@@ -198,20 +210,24 @@ export class McpBridge {
     }
   }
 
-  private async getStdioClient(entry: IntegrationEntry): Promise<McpStdioClient> {
+  private async getClient(entry: IntegrationEntry): Promise<McpClient> {
     const existing = this.clients.get(entry.id);
     if (existing) return existing;
 
-    const client = createMcpStdioClient(entry.server);
+    const client: McpClient =
+      entry.server.transport === 'http'
+        ? createMcpHttpClient(entry.server)
+        : createMcpStdioClient(entry.server);
     this.clients.set(entry.id, client);
     await client.start();
     return client;
   }
 }
 
-function usesStdioTransport(entry: IntegrationEntry): boolean {
-  if (process.env.ANVIO_MCP_STUB === '1') return false;
-  return entry.server.transport !== 'stub';
+function liveTransport(entry: IntegrationEntry): LiveTransport | null {
+  if (process.env.ANVIO_MCP_STUB === '1') return null;
+  if (entry.server.transport === 'stub') return null;
+  return entry.server.transport === 'http' ? 'http' : 'stdio';
 }
 
 const DEFAULT_STUB_TOOLS: Record<string, McpToolDescriptor[]> = {
@@ -226,4 +242,4 @@ export function createMcpBridge(registry: IntegrationRegistry): McpBridge {
   return new McpBridge(registry);
 }
 
-export { createMcpStdioClient, McpStdioClient };
+export { createMcpStdioClient, McpStdioClient, createMcpHttpClient, McpHttpClient };

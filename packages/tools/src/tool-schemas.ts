@@ -405,6 +405,8 @@ const TOOL_SCHEMAS: Record<string, Record<string, unknown>> = {
       command: { type: 'string' },
       args: { type: 'array', items: { type: 'string' } },
       env: { type: 'object', additionalProperties: { type: 'string' } },
+      url: { type: 'string' },
+      headers: { type: 'object', additionalProperties: { type: 'string' } },
       allowedTools: { type: 'array', items: { type: 'string' } },
     },
     required: ['action'],

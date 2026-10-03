@@ -53,6 +53,9 @@ export type McpManageFn = (input: {
   command?: string;
   args?: string[];
   env?: Record<string, string>;
+  /** Remote server endpoint; when set the server uses transport http. */
+  url?: string;
+  headers?: Record<string, string>;
   allowedTools?: string[];
 }) => Promise<unknown>;
 

@@ -70,7 +70,7 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   skill_manage:
     'Manage skills. "create" writes a new draft (then "promote" it to make it live). Args: { "action": "create"|"promote"|"list_drafts", "slug"?, "description"?, "instructions"?, "tags"? }',
   mcp_manage:
-    'Register or remove MCP servers; new tools are available on the next turn. Put secrets in env as "${VAR}" placeholders, never literal values. Args: { "action": "list"|"add"|"remove", "id"?, "command"?, "args"?, "env"?, "allowedTools"? }',
+    'Register or remove MCP servers; new tools are available on the next turn. Local server: "command"+"args". Remote server: "url" (+ "headers", e.g. Authorization). Put secrets as "${VAR}" placeholders, never literal values. Args: { "action": "list"|"add"|"remove", "id"?, "command"?, "args"?, "env"?, "url"?, "headers"?, "allowedTools"? }',
   spotify_search: 'Search Spotify (MCP or API). Args: { "query" }',
   feishu_doc_read: 'Read Feishu doc (MCP). Args: { "document_id" }',
   rl_tool: 'RL training ops via MCP, direct Tinker-Atropos HTTP, or mock. Args: { "action", "params"? }',
