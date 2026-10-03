@@ -19,7 +19,7 @@ import {
   MODEL_PROVIDER_IDS,
   OPENAI_COMPATIBLE_PROVIDER_SPECS,
 } from '@anvio/models';
-import { createSkillCatalogResolver, createSkillInstaller, createSkillTestRunner } from '@anvio/skills';
+import { createSkillCatalogResolver, createSkillInstaller, createSkillTestRunner, importSkills } from '@anvio/skills';
 import { createAcpServer } from '@anvio/acp';
 import { createCodeExecutor, ExecutionAuditLog } from '@anvio/execution';
 import {
@@ -154,6 +154,7 @@ async function main() {
       await cmdPlanner(args.slice(1));
       break;
     case 'skill':
+    case 'skills':
       await cmdSkill(args.slice(1));
       break;
     case 'mcp':
@@ -236,7 +237,7 @@ Execution & Providers
   anvio credentials list|add|test      Encrypted credential pools
   anvio routing show|providers|catalog|test  Provider routing and fallback
   anvio usage stats [--json] [--last 24h] Token usage from audit ledger
-  anvio skill catalog|install|validate|upgrade|test  Skills catalog management & testing
+  anvio skill catalog|install|import|validate|upgrade|test  Skills catalog management & testing
   anvio mcp list|test|health|preset    MCP integration servers
   anvio tools list|test                Built-in tool gateway (Phase H)
   anvio kb list|ingest|sync|import-manifest   Knowledge base pipeline
@@ -1944,6 +1945,27 @@ async function cmdSkill(sub: string[]) {
       }
       const skill = await installer.install(slug);
       console.log(`Installed skill: ${skill.metadata.slug}@${skill.metadata.version}`);
+      break;
+    }
+    case 'import': {
+      const source = sub[1];
+      if (!source || source.startsWith('--')) {
+        console.error('Usage: anvio skill import <dir|git-url> [--path <subdir>] [--name <slug>] [--ref <branch>]');
+        process.exit(1);
+      }
+      const flag = (name: string) => {
+        const idx = sub.indexOf(name);
+        return idx >= 0 ? sub[idx + 1] : undefined;
+      };
+      const skills = await importSkills(installer, source, {
+        subPath: flag('--path'),
+        slug: flag('--name'),
+        ref: flag('--ref'),
+      });
+      for (const skill of skills) {
+        console.log(`Imported skill: ${skill.metadata.slug}@${skill.metadata.version}`);
+      }
+      console.log(`\n${skills.length} skill(s) imported into ${path.join(wsPath, 'skills')}`);
       break;
     }
     case 'validate': {

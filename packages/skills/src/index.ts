@@ -77,6 +77,7 @@ export {
   createSkillCatalogResolver,
 } from './catalog-resolver.js';
 export { SkillInstaller, createSkillInstaller } from './skill-installer.js';
+export { importSkills, findSkillDirs, isGitSource, type SkillImportOptions } from './skill-import.js';
 export { validateParams, interpolateArgs, SkillParamError } from './param-validator.js';
 export type { ParamContext } from './param-validator.js';
 export { executeSkill, SkillStepError } from './executor.js';
