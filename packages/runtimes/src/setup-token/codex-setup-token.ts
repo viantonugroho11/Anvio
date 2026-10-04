@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnVendorCli, combinedOutput } from './spawn-vendor-cli.js';
+import { resolveCodexCommand } from '../codex/codex-binary.js';
 
 export const CODEX_CONNECTION_SERVICE = 'codex';
 
@@ -33,10 +34,10 @@ export async function runCodexSetupToken(
     };
   }
 
-  const binary = options.binary ?? 'codex';
+  const { binary, prefixArgs } = resolveCodexCommand(options.binary);
   const login = await spawnVendorCli({
     binary,
-    args: ['login'],
+    args: [...prefixArgs, 'login'],
     timeoutMs: options.timeoutMs,
   });
 

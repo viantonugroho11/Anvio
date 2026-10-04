@@ -18,7 +18,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@a2a-js/sdk": "^1.1.0",
+    "@a2a-js/sdk": "^1.3.0",
     "@anvio/core": "workspace:*",
     "express": "^5.2.1"
   },

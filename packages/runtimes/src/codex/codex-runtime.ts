@@ -15,6 +15,7 @@ import {
   resolveCodexAuthJson,
 } from './codex-auth.js';
 import { combinedVendorOutput, runVendorCliCommand } from '../shared/vendor-cli-runtime.js';
+import { resolveCodexCommand } from './codex-binary.js';
 
 export interface CodexRuntimeOptions {
   binary?: string;
@@ -81,14 +82,14 @@ export class CodexRuntimeProvider implements RuntimeProvider {
 
   async run(request: RuntimeRequest): Promise<RuntimeResult> {
     const { env } = await this.authHomeForRequest(request);
-    const binary = this.options.binary ?? 'codex';
+    const { binary, prefixArgs } = resolveCodexCommand(this.options.binary);
     const cwd = this.options.cwd ?? process.cwd();
 
     const result = await this.exec({
       binary,
       // `codex exec` is one-shot: replay the transcript so the turn has
       // context (issue #63).
-      args: this.execArgs(buildPromptWithHistory(request)),
+      args: [...prefixArgs, ...this.execArgs(buildPromptWithHistory(request))],
       cwd,
       env,
       timeoutMs: this.options.timeoutMs,
