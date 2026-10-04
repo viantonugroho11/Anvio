@@ -107,7 +107,7 @@ export async function runRuntimeSetupToken(
     }
     case 'codex': {
       const result = await runCodexSetupToken({
-        binary: options.binary ?? 'codex',
+        binary: options.binary,
         timeoutMs: options.timeoutMs,
         explicitToken: options.explicitToken,
       });
