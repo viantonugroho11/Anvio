@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-10-04
+
+**Hermes Agent / agentskills.io skills drop straight into Anvio: load skill folders, import them from a path or git repo.**
+
+### Added
+
+- **`anvio skill import <dir|git-url>`** ([#107](https://github.com/viantonugroho11/Anvio/pull/107)) — imports agentskills.io / Hermes-style skill folders. Git sources are shallow-cloned to a temp dir that is always removed. A source with a top-level `SKILL.md` imports one skill; otherwise every nested skill folder is imported (depth ≤ 4), so a whole Hermes category works: `anvio skills import https://github.com/nousresearch/hermes-agent --path skills/research`. Flags: `--path <subdir>` (cannot escape the source), `--name <slug>` (single skill only), `--ref <branch>`. `anvio skills` is now an alias of `anvio skill`. Logic lives in `@anvio/skills` (`importSkills`, `findSkillDirs`, `isGitSource`).
+- **`SkillInstaller.installFromDir`** ([#106](https://github.com/viantonugroho11/Anvio/pull/106)) — copies a skill folder (`SKILL.md` plus `scripts/`, `references/`, …) into `workspace/skills/<slug>/`, recorded in the manifest with `source: 'dir'`. `remove()` also deletes the folder.
+
+### Changed
+
+- **Vendor skill tags are kept** ([#106](https://github.com/viantonugroho11/Anvio/pull/106)) — `parseSkillMd` merges `metadata.<vendor>.tags` (e.g. `metadata.hermes.tags`) with top-level `tags`, deduplicated.
+- **Folder skills know where their files are** ([#106](https://github.com/viantonugroho11/Anvio/pull/106)) — `skills/<slug>/SKILL.md` gets a workspace-relative directory hint prepended to its instructions so `scripts/...` references resolve. Flat `skills/<slug>.md` skills are unchanged.
+
+### Known limitations
+
+- Imported skills may ship `scripts/` the agent can run; there is no content scan or signature check yet. Import only from sources you trust.
+- Hermes frontmatter `author`, `license`, `platforms` and `related_skills` are ignored (no schema slot yet).
+
+---
+
 ## [2.8.1] - 2026-10-03
 
 **Persona and soul now reach the Claude Code runtime, Node 24 works, and unset SOUL.md env vars are no longer silent.**
@@ -1369,7 +1390,8 @@ Carried forward, recorded rather than fixed:
 
 4. GitHub Actions **Release** workflow validates the build and publishes a GitHub Release with notes extracted from this file.
 
-[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.8.1...HEAD
+[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.9.0...HEAD
+[2.9.0]: https://github.com/viantonugroho11/Anvio/compare/v2.8.1...v2.9.0
 [2.8.1]: https://github.com/viantonugroho11/Anvio/compare/v2.8.0...v2.8.1
 [2.8.0]: https://github.com/viantonugroho11/Anvio/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/viantonugroho11/Anvio/compare/v2.6.4...v2.7.0
