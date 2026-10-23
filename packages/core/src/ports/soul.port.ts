@@ -17,7 +17,12 @@ export interface SoulContext {
 export interface SoulStore {
   list(): Promise<string[]>;
   get(slug: string): Promise<SoulDefinition | null>;
-  save(definition: SoulDefinition): Promise<SoulDefinition>;
+  /**
+   * `source` is the SOUL.md text the definition came from, when there is one.
+   * Sections the definition has no field for (`## Approvers`, `## Mandate`, …)
+   * are carried over from it so saving never drops policy.
+   */
+  save(definition: SoulDefinition, source?: string): Promise<SoulDefinition>;
   delete(slug: string): Promise<boolean>;
 }
 

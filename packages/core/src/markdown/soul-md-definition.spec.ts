@@ -12,10 +12,11 @@ const BODY = `# Tech Lead Soul
 `;
 
 describe('parseSoulDefinitionMd', () => {
-  it('keeps the permissive defaults when no frontmatter is present', () => {
+  it('keeps the defaults when no frontmatter is present', () => {
     const soul = parseSoulDefinitionMd(BODY, 'tech-lead-soul');
     expect(soul.spec.evolution.allowAutoUpdate).toBe(true);
-    expect(soul.spec.evolution.requireApproval).toBe(false);
+    // Tool-use skills need approval unless a soul opts out (audit T-001).
+    expect(soul.spec.evolution.requireApproval).toBe(true);
     // Schema default — capture only on an explicit /capture (issue #64).
     expect(soul.spec.evolution.captureOn).toBe('mention');
   });

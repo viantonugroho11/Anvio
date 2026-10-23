@@ -359,25 +359,27 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     },
   });
 
+  // The soul whose evolution policy gates learning for a run: the agent's own,
+  // else the workspace default. Both learning hooks use this, so an agent with
+  // `allowAutoUpdate: false` is skipped by session-end learning too — that hook
+  // used to read only the default soul (audit T-020).
+  const resolveLearningSoul = async (agentId: string) => {
+    try {
+      const agent = await workspace.loader.loadAgent(agentId);
+      if (agent.spec.soul) return await soulService.get(agent.spec.soul);
+    } catch {
+      // unknown agent or soul: fall through to the default
+    }
+    if (!spec.defaultSoul) return undefined;
+    try {
+      return await soulService.get(spec.defaultSoul);
+    } catch {
+      return undefined;
+    }
+  };
+
   toolGateway.setOnToolCompleted(async (ctx, call, result) => {
-    let soul = ctx.soul;
-    if (!soul) {
-      try {
-        const agent = await workspace.loader.loadAgent(ctx.agentId);
-        if (agent.spec.soul) {
-          soul = await soulService.get(agent.spec.soul);
-        }
-      } catch {
-        soul = undefined;
-      }
-    }
-    if (!soul && spec.defaultSoul) {
-      try {
-        soul = await soulService.get(spec.defaultSoul);
-      } catch {
-        soul = undefined;
-      }
-    }
+    const soul = ctx.soul ?? (await resolveLearningSoul(ctx.agentId));
 
     const outcome =
       result.error != null
@@ -960,15 +962,7 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       });
     }
 
-    const soulSlug = spec.defaultSoul;
-    let soul;
-    if (soulSlug) {
-      try {
-        soul = await soulService.get(soulSlug);
-      } catch {
-        soul = undefined;
-      }
-    }
+    const soul = await resolveLearningSoul(stored.agentName);
     const learningResult = await learningEngine.onSessionCompleted({
       sessionId: stored.id,
       userId: stored.userId,
@@ -1120,6 +1114,7 @@ function createMockModelProvider(): ModelProvider {
 export { createSlashCommandRegistry, applySlashUpdate } from './slash-commands.js';
 export { loadAgent, storedSessionToRuntime } from './session-runtime.js';
 export { registerGatewayWorker } from './gateway-worker.js';
+export { installProcessErrorGuards } from './process-guards.js';
 export {
   startUnifiedGateway,
   type UnifiedGatewayHandle,

@@ -185,7 +185,10 @@ export class LearningEngine {
     });
     if (!draft) return {};
 
-    if (evolution?.requireApproval === false || evolution?.requireApproval === undefined) {
+    // Publishing is opt-in: only a soul that explicitly sets
+    // `requireApproval: false` gets its tool-use drafts promoted. No soul means
+    // no policy, so the draft waits for review (audit T-001).
+    if (evolution?.requireApproval === false) {
       const result = await this.promoteDraft(draft.slug, this.workspaceRoot);
       return { draft, promotedPath: result.path };
     }

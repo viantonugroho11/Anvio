@@ -169,7 +169,8 @@ export class MattermostChannel extends BaseChannelAdapter {
         }),
       );
     });
-    this.ws.onmessage = (ev) => void this.handleWebSocketMessage(String(ev.data));
+    this.ws.onmessage = (ev) =>
+      this.runGuarded('websocket message', () => this.handleWebSocketMessage(String(ev.data)));
     this.ws.onclose = () => {
       console.log('[Mattermost] WebSocket disconnected, reconnecting in 5s…');
       setTimeout(() => void this.start(), 5000);

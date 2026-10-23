@@ -3,6 +3,7 @@ import type {
   ApprovalRequestMessage,
   ChannelAdapter,
   ChannelHubPort,
+  ChannelStartFailure,
   ChannelType,
   OutboundMessage,
   ProgressUpdate,
@@ -73,8 +74,24 @@ export class ChannelHub implements ChannelHubPort {
     await adapter.setTyping(sessionId, active);
   }
 
-  async startAll(): Promise<void> {
-    await Promise.all([...this.adapters.values()].map((a) => a.start()));
+  /**
+   * Starts every adapter; one that fails no longer takes the others down.
+   * `Promise.all` rejected on the first failure, so an expired Discord token
+   * stopped the whole gateway from booting even though the rest had started
+   * (audit T-012). Failures are logged and returned for health reporting.
+   */
+  async startAll(): Promise<ChannelStartFailure[]> {
+    const adapters = [...this.adapters.values()];
+    const results = await Promise.allSettled(adapters.map((a) => a.start()));
+    const failures: ChannelStartFailure[] = [];
+    results.forEach((result, i) => {
+      if (result.status === 'fulfilled') return;
+      const channel = adapters[i]!.channelType;
+      const error = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      console.error(`[channels] ${channel} failed to start: ${error}`);
+      failures.push({ channel, error });
+    });
+    return failures;
   }
 
   async stopAll(): Promise<void> {

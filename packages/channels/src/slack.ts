@@ -188,7 +188,8 @@ export class SlackChannel extends BaseChannelAdapter {
   async start(): Promise<void> {
     const url = `wss://wss-primary.slack.com/link/?app_token=${this.options.appToken}`;
     this.ws = new WebSocket(url);
-    this.ws.onmessage = (ev) => void this.handleSocketMessage(String(ev.data));
+    this.ws.onmessage = (ev) =>
+      this.runGuarded('socket message', () => this.handleSocketMessage(String(ev.data)));
     this.ws.onclose = () => {
       console.log('[Slack] Socket Mode disconnected, reconnecting in 5s…');
       setTimeout(() => void this.start(), 5000);

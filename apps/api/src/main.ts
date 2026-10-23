@@ -3,9 +3,15 @@ import { NestFactory } from '@nestjs/core';
 import { initObservability, shutdownObservability } from '@anvio/observability';
 import { AppModule } from './app.module.js';
 import { AppService } from './app.service.js';
-import { assertSafeBinding, isLoopbackHost, resolveApiBinding } from '@anvio/platform';
+import {
+  assertSafeBinding,
+  installProcessErrorGuards,
+  isLoopbackHost,
+  resolveApiBinding,
+} from '@anvio/platform';
 
 async function bootstrap() {
+  installProcessErrorGuards('api');
   initObservability({
     serviceName: process.env.OTEL_SERVICE_NAME ?? 'anvio-api',
     enabled: process.env.ANVIO_OTEL_ENABLED === 'true' || !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT,

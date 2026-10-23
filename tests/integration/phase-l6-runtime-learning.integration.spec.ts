@@ -3,12 +3,19 @@ import { LearningEngine } from '@anvio/learning';
 import { ToolGateway } from '@anvio/tools';
 import { createMemoryProvider } from '@anvio/memory';
 import { Workspace } from '@anvio/workspace';
+import { parseSoulDefinitionMd } from '@anvio/core';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
 describe('Phase L6 — runtime skill self-improve', () => {
-  it('proposes and auto-promotes skill after successful tool call', async () => {
+  // Auto-publish is opt-in since audit T-001: the soul must set requireApproval: false.
+  const optInSoul = parseSoulDefinitionMd(
+    '---\nevolution:\n  requireApproval: false\n---\n# Opt-in\n',
+    'opt-in',
+  );
+
+  it('proposes and auto-promotes skill after successful tool call when the soul opts in', async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'anvio-l6-'));
     await Workspace.init(tmp);
     const ws = await Workspace.open(tmp);
@@ -22,6 +29,7 @@ describe('Phase L6 — runtime skill self-improve', () => {
         agentId: ctx.agentId,
         toolName: call.name,
         outcome: JSON.stringify(result.output ?? null),
+        soul: optInSoul,
       });
     });
 

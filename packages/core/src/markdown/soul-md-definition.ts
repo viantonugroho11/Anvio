@@ -77,7 +77,7 @@ export function parseSoulDefinitionMd(source: string, slug: string): SoulDefinit
       relationshipMemory: { provider: 'filesystem', path: `${slug}/relationship` },
       evolution: {
         allowAutoUpdate: frontmatter.evolution?.allowAutoUpdate ?? true,
-        requireApproval: frontmatter.evolution?.requireApproval ?? false,
+        requireApproval: frontmatter.evolution?.requireApproval ?? true,
         ...(frontmatter.evolution?.captureOn
           ? { captureOn: frontmatter.evolution.captureOn }
           : {}),
