@@ -17,7 +17,12 @@ export const soulRelationshipMemorySchema = z.object({
 
 export const soulEvolutionSchema = z.object({
   allowAutoUpdate: z.boolean().default(true),
-  requireApproval: z.boolean().default(false),
+  /**
+   * Gates publishing of skills learned from tool use. Defaults to `true`: an
+   * auto-published skill is built from raw tool output, which can carry prompt
+   * injection (audit T-001). Set `false` to opt into auto-publish.
+   */
+  requireApproval: z.boolean().default(true),
   /**
    * When to auto-draft skills from finished sessions (issue #56 (f)).
    *   - `always` — draft whenever `SkillEvolutionSummarizer.shouldCreate` returns true

@@ -67,6 +67,12 @@ export interface ChannelHubPort {
   ): Promise<void>;
   /** Forwards to the adapter's `setTyping` when it has one; no-op otherwise. */
   setTyping?(channel: ChannelType, sessionId: string, active: boolean): Promise<void>;
-  startAll(): Promise<void>;
+  /** Starts every adapter; resolves with the ones that failed instead of rejecting. */
+  startAll(): Promise<ChannelStartFailure[]>;
   stopAll(): Promise<void>;
+}
+
+export interface ChannelStartFailure {
+  channel: ChannelType;
+  error: string;
 }

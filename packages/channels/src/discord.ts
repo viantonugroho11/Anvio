@@ -164,7 +164,8 @@ export class DiscordChannel extends BaseChannelAdapter {
   async start(): Promise<void> {
     const { url } = await this.rest<{ url: string }>('GET', '/gateway/bot');
     this.ws = new WebSocket(`${url}?v=10&encoding=json`);
-    this.ws.onmessage = (ev) => void this.handleGatewayMessage(String(ev.data));
+    this.ws.onmessage = (ev) =>
+      this.runGuarded('gateway message', () => this.handleGatewayMessage(String(ev.data)));
     this.ws.onclose = () => {
       console.log('[Discord] Gateway disconnected, reconnecting in 5s…');
       setTimeout(() => void this.start(), 5000);

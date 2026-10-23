@@ -1,7 +1,8 @@
 import { initObservability, shutdownObservability } from '@anvio/observability';
-import { createPlatform, registerGatewayWorker } from '@anvio/platform';
+import { createPlatform, installProcessErrorGuards, registerGatewayWorker } from '@anvio/platform';
 
 async function main() {
+  installProcessErrorGuards('worker');
   initObservability({
     serviceName: process.env.OTEL_SERVICE_NAME ?? 'anvio-worker',
     enabled: process.env.ANVIO_OTEL_ENABLED === 'true' || !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT,

@@ -36,7 +36,7 @@ import { VoicePipeline, createStreamingSttSession, streamTranscribe } from '@anv
 import { createGoalEngine } from '@anvio/goals';
 import { createKanbanEngine } from '@anvio/kanban';
 import { createMemoryProvider } from '@anvio/memory';
-import { createPlatform, gbrainMemoryOptions, parseSimulationScenario, prepareSimulationWorkspace, runSimulation, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime, aggregateTokenUsage, parseUsageLastFlag, readTokenUsageAudit, exportSessionTrajectory, trajectoryToMarkdown, startUnifiedGateway } from '@anvio/platform';
+import { createPlatform, gbrainMemoryOptions, parseSimulationScenario, prepareSimulationWorkspace, runSimulation, finalizeAgentRun, findRepoRoot, loadAgent, storedSessionToRuntime, aggregateTokenUsage, parseUsageLastFlag, readTokenUsageAudit, exportSessionTrajectory, trajectoryToMarkdown, startUnifiedGateway, installProcessErrorGuards } from '@anvio/platform';
 import { createSoulService } from '@anvio/souls';
 import { parseSoulMd, verifyPolicyIds } from '@anvio/soul-gate';
 import { ToolGateway } from '@anvio/tools';
@@ -58,6 +58,7 @@ const args = process.argv.slice(2);
 const command = args[0] ?? 'help';
 
 async function main() {
+  installProcessErrorGuards('cli');
   switch (command) {
     case 'init':
       await cmdInit(args[1]);
@@ -688,7 +689,7 @@ async function cmdSoul(sub: string[]) {
           longTermGoals: [],
           behavioralTendencies: [],
           relationshipMemory: { provider: 'filesystem', path: 'relationship' },
-          evolution: { allowAutoUpdate: true, requireApproval: false, captureOn: 'always' },
+          evolution: { allowAutoUpdate: true, requireApproval: true, captureOn: 'always' },
         },
       };
 

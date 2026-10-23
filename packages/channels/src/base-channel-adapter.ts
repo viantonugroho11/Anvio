@@ -68,6 +68,27 @@ export abstract class BaseChannelAdapter implements ChannelAdapter {
     if (this.handler) await this.handler(message);
   }
 
+  /**
+   * Runs work started from a socket callback, where nothing awaits the promise.
+   * A malformed frame or a failing handler used to become an unhandled
+   * rejection, and Node stops the process on one — every channel went down with
+   * it (audit T-005). The failure is logged and the connection keeps going.
+   */
+  protected runGuarded(label: string, task: () => Promise<void> | void): void {
+    let pending: Promise<void>;
+    try {
+      pending = Promise.resolve(task());
+    } catch (error) {
+      pending = Promise.reject(error);
+    }
+    pending.catch((error: unknown) => {
+      console.error(
+        `[${this.channelType}] ${label} failed:`,
+        error instanceof Error ? error.message : error,
+      );
+    });
+  }
+
   abstract sendMessage(sessionId: string, message: OutboundMessage): Promise<void>;
   abstract start(): Promise<void>;
   abstract stop(): Promise<void>;

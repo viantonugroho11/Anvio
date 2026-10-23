@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Learned skills are no longer published automatically** — a successful tool call could turn raw tool output (e.g. a fetched web page carrying prompt injection) into a live skill under `skills/`. Tool-use drafts now stay in `skills/_drafts/` unless the soul sets `evolution.requireApproval: false`; an agent with no soul never auto-publishes. The model-less fallback quotes tool output as untrusted data instead of copying it into instructions.
+- **Saving a soul no longer drops its policy** — `SoulService.create` / `importFromMarkdown` rewrote SOUL.md without its frontmatter or the sections soul-gate reads, which turned learning back on (`allowAutoUpdate`, `requireApproval`) and removed `## Approvers` / `## Mandate`. Frontmatter and unrecognised sections are now kept.
+
+### Fixed
+
+- **Duplicate learned facts** — the learning loop runs after every turn with the whole transcript and re-stored every fact each time. Facts are now deduplicated against what is already stored, text shaped like a tool result is ignored, and facts render in the soul prompt once, labelled as unverified notes.
+- **One channel could take the gateway down** — `ChannelHub.startAll` used `Promise.all`, so one adapter failing to start (e.g. an expired token) failed the whole boot. Failures are now logged and returned as `ChannelStartFailure[]`; the other channels keep running.
+- **A bad socket frame could kill the process** — Slack, Discord and Mattermost socket handlers left rejections unhandled, and Node exits on those. Handlers are now guarded, and the gateway, worker, API and CLI log unhandled rejections instead of exiting.
+- **Session-end learning ignored the agent's soul** — it read only `defaultSoul`, so an agent with `evolution.allowAutoUpdate: false` still had facts and drafts captured. Both learning hooks now use the agent's soul, then the default.
+
+### Changed
+
+- **Behavior change:** `evolution.requireApproval` now defaults to `true`. Souls that relied on auto-published tool-use skills must set `requireApproval: false`.
+
+### Added
+
+- **Phase 2 audit** — `docs/audit/phase-2/` (11 reports, Indonesian): reconciliation of Phase 1 findings, soul and identity, planning, learning loop, skill lifecycle, channel inventory and error handling, and a unified backlog (T-001…T-045).
+
 ## [2.10.0] - 2026-10-23
 
 **Agent provider precedence fixed, routing is now opt-in, Codex CLI bundled.**
