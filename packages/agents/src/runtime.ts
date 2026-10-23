@@ -22,7 +22,7 @@ import {
   mergeSkillSlugs,
   createComposableSkillRegistry,
 } from '@anvio/skills';
-import { classifyTask } from '@anvio/models';
+import type { TaskRoute } from '@anvio/models';
 import type { SkillCatalogResolver } from '@anvio/skills';
 import { SkillTriggerCache } from '@anvio/skills';
 import {
@@ -118,6 +118,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
       return;
     }
 
+    let unfinishedTurnHistory: ChatMessage[] | undefined;
     try {
       const resumeDecision = input.metadata?.resumeDecision as ApprovalDecision | undefined;
       const checkpoint = readRunCheckpoint(session.state.metadata);
@@ -159,11 +160,19 @@ export class DefaultAgentRuntime implements AgentRuntime {
       // Wrap tool port: composable skills override + downstream gateway
       const toolPort = composableReg.buildToolPort();
 
-      // Skill routing: if active skills declare a routing hint, pick the best provider for that route
+      // The agent's own provider wins unless the agent or one of its skills opts
+      // into a route. Inferring a route from the message text let a word like
+      // "implement" move an Anthropic agent onto OpenAI (audit G-02).
       const skillRoutingHints = effectiveSpecs.flatMap((s) => (s.routing ? [s.routing] : []));
-      const route = classifyTask({ agent, skillRoutingHints, message: input.content });
-      const routeProvider = this.deps.modelProviders.resolveForRoute?.(route);
+      const route = explicitRoute(agent, skillRoutingHints);
+      const routeProvider = route ? this.deps.modelProviders.resolveForRoute?.(route) : undefined;
       const modelProvider = routeProvider ?? this.deps.modelProviders.resolveForAgent(agent);
+      // The agent's model id belongs to the agent's provider. A route that lands on
+      // a different provider sends no id, so that provider uses its own default.
+      const requestModel =
+        routeProvider && routeProvider.providerId !== agent.spec.model.provider
+          ? undefined
+          : agent.spec.model.model;
       const useNativeTools =
         Boolean(modelProvider.supportsNativeTools) &&
         Boolean(toolPort?.getModelToolDefinitions?.()) &&
@@ -188,9 +197,10 @@ export class DefaultAgentRuntime implements AgentRuntime {
       } else {
         const memoryContext = await this.deps.memoryStore.getContext(session.id, session.userId);
         messages = [...memoryContext.shortTerm, { role: 'user', content: input.content }];
-        await this.deps.memoryStore.storeConversation(session.id, session.userId, [
-          { role: 'user', content: input.content },
-        ]);
+        // Persisted in `finally` only if the turn does not complete. Writing just the
+        // user message here overwrote the whole short-term history, so any error,
+        // stop or approval pause left the session with one message (audit G-01).
+        unfinishedTurnHistory = [...messages];
       }
 
       const maxIterations = this.deps.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
@@ -223,7 +233,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
           messages,
           maxTokens: agent.spec.model.maxTokens,
           temperature: agent.spec.model.temperature,
-          model: agent.spec.model.model,
+          model: requestModel,
           tools: nativeTools,
         };
         // The router hands back the resolved provider's own stream when no route
@@ -370,6 +380,7 @@ export class DefaultAgentRuntime implements AgentRuntime {
         ...messages,
         { role: 'assistant', content: fullContent },
       ]);
+      unfinishedTurnHistory = undefined;
       yield { type: 'progress' as const, phase: 'Completed', status: 'completed' as const };
       yield { type: 'done' as const, usage };
     } catch (error) {
@@ -377,6 +388,20 @@ export class DefaultAgentRuntime implements AgentRuntime {
         type: 'error' as const,
         error: error instanceof Error ? error.message : 'Agent runtime error',
       };
+    } finally {
+      // Keep the prior history plus this user message, so the next turn still
+      // sees both. Best-effort: a failed write must not mask the turn's own outcome.
+      if (unfinishedTurnHistory) {
+        try {
+          await this.deps.memoryStore.storeConversation(
+            session.id,
+            session.userId,
+            unfinishedTurnHistory,
+          );
+        } catch {
+          // memory is best-effort here
+        }
+      }
     }
   }
 
@@ -455,6 +480,17 @@ export class DefaultAgentRuntime implements AgentRuntime {
       effectiveSpecs,
     };
   }
+}
+
+/** A route the agent or one of its skills asked for; never inferred from the message. */
+function explicitRoute(
+  agent: AgentDefinition,
+  skillRoutingHints: string[],
+): TaskRoute | undefined {
+  const routes: readonly string[] = ['coding', 'review', 'chat', 'research', 'default'];
+  const chosen =
+    agent.spec.model.routing ?? skillRoutingHints.find((hint) => routes.includes(hint));
+  return chosen as TaskRoute | undefined;
 }
 
 function toApprovalRequest(pending: PendingToolApproval): ApprovalRequest {
