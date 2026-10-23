@@ -68,8 +68,15 @@ function primitiveDir(primitive: TrashablePrimitive): string {
   return plural[primitive];
 }
 
-function safeTimestamp(): string {
-  return new Date().toISOString().replace(/[:.]/g, '-');
+function safeTimestamp(ms = Date.now()): string {
+  return new Date(ms).toISOString().replace(/[:.]/g, '-');
+}
+
+async function pathExists(p: string): Promise<boolean> {
+  return fs.access(p).then(
+    () => true,
+    () => false,
+  );
 }
 
 function parseTimestamp(stamped: string): number {
@@ -108,10 +115,20 @@ export async function moveToTrash(
   const src = path.join(srcDir, `${slug}${ext}`);
   await fs.access(src); // throws ENOENT if missing — bubble to caller
 
-  const timestamp = safeTimestamp();
-  const entryName = `${slug}-${timestamp}${ext}`;
   const destDir = path.join(workspaceRoot, TRASH_DIRNAME, primitive);
   await ensureDir(destDir);
+  // Entry names have millisecond resolution. Two trashings of the same slug
+  // in one millisecond (a forced restore trashes the live file right after the
+  // entry it restores was made) produced the same name, and the rename
+  // silently replaced the older entry. Step forward until the name is free.
+  let ms = Date.now();
+  let timestamp = safeTimestamp(ms);
+  let entryName = `${slug}-${timestamp}${ext}`;
+  while (await pathExists(path.join(destDir, entryName))) {
+    ms += 1;
+    timestamp = safeTimestamp(ms);
+    entryName = `${slug}-${timestamp}${ext}`;
+  }
   const dest = path.join(destDir, entryName);
   await fs.rename(src, dest);
 
