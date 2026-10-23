@@ -6,7 +6,7 @@
 
 Configure agents in **Markdown** (Hermes-style) · YAML for infra only · Run from the **CLI**
 
-[![Release](https://img.shields.io/badge/release-v1.24.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v1.24.0)
+[![Release](https://img.shields.io/badge/release-v2.10.0-blue)](https://github.com/viantonugroho11/Anvio/releases/tag/v2.10.0)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D9-orange)](https://pnpm.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -25,6 +25,17 @@ File-first by default · SQLite when you need it · Vendor OAuth optional · No 
 > Everything lives in a portable `workspace/` folder — back it up, commit it to git, or copy it to another machine.
 >
 > **Start simple:** filesystem sessions, model API key (or mock mode), no Docker. Add SQLite, vendor OAuth, gateway, or PostgreSQL only when you need them.
+
+### What's new in v2.10.0
+
+| Track | Highlights |
+|-------|------------|
+| **Agent provider fix** | Agent's `model.provider` now wins over message-based routing — no more `claude-*` model id sent to OpenAI ([#111](https://github.com/viantonugroho11/Anvio/pull/111)) |
+| **Session history preserved** | Failed/stopped/paused turns no longer wipe short-term memory ([#111](https://github.com/viantonugroho11/Anvio/pull/111)) |
+| **Routing is opt-in** | Message-keyword provider switching removed; add `model.routing: <route>` to agent frontmatter to opt in ([#111](https://github.com/viantonugroho11/Anvio/pull/111)) |
+| **Codex CLI bundled** | `@openai/codex` ships with `@anvio/runtimes` — no global install needed ([#109](https://github.com/viantonugroho11/Anvio/pull/109)) |
+
+Full notes: [CHANGELOG](CHANGELOG.md#2100---2026-10-23)
 
 ### What's new in v2.7.0
 
@@ -1266,6 +1277,8 @@ Architecture: [docs/02-architecture.md](docs/02-architecture.md) · Development:
 
 | Version | Highlights |
 |---------|------------|
+| **[v2.10.0](https://github.com/viantonugroho11/Anvio/releases/tag/v2.10.0)** | Agent provider precedence fix, session history preserved on failed turns, routing opt-in, Codex CLI bundled |
+| **[v2.9.0](https://github.com/viantonugroho11/Anvio/releases/tag/v2.9.0)** | Hermes-style skill import (`anvio skill import`), git-source skills, vendor skill tags |
 | **[v2.7.0](https://github.com/viantonugroho11/Anvio/releases/tag/v2.7.0)** | gbrain memory + episodic timelines, `/1on1` thread lock, end-to-end simulator, `/remote` tool execution over a tailnet |
 | **[v1.24.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.24.0)** | Skill versioning/testing, step output piping, `skill` workflow node, goal-skill integration |
 | [v1.23.0](https://github.com/viantonugroho11/Anvio/releases/tag/v1.23.0) | Skill execution engine — mechanical step runner, trigger matcher, composable skills, `skill_call` tool |
