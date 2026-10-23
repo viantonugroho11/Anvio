@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-10-23
+
+**Agent provider precedence fixed, routing is now opt-in, Codex CLI bundled.**
+
 ### Fixed
 
 - **Failed turns wiped session history** ([#111](https://github.com/viantonugroho11/Anvio/pull/111)) — the `local` runtime overwrote short-term memory with only the new user message at the start of every turn, so a provider error, stop, approval pause or aborted stream left the session with one message. Prior history plus the user message is now kept when a turn does not complete; completed turns are stored as before.
@@ -1406,7 +1410,8 @@ Carried forward, recorded rather than fixed:
 
 4. GitHub Actions **Release** workflow validates the build and publishes a GitHub Release with notes extracted from this file.
 
-[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.9.0...HEAD
+[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.10.0...HEAD
+[2.10.0]: https://github.com/viantonugroho11/Anvio/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/viantonugroho11/Anvio/compare/v2.8.1...v2.9.0
 [2.8.1]: https://github.com/viantonugroho11/Anvio/compare/v2.8.0...v2.8.1
 [2.8.0]: https://github.com/viantonugroho11/Anvio/compare/v2.7.0...v2.8.0
