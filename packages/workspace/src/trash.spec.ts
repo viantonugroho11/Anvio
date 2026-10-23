@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -69,6 +69,24 @@ describe('workspace trash', () => {
     const forced = await restoreFromTrash(root, 'agent', t2.entry.entryName, { force: true });
     expect(forced.overwritten).toBe(true);
     expect(await fs.readFile(restored.destPath, 'utf-8')).toBe('v2-live');
+  });
+
+  it('keeps both entries when the same slug is trashed twice in one millisecond', async () => {
+    // Freeze the clock so both trashings land on the same millisecond.
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.parse('2026-10-23T07:00:00.000Z') });
+    try {
+      await writeFile(root, 'agents/planner.md', 'first');
+      const first = await moveToTrash(root, 'agent', 'planner');
+      await writeFile(root, 'agents/planner.md', 'second');
+      const second = await moveToTrash(root, 'agent', 'planner');
+
+      expect(second.entry.entryName).not.toBe(first.entry.entryName);
+      expect(await fs.readFile(first.entry.path, 'utf-8')).toBe('first');
+      expect(await fs.readFile(second.entry.path, 'utf-8')).toBe('second');
+      expect(second.entry.deletedAtMs).toBeGreaterThan(first.entry.deletedAtMs);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('rejects a malformed entry name', async () => {
