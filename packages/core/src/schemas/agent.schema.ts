@@ -11,6 +11,11 @@ export const agentModelSchema = z
     baseUrl: z.string().url().optional(),
     /** Env var name for API key (e.g. DEEPSEEK_API_KEY). */
     apiKeyEnv: z.string().min(1).optional(),
+    /**
+     * Opt-in task route (docs/36). Only when set may the runtime swap
+     * `provider` for the route's preferred one; the message text alone never does.
+     */
+    routing: z.enum(['coding', 'review', 'chat', 'research', 'default']).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.provider === 'custom' && !value.baseUrl) {

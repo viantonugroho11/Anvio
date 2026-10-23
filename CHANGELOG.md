@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Failed turns wiped session history** ([#111](https://github.com/viantonugroho11/Anvio/pull/111)) — the `local` runtime overwrote short-term memory with only the new user message at the start of every turn, so a provider error, stop, approval pause or aborted stream left the session with one message. Prior history plus the user message is now kept when a turn does not complete; completed turns are stored as before.
+- **Message keywords overrode the agent's provider** ([#111](https://github.com/viantonugroho11/Anvio/pull/111)) — words like "implement", "review", "pr" or "analyze" picked a route whose preferred provider replaced `spec.model.provider`, while still sending the agent's model id (e.g. a `claude-*` id to OpenAI). The agent's provider now wins unless the agent sets `model.routing` or a skill declares a `routing` hint; a route that lands on another provider sends no model id, so that provider uses its default.
+- **`spec.model.routing` was silently dropped** ([#111](https://github.com/viantonugroho11/Anvio/pull/111)) — the schema stripped the field documented in `docs/36-provider-routing.md`. It is now accepted (`coding | review | chat | research | default`).
+
+### Changed
+
+- **Behavior change: routing is opt-in** ([#111](https://github.com/viantonugroho11/Anvio/pull/111)) — agents that relied on message-based provider switching must add `model.routing: <route>` to their frontmatter. `providers/routing.yaml` routing is unchanged.
+- **SDKs updated** ([#109](https://github.com/viantonugroho11/Anvio/pull/109)) — `@anthropic-ai/claude-agent-sdk` 0.3.288, `@anthropic-ai/sdk` 0.131.0, `@a2a-js/sdk` 1.3.0, `@opentelemetry/sdk-node` 0.222.0.
+- **Codex CLI bundled** ([#109](https://github.com/viantonugroho11/Anvio/pull/109)) — `@openai/codex` ships with `@anvio/runtimes`; the `codex` runtime and `anvio setup-token --codex` no longer need a global install. An explicit `binary` override still wins; `codex` on `PATH` is the fallback.
+
+### Added
+
+- **Agent core audit** ([#111](https://github.com/viantonugroho11/Anvio/pull/111)) — `docs/audit/` (13 reports, Indonesian): agent loop, model integration and routing, ACP compatibility, MCP and tools, multi-agent, security and reliability, gap register, roadmap and validation scorecard. Notable finding: `packages/acp` is a custom HTTP/SSE API, not the Agent Client Protocol.
+
 ## [2.9.0] - 2026-10-04
 
 **Hermes Agent / agentskills.io skills drop straight into Anvio: load skill folders, import them from a path or git repo.**

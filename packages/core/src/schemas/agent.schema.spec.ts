@@ -23,6 +23,24 @@ describe('agent.schema', () => {
     expect(agent.spec.model.provider).toBe('anthropic');
   });
 
+  it('keeps model.routing so the documented route opt-in reaches the runtime', () => {
+    const parse = (routing: unknown) =>
+      parseAgentDefinition({
+        apiVersion: 'anvio.io/v1',
+        kind: 'Agent',
+        metadata: { name: 'coder' },
+        spec: {
+          description: 'Coder',
+          persona: 'architect',
+          model: { provider: 'anthropic', model: 'claude-x', routing },
+        },
+      });
+
+    expect(parse('coding').spec.model.routing).toBe('coding');
+    expect(parse(undefined).spec.model.routing).toBeUndefined();
+    expect(() => parse('fastest')).toThrow();
+  });
+
   it('rejects claude-code runtime paired with a non-Anthropic spec.model when runtime.model is absent', () => {
     const build = () =>
       parseAgentDefinition({
