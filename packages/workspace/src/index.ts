@@ -81,16 +81,30 @@ export class Workspace {
   static async open(rootDir: string): Promise<Workspace> {
     const configPath = path.join(rootDir, 'anvio.yaml');
     let config: WorkspaceDefinition;
+    let source: string | null = null;
     try {
-      const raw = expandEnvDeep(parseYaml(await fs.readFile(configPath, 'utf-8')));
-      config = parseWorkspaceDefinition(raw);
-    } catch {
+      source = await fs.readFile(configPath, 'utf-8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    if (source === null) {
       config = parseWorkspaceDefinition({
         apiVersion: 'anvio.io/v1',
         kind: 'Workspace',
         metadata: { name: 'default' },
         spec: {},
       });
+    } else {
+      // A file that exists but does not parse used to be replaced by the defaults —
+      // auth disabled included — so one YAML typo silently opened the API.
+      try {
+        config = parseWorkspaceDefinition(expandEnvDeep(parseYaml(source)));
+      } catch (error) {
+        throw new Error(
+          `Invalid workspace config ${configPath}: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error },
+        );
+      }
     }
     const sessions = await createSessionStore(config.spec.storage, rootDir);
     return new Workspace(rootDir, config, sessions);
@@ -402,7 +416,11 @@ export class WorkspaceConfigLoader implements ConfigLoader {
     return null;
   }
 
-  private listArtifactSlugs(files: string[], extensions: string[], nestedNames: string[] = []): string[] {
+  private listArtifactSlugs(
+    files: string[],
+    extensions: string[],
+    nestedNames: string[] = [],
+  ): string[] {
     const slugs = new Set<string>();
     for (const file of files) {
       if (nestedNames.some((n) => file.endsWith(`/${n}`))) {
@@ -427,10 +445,32 @@ export class WorkspaceConfigLoader implements ConfigLoader {
 }
 
 export class FilesystemSessionStore implements SessionStore {
+  /**
+   * channel + thread → session id. Every inbound channel message resolves its
+   * session by thread, and that used to read every session file — so the cost of
+   * one message grew with the number of sessions ever created. Entries are only
+   * hints: a hit is re-read and checked, a miss falls back to the full scan, so
+   * sessions written by another process or removed from disk are still handled.
+   */
+  private readonly threadIndex = new Map<string, string>();
+
   constructor(private readonly storage: FilesystemStorageProvider) {}
 
   private key(id: string): string {
     return `sessions/${id}.json`;
+  }
+
+  private static threadKey(channel: string, threadId: string): string {
+    return `${channel}\u0000${threadId}`;
+  }
+
+  private remember(session: StoredSession): void {
+    const thread = session.channelThread;
+    if (thread)
+      this.threadIndex.set(
+        FilesystemSessionStore.threadKey(thread.channel, thread.threadId),
+        session.id,
+      );
   }
 
   async create(
@@ -444,6 +484,7 @@ export class FilesystemSessionStore implements SessionStore {
       lastActiveAt: now,
     };
     await this.storage.writeJson(this.key(stored.id), stored);
+    this.remember(stored);
     return stored;
   }
 
@@ -460,6 +501,7 @@ export class FilesystemSessionStore implements SessionStore {
       lastActiveAt: new Date().toISOString(),
     };
     await this.storage.writeJson(this.key(id), updated);
+    this.remember(updated);
     return updated;
   }
 
@@ -468,17 +510,24 @@ export class FilesystemSessionStore implements SessionStore {
     const sessions: StoredSession[] = [];
     for (const file of files.filter((f) => f.endsWith('.json'))) {
       const s = await this.storage.readJson<StoredSession>(file);
-      if (s && (!userId || s.userId === userId)) sessions.push(s);
+      if (!s) continue;
+      this.remember(s);
+      if (!userId || s.userId === userId) sessions.push(s);
     }
     return sessions;
   }
 
   async getByChannelThread(channel: string, threadId: string): Promise<StoredSession | null> {
-    const sessions = await this.list();
-    return (
-      sessions.find((s) => s.channelThread?.channel === channel && s.channelThread?.threadId === threadId) ??
-      null
-    );
+    const matches = (s: StoredSession | null): s is StoredSession =>
+      s?.channelThread?.channel === channel && s.channelThread?.threadId === threadId;
+    const key = FilesystemSessionStore.threadKey(channel, threadId);
+    const hinted = this.threadIndex.get(key);
+    if (hinted) {
+      const session = await this.get(hinted);
+      if (matches(session)) return session;
+      this.threadIndex.delete(key);
+    }
+    return (await this.list()).find(matches) ?? null;
   }
 
   async listActive(userId?: string): Promise<StoredSession[]> {

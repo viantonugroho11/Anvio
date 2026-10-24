@@ -36,3 +36,22 @@ describe('cron-parser', () => {
     expect(cronMatches('30 14 * * *', new Date('2026-01-01T14:30:00'))).toBe(true);
   });
 });
+
+describe('cron timezones', () => {
+  it('evaluates fields in the given IANA timezone', async () => {
+    const { cronMatches: matches } = await import('./cron-parser.js');
+    const at = new Date('2027-02-24T02:00:00Z');
+    expect(matches('0 9 * * *', at, 'Asia/Jakarta')).toBe(true);
+    expect(matches('0 2 * * *', at, 'UTC')).toBe(true);
+    expect(matches('0 9 * * *', at, 'UTC')).toBe(false);
+    // Day-of-week also shifts: Tuesday 22:00 in New York is Wednesday 03:00 UTC.
+    expect(matches('0 22 * * TUE', new Date('2027-02-24T03:00:00Z'), 'America/New_York')).toBe(
+      true,
+    );
+  });
+
+  it('rejects unknown timezones', async () => {
+    const { cronMatches: matches } = await import('./cron-parser.js');
+    expect(() => matches('* * * * *', new Date(), 'Mars/Olympus')).toThrow(RangeError);
+  });
+});

@@ -1,4 +1,5 @@
-import { ActionExecutor, createAutomationEngine } from '@anvio/automation';
+import { ActionExecutor, createAutomationEngine, parseCronExpression } from '@anvio/automation';
+import { stringify as stringifyYaml } from 'yaml';
 import { BlueprintExecutor, createCatalogRegistry } from '@anvio/blueprints';
 import {
   createIntegrationRegistry,
@@ -17,6 +18,7 @@ import {
   type WhatsAppChannel,
 } from '@anvio/channels';
 import { createAuthProvider } from '@anvio/auth';
+import { parseAutomationDefinition } from '@anvio/core';
 import type {
   ChannelHubPort,
   AgentInbox,
@@ -65,6 +67,7 @@ import { registerPlatformExtras } from './slash-commands-extras.js';
 import { createRemoteBinding } from './remote-binding.js';
 import { createRunCompletedHandler } from './handlers/run-completed.js';
 import { createMockModelProvider } from './mock-model-provider.js';
+import { MAX_MIXTURE_AGENTS, withDelegationDepth } from './delegation-depth.js';
 
 export type { PlatformContext } from './platform-context.js';
 
@@ -98,9 +101,10 @@ export interface PlatformOptions {
  * (spawned lazily on first call). Empty for every other provider. Exported so
  * CLI entrypoints that build their own MemoryProvider stay in sync with the platform.
  */
-export function gbrainMemoryOptions(
-  memory: MemoryConfig,
-): { gbrainClient?: GbrainClient; gbrain?: GbrainConfig } {
+export function gbrainMemoryOptions(memory: MemoryConfig): {
+  gbrainClient?: GbrainClient;
+  gbrain?: GbrainConfig;
+} {
   if (memory.provider !== 'gbrain') return {};
   const g = memory.gbrain;
   return {
@@ -708,21 +712,22 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   });
 
   toolGateway.mergeContext({
-    delegateTask: async ({ agent, task, context }) => {
-      const agentDef = await workspace.loader.loadAgent(agent);
-      const stored = await workspace.sessions.create({
-        userId: spec.defaultUserId,
-        agentName: agent,
-        channel: 'delegation',
-        messages: [],
-        status: 'idle',
-        detached: true,
-      });
-      const session = storedSessionToRuntime(stored);
-      const prompt = context ? `${task}\n\nContext:\n${context}` : task;
-      const result = await runtime.run(session, agentDef, { content: prompt });
-      return { sessionId: session.id, content: result.content, status: result.status };
-    },
+    delegateTask: ({ agent, task, context }) =>
+      withDelegationDepth(async () => {
+        const agentDef = await workspace.loader.loadAgent(agent);
+        const stored = await workspace.sessions.create({
+          userId: spec.defaultUserId,
+          agentName: agent,
+          channel: 'delegation',
+          messages: [],
+          status: 'idle',
+          detached: true,
+        });
+        const session = storedSessionToRuntime(stored);
+        const prompt = context ? `${task}\n\nContext:\n${context}` : task;
+        const result = await runtime.run(session, agentDef, { content: prompt });
+        return { sessionId: session.id, content: result.content, status: result.status };
+      }),
     manageCronjob: async (input) => {
       switch (input.action) {
         case 'list':
@@ -735,24 +740,31 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
           await automationEngine.run(input.slug!, true);
           return { ok: true, slug: input.slug };
         case 'create': {
-          const slug = input.slug!;
-          const yaml = [
-            'apiVersion: anvio.io/v1',
-            'kind: Automation',
-            'metadata:',
-            `  slug: ${slug}`,
-            '  enabled: true',
-            'spec:',
-            '  trigger:',
-            '    type: cron',
-            `    schedule: "${input.schedule}"`,
-            `    timezone: ${input.timezone ?? 'UTC'}`,
-            '  action:',
-            '    type: agent',
-            `    agent: ${input.agent}`,
-            `    input: ${JSON.stringify(input.prompt ?? '')}`,
-          ].join('\n');
-          await workspace.storage.write(`automations/${slug}.yaml`, yaml);
+          // Values come from a model tool call. They used to be interpolated into
+          // YAML text, so a crafted schedule or agent name could inject arbitrary
+          // automation fields (e.g. a different action type).
+          const slug = input.slug ?? '';
+          if (!/^[a-z0-9][a-z0-9-]{1,63}$/.test(slug)) {
+            throw new Error('create needs a kebab-case slug (a-z, 0-9, -)');
+          }
+          if (!input.schedule) throw new Error('create needs a cron schedule');
+          parseCronExpression(input.schedule);
+          if (!input.agent) throw new Error('create needs an agent');
+          await workspace.loader.loadAgent(input.agent);
+          const definition = parseAutomationDefinition({
+            apiVersion: 'anvio.io/v1',
+            kind: 'Automation',
+            metadata: { slug, enabled: true },
+            spec: {
+              trigger: {
+                type: 'cron',
+                schedule: input.schedule,
+                timezone: input.timezone ?? 'UTC',
+              },
+              action: { type: 'agent', agent: input.agent, input: input.prompt ?? '' },
+            },
+          });
+          await workspace.storage.write(`automations/${slug}.yaml`, stringifyYaml(definition));
           return { ok: true, slug };
         }
         default:
@@ -771,40 +783,46 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       await channelHub.sendMessage(ch, sid, { sessionId: sid, content: message, type: 'message' });
       return { ok: true };
     },
-    mixtureOfAgents: async ({ task, agents, synthesizer }) => {
-      const agentResults = await Promise.all(
-        agents.map(async (agentId) => {
-          const agentDef = await workspace.loader.loadAgent(agentId);
-          const stored = await workspace.sessions.create({
-            userId: spec.defaultUserId,
-            agentName: agentId,
-            channel: 'moa',
-            messages: [],
-            status: 'idle',
-            detached: true,
-          });
-          const session = storedSessionToRuntime(stored);
-          const result = await runtime.run(session, agentDef, { content: task });
-          return { agent: agentId, sessionId: session.id, content: result.content };
-        }),
-      );
-      const synthId = synthesizer ?? agents[0] ?? defaultAgent;
-      const synthAgent = await workspace.loader.loadAgent(synthId);
-      const synthStored = await workspace.sessions.create({
-        userId: spec.defaultUserId,
-        agentName: synthId,
-        channel: 'moa',
-        messages: [],
-        status: 'idle',
-        detached: true,
-      });
-      const synthSession = storedSessionToRuntime(synthStored);
-      const body = agentResults.map((r) => `## ${r.agent}\n${r.content}`).join('\n\n');
-      const synthesisResult = await runtime.run(synthSession, synthAgent, {
-        content: `Task: ${task}\n\nAgent outputs:\n${body}\n\nSynthesize the best combined answer.`,
-      });
-      return { agentResults, synthesis: synthesisResult.content };
-    },
+    mixtureOfAgents: ({ task, agents, synthesizer }) =>
+      withDelegationDepth(async () => {
+        if (agents.length > MAX_MIXTURE_AGENTS) {
+          throw new Error(
+            `mixture_of_agents accepts at most ${MAX_MIXTURE_AGENTS} agents (got ${agents.length})`,
+          );
+        }
+        const agentResults = await Promise.all(
+          agents.map(async (agentId) => {
+            const agentDef = await workspace.loader.loadAgent(agentId);
+            const stored = await workspace.sessions.create({
+              userId: spec.defaultUserId,
+              agentName: agentId,
+              channel: 'moa',
+              messages: [],
+              status: 'idle',
+              detached: true,
+            });
+            const session = storedSessionToRuntime(stored);
+            const result = await runtime.run(session, agentDef, { content: task });
+            return { agent: agentId, sessionId: session.id, content: result.content };
+          }),
+        );
+        const synthId = synthesizer ?? agents[0] ?? defaultAgent;
+        const synthAgent = await workspace.loader.loadAgent(synthId);
+        const synthStored = await workspace.sessions.create({
+          userId: spec.defaultUserId,
+          agentName: synthId,
+          channel: 'moa',
+          messages: [],
+          status: 'idle',
+          detached: true,
+        });
+        const synthSession = storedSessionToRuntime(synthStored);
+        const body = agentResults.map((r) => `## ${r.agent}\n${r.content}`).join('\n\n');
+        const synthesisResult = await runtime.run(synthSession, synthAgent, {
+          content: `Task: ${task}\n\nAgent outputs:\n${body}\n\nSynthesize the best combined answer.`,
+        });
+        return { agentResults, synthesis: synthesisResult.content };
+      }),
     skillManage: async ({ action, slug, description, instructions, tags }) => {
       if (action === 'list_drafts') {
         return { drafts: await learningEngine.listDrafts() };
@@ -826,13 +844,25 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
           description,
           tags,
         });
-        return { ...draft, next: `Draft only — call skill_manage promote with slug "${draft.slug}" to make it live.` };
+        return {
+          ...draft,
+          next: `Draft only — call skill_manage promote with slug "${draft.slug}" to make it live.`,
+        };
       }
       throw new Error('slug required for promote action');
     },
     mcpManage: async ({ action, id, command, args, env, url, headers, allowedTools }) => {
       if (action === 'list') {
-        return { servers: (await integrationRegistry.list()).map((e) => ({ id: e.id, command: e.server.command, args: e.server.args, url: e.server.url, transport: e.server.transport, enabled: e.enabled })) };
+        return {
+          servers: (await integrationRegistry.list()).map((e) => ({
+            id: e.id,
+            command: e.server.command,
+            args: e.server.args,
+            url: e.server.url,
+            transport: e.server.transport,
+            enabled: e.enabled,
+          })),
+        };
       }
       if (!id || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id)) {
         throw new Error('id must be lowercase a-z, 0-9, _ or -');
@@ -865,23 +895,23 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
           ...(allowedTools?.length ? { allowedTools } : {}),
         });
       } else {
-      if (!command) throw new Error('add needs a command (local) or url (remote)');
-      const allowed = (await integrationRegistry.load()).spec.agentAllowedCommands;
-      const executable = command.split('/').pop() ?? command;
-      if (command.includes('/') || !allowed.includes(executable)) {
-        throw new Error(
-          `command "${command}" is not in mcp/servers.yaml spec.agentAllowedCommands (${allowed.join(', ')}). Ask a human to add the server.`,
-        );
-      }
-      await integrationRegistry.upsert(id, {
-        command,
-        args: args ?? [],
-        env: env ?? {},
-        headers: {},
-        enabled: true,
-        transport: 'stdio',
-        ...(allowedTools?.length ? { allowedTools } : {}),
-      });
+        if (!command) throw new Error('add needs a command (local) or url (remote)');
+        const allowed = (await integrationRegistry.load()).spec.agentAllowedCommands;
+        const executable = command.split('/').pop() ?? command;
+        if (command.includes('/') || !allowed.includes(executable)) {
+          throw new Error(
+            `command "${command}" is not in mcp/servers.yaml spec.agentAllowedCommands (${allowed.join(', ')}). Ask a human to add the server.`,
+          );
+        }
+        await integrationRegistry.upsert(id, {
+          command,
+          args: args ?? [],
+          env: env ?? {},
+          headers: {},
+          enabled: true,
+          transport: 'stdio',
+          ...(allowedTools?.length ? { allowedTools } : {}),
+        });
       }
       mcpBridge.invalidate(id);
       const catalog = await reloadMcpCatalog();
@@ -935,7 +965,8 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       tokenUsageAudit,
       resolveLearningSoul,
       learningEngine,
-      sendMessage: (channel, sessionId, message) => channelHub.sendMessage(channel, sessionId, message),
+      sendMessage: (channel, sessionId, message) =>
+        channelHub.sendMessage(channel, sessionId, message),
       fallbackProviderId: modelProvider.providerId,
     }),
   );
@@ -967,19 +998,24 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   if (spec.a2a.remotes && spec.a2a.remotes.length > 0) {
     const a2aTools = new Map<string, A2ATool>();
     for (const remote of spec.a2a.remotes) {
-      a2aTools.set(remote.alias, new A2ATool({
-        alias: remote.alias,
-        url: remote.url,
-        apiKey: remote.apiKey,
-        bearerToken: remote.bearerToken,
-        description: remote.description,
-      }));
+      a2aTools.set(
+        remote.alias,
+        new A2ATool({
+          alias: remote.alias,
+          url: remote.url,
+          apiKey: remote.apiKey,
+          bearerToken: remote.bearerToken,
+          description: remote.description,
+        }),
+      );
     }
     toolGateway.mergeContext({
       a2aDelegate: async (alias, message, contextId) => {
         const tool = a2aTools.get(alias);
         if (!tool) {
-          throw new Error(`A2A remote '${alias}' not configured. Available: ${[...a2aTools.keys()].join(', ')}`);
+          throw new Error(
+            `A2A remote '${alias}' not configured. Available: ${[...a2aTools.keys()].join(', ')}`,
+          );
         }
         return tool.invoke(message, contextId);
       },
@@ -1001,11 +1037,19 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
             hookEngine.stop(),
             ...(a2aServer ? [a2aServer.stop()] : []),
           ]);
-          const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+          const failures = results.filter(
+            (r): r is PromiseRejectedResult => r.status === 'rejected',
+          );
           for (const failure of failures) {
             console.error('[platform] stopping a subsystem failed:', failure.reason);
           }
         },
+      },
+      {
+        // MCP servers are child processes; without this they outlived the
+        // platform (and in a restarted daemon, accumulated one set per restart).
+        name: 'mcp servers',
+        run: () => mcpBridge.close(),
       },
       {
         name: 'event bus',
@@ -1047,8 +1091,13 @@ interface EventBusLikeWithClose {
   close?: () => Promise<void>;
 }
 
-
 export { createSlashCommandRegistry, applySlashUpdate } from './slash-commands.js';
+export {
+  DEFAULT_MAX_DELEGATION_DEPTH,
+  DelegationDepthError,
+  currentDelegationDepth,
+  withDelegationDepth,
+} from './delegation-depth.js';
 export { loadAgent, storedSessionToRuntime } from './session-runtime.js';
 export { registerGatewayWorker } from './gateway-worker.js';
 export {
