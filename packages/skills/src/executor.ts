@@ -1,9 +1,20 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+import {
+  ConditionEvaluationError,
+  evaluateConditionExpression,
+  validateCondition,
+} from './condition-expression.js';
 import type { RuntimeToolContext, RuntimeToolPort, SkillDefinition } from '@anvio/core';
 import { interpolateArgs, validateParams } from './param-validator.js';
 
 export class SkillStepError extends Error {
   constructor(
-    public readonly code: 'SKILL_STEP_FAILED' | 'SKILL_TIMEOUT' | 'SKILL_NOT_FOUND',
+    public readonly code:
+      | 'SKILL_STEP_FAILED'
+      | 'SKILL_TIMEOUT'
+      | 'SKILL_NOT_FOUND'
+      | 'INVALID_CONDITION'
+      | 'SKILL_CYCLE',
     message: string,
     public readonly stepId?: string,
   ) {
@@ -43,7 +54,32 @@ export interface SkillExecuteInput {
  * Handles conditions, {{var}} interpolation, onError, and maxRetries.
  */
 export async function executeSkill(input: SkillExecuteInput): Promise<SkillExecuteResult> {
+  const stack = activeSkillStack.getStore() ?? [];
+  const slug = input.skill.metadata.slug;
+  // Composable `skill:` steps, the `skill_call` tool and `skill__<slug>` tool calls
+  // all re-enter here. Without this guard A→B→A recursed until the stack blew
+  // (audit CQ-009); AsyncLocalStorage carries the chain across every one of those paths.
+  if (stack.includes(slug)) {
+    throw new SkillStepError('SKILL_CYCLE', `Skill cycle detected: ${[...stack, slug].join(' → ')}`);
+  }
+  if (stack.length >= MAX_SKILL_DEPTH) {
+    throw new SkillStepError(
+      'SKILL_CYCLE',
+      `Skill nesting deeper than ${MAX_SKILL_DEPTH}: ${[...stack, slug].join(' → ')}`,
+    );
+  }
+  return activeSkillStack.run([...stack, slug], () => runSkill(input));
+}
+
+/** Nested skill calls allowed below the first one. */
+export const MAX_SKILL_DEPTH = 8;
+
+const activeSkillStack = new AsyncLocalStorage<string[]>();
+
+async function runSkill(input: SkillExecuteInput): Promise<SkillExecuteResult> {
   const { skill, params = {}, toolPort, ctx, resolveSkill, updateGoalProgress } = input;
+
+  assertValidConditions(skill);
 
   // Validate and collect params into context
   const paramCtx = validateParams(skill.spec.parameters, params);
@@ -175,23 +211,36 @@ async function runStep(
 }
 
 /**
- * Evaluate a condition string against a variable context.
- * Supports JS expressions: ==, !=, ===, !==, <, >, <=, >=, &&, ||, !,
- * method calls like includes()/startsWith(), and optional chaining (?.),
- * null coalescing (??), and template literals.
- * Uses restricted Function constructor — only context vars are in scope.
- * Returns false on any evaluation error (safe default).
+ * Evaluate a step condition against params and earlier step outputs.
+ *
+ * Conditions are parsed by {@link evaluateConditionExpression} — a restricted
+ * evaluator with no access to host globals (audit CQ-034). Syntax is checked
+ * up-front by {@link assertValidConditions}; a condition that parses but fails at
+ * run time (e.g. it names an output an earlier skipped step never produced) is
+ * treated as false, as before.
  */
 function evaluateCondition(condition: string, ...contexts: Record<string, unknown>[]): boolean {
-  const merged = Object.assign({}, ...contexts);
-  const keys = Object.keys(merged);
-  const values = keys.map((k) => merged[k]);
+  const scope = Object.assign({}, ...contexts) as Record<string, unknown>;
   try {
-    const fn = new Function(...keys, `"use strict"; return !!(${condition});`);
-    return Boolean(fn(...values));
-  } catch {
-    // Silently return false — conditions may reference vars not yet defined in earlier steps
-    return false;
+    return Boolean(evaluateConditionExpression(condition, scope));
+  } catch (error) {
+    if (error instanceof ConditionEvaluationError) return false;
+    throw error;
+  }
+}
+
+/** Reject skills whose conditions fall outside the supported expression subset. */
+export function assertValidConditions(skill: SkillDefinition): void {
+  for (const step of skill.spec.steps) {
+    if (!step.condition) continue;
+    const problem = validateCondition(step.condition);
+    if (problem) {
+      throw new SkillStepError(
+        'INVALID_CONDITION',
+        `Skill "${skill.spec.name}" step "${step.id}" has an invalid condition (${problem}): ${step.condition}`,
+        step.id,
+      );
+    }
   }
 }
 

@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { execCommand } from '../exec-command.js';
 import type {
   RuntimeCapabilities,
   RuntimeProvider,
@@ -56,7 +57,8 @@ export class SingularityRuntimeProvider implements RuntimeProvider {
   isConfigured(): boolean {
     if (this.isMockMode()) return true;
     if (!this.image()) return false;
-    const probe = spawnSync(this.binary(), ['--version'], { encoding: 'utf-8' });
+    // Synchronous by interface; bounded so a wedged binary cannot hang the caller.
+    const probe = spawnSync(this.binary(), ['--version'], { encoding: 'utf-8', timeout: 5_000 });
     return probe.status === 0;
   }
 
@@ -67,12 +69,7 @@ export class SingularityRuntimeProvider implements RuntimeProvider {
   /** Execute a shell command inside the configured SIF container. */
   async execRemote(command: string): Promise<RemoteExecResult> {
     if (this.isMockMode()) {
-      const result = spawnSync('sh', ['-c', command], { encoding: 'utf-8' });
-      return {
-        stdout: (result.stdout ?? '').trim(),
-        stderr: (result.stderr ?? '').trim(),
-        exitCode: result.status ?? 1,
-      };
+      return execCommand('sh', ['-c', command]);
     }
 
     const image = this.image();
@@ -80,21 +77,15 @@ export class SingularityRuntimeProvider implements RuntimeProvider {
       throw new AnvioError('VALIDATION_ERROR', this.notConfiguredMessage());
     }
 
-    const result = spawnSync(this.binary(), ['exec', image, 'sh', '-c', command], {
-      encoding: 'utf-8',
-      timeout: 60_000,
-    });
-    if (result.error) {
+    try {
+      return await execCommand(this.binary(), ['exec', image, 'sh', '-c', command]);
+    } catch (error) {
       throw new AnvioError(
         'VALIDATION_ERROR',
-        `${this.notConfiguredMessage()} (${result.error.message})`,
+        `${this.notConfiguredMessage()} (${error instanceof Error ? error.message : String(error)})`,
+        { cause: error instanceof Error ? error : undefined },
       );
     }
-    return {
-      stdout: (result.stdout ?? '').trim(),
-      stderr: (result.stderr ?? '').trim(),
-      exitCode: result.status ?? 1,
-    };
   }
 
   async run(_request: RuntimeRequest): Promise<RuntimeResult> {

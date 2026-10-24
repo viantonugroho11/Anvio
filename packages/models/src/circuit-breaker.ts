@@ -29,6 +29,8 @@ interface Slot {
   state: CircuitState;
   failures: number;
   openedAtMs: number;
+  /** When the current half-open probe was let through; 0 when none is in flight. */
+  probeStartedAtMs: number;
 }
 
 export class ProviderCircuitBreaker {
@@ -48,10 +50,19 @@ export class ProviderCircuitBreaker {
     const slot = this.slots.get(providerId);
     if (!slot) return true;
     if (slot.state === 'closed') return true;
-    if (slot.state === 'half-open') return true;
+    const now = this.now();
+    if (slot.state === 'half-open') {
+      // One probe at a time. Every caller used to get through while half-open, so a
+      // recovering provider took the full burst (audit CQ-022). A probe whose outcome
+      // was never recorded (e.g. a non-retryable error) expires after one cooldown.
+      if (slot.probeStartedAtMs && now - slot.probeStartedAtMs < this.cooldownMs) return false;
+      slot.probeStartedAtMs = now;
+      return true;
+    }
     // open — check cooldown
-    if (this.now() - slot.openedAtMs >= this.cooldownMs) {
+    if (now - slot.openedAtMs >= this.cooldownMs) {
       slot.state = 'half-open';
+      slot.probeStartedAtMs = now;
       return true;
     }
     return false;
@@ -64,15 +75,22 @@ export class ProviderCircuitBreaker {
     slot.state = 'closed';
     slot.failures = 0;
     slot.openedAtMs = 0;
+    slot.probeStartedAtMs = 0;
   }
 
   /** Record a failure — increments counter; opens circuit when threshold reached. */
   recordFailure(providerId: string): void {
-    const slot = this.slots.get(providerId) ?? { state: 'closed', failures: 0, openedAtMs: 0 };
+    const slot = this.slots.get(providerId) ?? {
+      state: 'closed',
+      failures: 0,
+      openedAtMs: 0,
+      probeStartedAtMs: 0,
+    };
     // half-open failure re-opens immediately (probe failed).
     if (slot.state === 'half-open') {
       slot.state = 'open';
       slot.openedAtMs = this.now();
+      slot.probeStartedAtMs = 0;
     } else {
       slot.failures += 1;
       if (slot.failures >= this.failureThreshold) {

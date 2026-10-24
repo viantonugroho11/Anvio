@@ -7,6 +7,8 @@ export interface RuntimeToolContext {
   userId?: string;
   /** Active channel for harness output/approval tools (slack, telegram, whatsapp, …). */
   channel?: string;
+  /** Aborted when the run is stopped. Tools that do I/O should pass it on. */
+  signal?: AbortSignal;
 }
 
 export interface RuntimeToolPort {

@@ -1,6 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { StorageProvider } from '@anvio/core';
+import { IN_FLIGHT_WRITE_SUFFIX, resolveInsideRoot, writeFileAtomic } from '@anvio/core';
+
+/** Absent file or a path component that is not a directory: both mean "no such key". */
+function isMissing(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === 'ENOENT' || code === 'ENOTDIR';
+}
 
 export class FilesystemStorageProvider implements StorageProvider {
   readonly providerId = 'filesystem';
@@ -12,41 +19,50 @@ export class FilesystemStorageProvider implements StorageProvider {
   }
 
   private resolve(key: string): string {
-    const resolved = path.resolve(this.rootDir, key);
-    if (!resolved.startsWith(path.resolve(this.rootDir))) {
-      throw new Error(`Path traversal denied: ${key}`);
-    }
-    return resolved;
+    return resolveInsideRoot(this.rootDir, key, `Path traversal denied: ${key}`);
   }
 
+  /**
+   * `null` only when the key does not exist. Permission, I/O and traversal errors
+   * used to be reported as "missing" too, which made a broken session file look
+   * like a new, empty session (audit CQ-012).
+   */
   async read(key: string): Promise<string | null> {
+    const filePath = this.resolve(key);
     try {
-      return await fs.readFile(this.resolve(key), 'utf-8');
-    } catch {
-      return null;
+      return await fs.readFile(filePath, 'utf-8');
+    } catch (error) {
+      if (isMissing(error)) return null;
+      throw error;
     }
   }
 
+  /**
+   * Write via a temp file and rename, so a crash mid-write leaves the previous
+   * content instead of a truncated file (audit CQ-014). `rename` is atomic within
+   * one filesystem, and the temp file sits next to the target to guarantee that.
+   */
   async write(key: string, data: string): Promise<void> {
-    const filePath = this.resolve(key);
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, data, 'utf-8');
+    await writeFileAtomic(this.resolve(key), data);
   }
 
   async delete(key: string): Promise<void> {
+    const filePath = this.resolve(key);
     try {
-      await fs.unlink(this.resolve(key));
-    } catch {
-      /* ignore missing */
+      await fs.unlink(filePath);
+    } catch (error) {
+      if (!isMissing(error)) throw error;
     }
   }
 
   async exists(key: string): Promise<boolean> {
+    const filePath = this.resolve(key);
     try {
-      await fs.access(this.resolve(key));
+      await fs.access(filePath);
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      if (isMissing(error)) return false;
+      throw error;
     }
   }
 
@@ -55,10 +71,11 @@ export class FilesystemStorageProvider implements StorageProvider {
     try {
       const entries = await fs.readdir(dir, { withFileTypes: true });
       return entries
-        .filter((e) => e.isFile())
+        .filter((e) => e.isFile() && !IN_FLIGHT_WRITE_SUFFIX.test(e.name))
         .map((e) => path.join(prefix, e.name).replace(/\\/g, '/'));
-    } catch {
-      return [];
+    } catch (error) {
+      if (isMissing(error)) return [];
+      throw error;
     }
   }
 

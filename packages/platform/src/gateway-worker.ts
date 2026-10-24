@@ -1,4 +1,5 @@
 import type { ChannelType } from '@anvio/core';
+import { KeyedSerialQueue, Semaphore } from '@anvio/core';
 import {
   EventSubjects,
   type AgentInboxInjectedData,
@@ -9,7 +10,8 @@ import {
   type ApprovalRequestedData,
 } from '@anvio/events';
 import { EmailChannel } from '@anvio/channels';
-import { withSpan } from '@anvio/observability';
+import { randomUUID } from 'node:crypto';
+import { createLogger, withSpan, type Logger } from '@anvio/observability';
 import { finalizeAgentRun } from './agent-run.js';
 import { loadAgent, storedSessionToRuntime } from './session-runtime.js';
 import type { PlatformContext } from './platform-context.js';
@@ -46,6 +48,7 @@ const CHAT_CHANNELS: ReadonlySet<string> = new Set([
  * delivered when it was not. The run loop is the layer that should degrade.
  */
 async function deliver(
+  log: Logger,
   what: string,
   sessionId: string,
   channel: string,
@@ -54,11 +57,18 @@ async function deliver(
   try {
     await send();
   } catch (error) {
-    console.error(
-      `[gateway] ${what} to ${channel} failed for session ${sessionId}:`,
-      error instanceof Error ? error.message : error,
-    );
+    log.error({ err: error, what, channel, sessionId }, `${what} delivery failed`);
   }
+}
+
+const workerLog = createLogger('platform:gateway-worker');
+
+/** Concurrent agent turns across all sessions in one worker process. */
+export const DEFAULT_MAX_CONCURRENT_RUNS = 8;
+
+function resolveMaxConcurrentRuns(): number {
+  const parsed = Number.parseInt(process.env.ANVIO_MAX_CONCURRENT_RUNS ?? '', 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_CONCURRENT_RUNS;
 }
 
 /** Agent run consumer — Hermes GatewayRunner agent dispatch equivalent. */
@@ -150,24 +160,50 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
     },
   );
 
+  // One turn per session at a time, a bounded number overall. Without this two
+  // messages in one Slack thread ran concurrently and the second history write
+  // discarded the first turn (audit CQ-007).
+  const runQueue = new KeyedSerialQueue();
+  const runSlots = new Semaphore(resolveMaxConcurrentRuns());
+  const runSerialized = async (sessionId: string, task: () => Promise<void>): Promise<void> => {
+    const queuedBehindAnotherTurn = runQueue.isBusy(sessionId);
+    const job = runQueue.run(sessionId, () => runSlots.use(task));
+    if (queuedBehindAnotherTurn) {
+      // Do not block the publisher on the turn ahead of it: it may be the very
+      // turn that is waiting for this publisher (an approval answered mid-turn).
+      workerLog.info({ sessionId }, 'run queued behind the current turn for this session');
+      void job.catch((error: unknown) => {
+        workerLog.error({ err: error, sessionId }, 'queued run failed');
+      });
+      return;
+    }
+    await job;
+  };
+
   await eventBus.subscribe<AgentRunRequestedData>(
     EventSubjects.AGENT_RUN_REQUESTED,
     'anvio-gateway-worker',
-    async (event) => {
+    (event) => runSerialized(event.data.sessionId, async () => {
+      // One id per turn, on every log line and the span, so a failure can be traced
+      // from the channel message through the run to its tool calls (audit CQ-018).
+      const runId = randomUUID();
       await withSpan(
         'agent.run',
         {
+          runId,
           sessionId: event.data.sessionId,
           agentId: event.data.agentId,
           channel: event.data.channel,
         },
         async () => {
           const { sessionId, userId, agentId, content, channel } = event.data;
+          const log = workerLog.child({ runId, sessionId, agentId, channel });
           const stored = await workspace.sessions.get(sessionId);
           if (!stored) {
-            console.error('[gateway] Session not found:', sessionId);
+            log.error('session not found');
             return;
           }
+          log.info({ resume: Boolean(event.data.resumeApproval) }, 'agent run started');
 
           await workspace.sessions.update(sessionId, { status: 'calling_model' });
           harness.resetReplyTracking(sessionId);
@@ -185,10 +221,7 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                 },
               });
             } catch (err) {
-              console.error(
-                '[gateway] Worktree creation failed:',
-                err instanceof Error ? err.message : err,
-              );
+              log.error({ err }, 'worktree creation failed');
             }
           }
 
@@ -197,6 +230,7 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
             ? {
                 content: '',
                 metadata: {
+                  runId,
                   resumeDecision: {
                     requestId: event.data.resumeApproval.requestId,
                     approved: event.data.resumeApproval.approved,
@@ -204,7 +238,7 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                   },
                 },
               }
-            : { content };
+            : { content, metadata: { runId } };
           let fullContent = '';
 
           // Native "working on it" indicator for channels that have one.
@@ -233,7 +267,7 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                   channel,
                 });
                 if (!harness.shouldSuppressRawOutput(channel as ChannelType)) {
-                  await deliver('chunk', sessionId, channel, () =>
+                  await deliver(log, 'chunk', sessionId, channel, () =>
                     channelHub.sendMessage(channel as ChannelType, sessionId, {
                       sessionId,
                       type: 'chunk',
@@ -264,7 +298,7 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                 // request is also registered with the approval gate —
                 // otherwise the button callback resolves an id the gate has
                 // never seen and silently no-ops.
-                await deliver('approval request', sessionId, channel, async () => {
+                await deliver(log, 'approval request', sessionId, channel, async () => {
                   if (harness.enabled) {
                     await harness.registerRuntimeApproval(sessionId, channel as ChannelType, {
                       requestId: chunk.request.id,
@@ -282,6 +316,12 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                   }
                 });
                 return;
+              }
+              if (chunk.type === 'done') {
+                log.info(
+                  { stopReason: chunk.stopReason, provider: chunk.provider, model: chunk.model, usage: chunk.usage },
+                  'agent run completed',
+                );
               }
               if (chunk.type === 'done' && chunk.usage) {
                 await workspace.sessions.update(sessionId, {
@@ -316,9 +356,11 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                   content: fullContent,
                   usage: chunk.usage,
                   channel,
+                  provider: chunk.provider,
+                  model: chunk.model,
                 });
                 if (!harness.shouldSuppressRawOutput(channel as ChannelType)) {
-                  await deliver('reply', sessionId, channel, () =>
+                  await deliver(log, 'reply', sessionId, channel, () =>
                     channelHub.sendMessage(channel as ChannelType, sessionId, {
                       sessionId,
                       type: 'done',
@@ -330,10 +372,8 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                   // that forgot anvio_channel__reply left the user with nothing
                   // (or only an earlier one-line status ping). Deliver the raw
                   // turn instead — silence is never the better failure.
-                  console.warn(
-                    `[gateway] Harness strict: session ${sessionId} completed without anvio_channel__reply; delivering raw output`,
-                  );
-                  await deliver('reply', sessionId, channel, () =>
+                  log.warn('harness strict: run completed without anvio_channel__reply; delivering raw output');
+                  await deliver(log, 'reply', sessionId, channel, () =>
                     channelHub.sendMessage(channel as ChannelType, sessionId, {
                       sessionId,
                       type: 'done',
@@ -347,7 +387,7 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                 // user already saw the reply arrive; the notification is only
                 // meaningful for non-streaming surfaces (email/sms/webhook).
                 if (!CHAT_CHANNELS.has(channel)) {
-                  await deliver('completion notice', sessionId, channel, () =>
+                  await deliver(log, 'completion notice', sessionId, channel, () =>
                     channelHub.sendNotification(channel as ChannelType, sessionId, {
                       sessionId,
                       type: 'task_completed',
@@ -363,13 +403,14 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
                 });
               }
               if (chunk.type === 'error') {
+                log.warn({ code: chunk.code, retryable: chunk.retryable, error: chunk.error }, 'agent run failed');
                 await workspace.sessions.update(sessionId, { status: 'failed' });
                 await eventBus.publishCore(EventSubjects.AGENT_RUN_FAILED, 'anvio.agent.run.failed', {
                   sessionId,
                   error: chunk.error ?? 'Unknown error',
                   channel,
                 });
-                await deliver('failure notice', sessionId, channel, () =>
+                await deliver(log, 'failure notice', sessionId, channel, () =>
                   channelHub.sendNotification(channel as ChannelType, sessionId, {
                     sessionId,
                     type: 'task_failed',
@@ -387,6 +428,6 @@ export async function registerGatewayWorker(platform: PlatformContext): Promise<
           }
         },
       );
-    },
+    }),
   );
 }

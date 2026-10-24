@@ -1,8 +1,10 @@
 import type { CodeRuntime } from '@anvio/core';
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { buildSandboxEnv } from '@anvio/core';
 
 export interface ProcessSandboxOptions {
   runtime: CodeRuntime;
@@ -10,7 +12,13 @@ export interface ProcessSandboxOptions {
   cwd: string;
   env: Record<string, string>;
   timeoutMs: number;
+  /**
+   * Honoured by the docker runtime (`--network none`). Host runtimes (shell, python,
+   * node, go) have no network isolation; the flag is only exported as `ANVIO_NETWORK`.
+   */
   networkEnabled: boolean;
+  /** Per-stream capture limit. Output beyond it is dropped and marked truncated. */
+  maxOutputBytes?: number;
 }
 
 export interface ProcessSandboxResult {
@@ -19,6 +27,45 @@ export interface ProcessSandboxResult {
   stderr: string;
   durationMs: number;
   timedOut: boolean;
+}
+
+export const DEFAULT_MAX_OUTPUT_BYTES = 1_000_000;
+
+/** Accumulates a stream up to a byte limit; the rest is counted, not kept. */
+class CappedOutput {
+  private readonly chunks: Buffer[] = [];
+  private kept = 0;
+  private dropped = 0;
+
+  constructor(private readonly limit: number) {}
+
+  push(chunk: Buffer): void {
+    const room = this.limit - this.kept;
+    if (room <= 0) {
+      this.dropped += chunk.byteLength;
+      return;
+    }
+    const slice = chunk.byteLength > room ? chunk.subarray(0, room) : chunk;
+    this.chunks.push(slice);
+    this.kept += slice.byteLength;
+    this.dropped += chunk.byteLength - slice.byteLength;
+  }
+
+  toString(): string {
+    const text = Buffer.concat(this.chunks).toString('utf-8');
+    return this.dropped > 0 ? `${text}\n[output truncated: ${this.dropped} more bytes]` : text;
+  }
+}
+
+/** Kill the child and anything it spawned: it runs as its own process group. */
+function killTree(child: ChildProcess): void {
+  if (child.pid === undefined) return;
+  try {
+    if (process.platform === 'win32') child.kill('SIGKILL');
+    else process.kill(-child.pid, 'SIGKILL');
+  } catch {
+    // Already exited between the timeout firing and the kill.
+  }
 }
 
 export async function runInProcessSandbox(
@@ -30,53 +77,48 @@ export async function runInProcessSandbox(
 
   const started = Date.now();
   const { command, args, cleanup } = await buildCommand(options);
+  const maxOutput = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
 
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
-      env: { ...process.env, ...options.env, ANVIO_NETWORK: options.networkEnabled ? '1' : '0' },
+      env: buildSandboxEnv(options.env, options.networkEnabled),
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: process.platform !== 'win32',
     });
 
-    let stdout = '';
-    let stderr = '';
+    const stdout = new CappedOutput(maxOutput);
+    const stderr = new CappedOutput(maxOutput);
     let timedOut = false;
+    let settled = false;
 
-    child.stdout?.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    child.stderr?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
+    child.stdout?.on('data', (chunk: Buffer) => stdout.push(chunk));
+    child.stderr?.on('data', (chunk: Buffer) => stderr.push(chunk));
 
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGKILL');
+      killTree(child);
     }, options.timeoutMs);
 
-    child.on('close', (code) => {
+    const finish = (exitCode: number, errorMessage?: string) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
-      void cleanup?.();
+      void cleanup?.().catch((error: unknown) => {
+        console.error('[execution] sandbox cleanup failed:', error instanceof Error ? error.message : error);
+      });
+      const err = errorMessage ?? stderr.toString();
       resolve({
-        exitCode: timedOut ? 124 : (code ?? 1),
-        stdout,
-        stderr: timedOut ? `${stderr}\nProcess timed out after ${options.timeoutMs}ms`.trim() : stderr,
+        exitCode: timedOut ? 124 : exitCode,
+        stdout: stdout.toString(),
+        stderr: timedOut ? `${err}\nProcess timed out after ${options.timeoutMs}ms`.trim() : err,
         durationMs: Date.now() - started,
         timedOut,
       });
-    });
+    };
 
-    child.on('error', (err) => {
-      clearTimeout(timer);
-      void cleanup?.();
-      resolve({
-        exitCode: 1,
-        stdout,
-        stderr: err.message,
-        durationMs: Date.now() - started,
-        timedOut: false,
-      });
-    });
+    child.on('close', (code) => finish(code ?? 1));
+    child.on('error', (err) => finish(1, err.message));
   });
 }
 
@@ -116,6 +158,10 @@ async function runDockerSandbox(options: ProcessSandboxOptions): Promise<Process
   const scriptName = /^(\s*(def |import |from ))/.test(options.code) ? 'script.py' : 'script.js';
   const scriptPath = path.join(tmpDir, scriptName);
   await fs.writeFile(scriptPath, options.code, 'utf8');
+  const maxOutput = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
+  // Named so a timeout can remove the container: killing the docker CLI alone
+  // leaves the container running.
+  const containerName = `anvio-sandbox-${randomBytes(6).toString('hex')}`;
 
   const mount = `${options.cwd}:/workspace`;
   const inner =
@@ -126,6 +172,8 @@ async function runDockerSandbox(options: ProcessSandboxOptions): Promise<Process
   const args = [
     'run',
     '--rm',
+    '--name',
+    containerName,
     '-v',
     mount,
     '-v',
@@ -141,36 +189,32 @@ async function runDockerSandbox(options: ProcessSandboxOptions): Promise<Process
 
   return new Promise((resolve) => {
     const child = spawn('docker', args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout?.on('data', (c: Buffer) => {
-      stdout += c.toString();
-    });
-    child.stderr?.on('data', (c: Buffer) => {
-      stderr += c.toString();
-    });
-    const timer = setTimeout(() => child.kill('SIGKILL'), options.timeoutMs);
-    child.on('close', (code) => {
+    const stdout = new CappedOutput(maxOutput);
+    const stderr = new CappedOutput(maxOutput);
+    let timedOut = false;
+    let settled = false;
+    child.stdout?.on('data', (c: Buffer) => stdout.push(c));
+    child.stderr?.on('data', (c: Buffer) => stderr.push(c));
+    const timer = setTimeout(() => {
+      timedOut = true;
+      spawn('docker', ['rm', '-f', containerName], { stdio: 'ignore' }).on('error', () => {});
+      child.kill('SIGKILL');
+    }, options.timeoutMs);
+    const finish = (exitCode: number, errorMessage?: string) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
-      void fs.rm(tmpDir, { recursive: true, force: true });
+      void fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+      const err = errorMessage ?? stderr.toString();
       resolve({
-        exitCode: code ?? 1,
-        stdout,
-        stderr,
+        exitCode: timedOut ? 124 : exitCode,
+        stdout: stdout.toString(),
+        stderr: timedOut ? `${err}\nProcess timed out after ${options.timeoutMs}ms`.trim() : err,
         durationMs: Date.now() - started,
-        timedOut: false,
+        timedOut,
       });
-    });
-    child.on('error', (err) => {
-      clearTimeout(timer);
-      void fs.rm(tmpDir, { recursive: true, force: true });
-      resolve({
-        exitCode: 1,
-        stdout,
-        stderr: err.message,
-        durationMs: Date.now() - started,
-        timedOut: false,
-      });
-    });
+    };
+    child.on('close', (code) => finish(code ?? 1));
+    child.on('error', (err) => finish(1, err.message));
   });
 }

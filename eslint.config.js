@@ -9,7 +9,13 @@ export default tseslint.config(
   },
   {
     rules: {
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' },
+      ],
+      // `let x; … closure reads x …; x = value` is how platform wiring breaks
+      // construction cycles; that single late assignment cannot be a const.
+      'prefer-const': ['error', { ignoreReadBeforeAssign: true }],
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-empty': ['error', { allowEmptyCatch: false }],
     },

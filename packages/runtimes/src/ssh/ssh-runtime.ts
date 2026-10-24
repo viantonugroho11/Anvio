@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { execCommand } from '../exec-command.js';
 import type {
   RuntimeCapabilities,
   RuntimeProvider,
@@ -35,40 +35,32 @@ export class SshRuntimeProvider implements RuntimeProvider {
 
   async testConnection(): Promise<{ ok: boolean; output: string }> {
     if (process.env.ANVIO_SSH_MOCK === '1') {
-      const result = spawnSync('echo', ['remote-ok'], { encoding: 'utf-8' });
-      return { ok: result.status === 0, output: (result.stdout ?? '').trim() };
+      const result = await execCommand('echo', ['remote-ok']);
+      return { ok: result.exitCode === 0, output: result.stdout };
     }
     if (!this.options.host) {
       return { ok: false, output: 'SSH host not configured' };
     }
     const target = this.sshTarget();
-    const result = spawnSync('ssh', [...target, 'echo', 'remote-ok'], { encoding: 'utf-8' });
+    const result = await execCommand('ssh', [...target, 'echo', 'remote-ok'], {
+      timeoutMs: 20_000,
+    });
     return {
-      ok: result.status === 0,
-      output: (result.stdout ?? result.stderr ?? '').trim(),
+      ok: result.exitCode === 0,
+      output: result.stdout || result.stderr,
     };
   }
 
   /** Execute a shell command on the remote host via SSH. */
   async execRemote(command: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     if (process.env.ANVIO_SSH_MOCK === '1') {
-      const result = spawnSync('sh', ['-c', command], { encoding: 'utf-8' });
-      return {
-        stdout: (result.stdout ?? '').trim(),
-        stderr: (result.stderr ?? '').trim(),
-        exitCode: result.status ?? 1,
-      };
+      return execCommand('sh', ['-c', command]);
     }
     if (!this.isConfigured()) {
       throw new AnvioError('VALIDATION_ERROR', 'SSH host not configured (set ANVIO_SSH_HOST)');
     }
     const target = this.sshTarget();
-    const result = spawnSync('ssh', [...target, command], { encoding: 'utf-8' });
-    return {
-      stdout: (result.stdout ?? '').trim(),
-      stderr: (result.stderr ?? '').trim(),
-      exitCode: result.status ?? 1,
-    };
+    return execCommand('ssh', [...target, command]);
   }
 
   async run(_request: RuntimeRequest): Promise<RuntimeResult> {
@@ -86,6 +78,15 @@ export class SshRuntimeProvider implements RuntimeProvider {
     const user = this.options.user ?? process.env.ANVIO_SSH_USER ?? 'root';
     const host = this.options.host ?? process.env.ANVIO_SSH_HOST!;
     const port = this.options.port ?? Number(process.env.ANVIO_SSH_PORT ?? '22');
-    return ['-p', String(port), `${user}@${host}`];
+    // BatchMode: fail instead of waiting on a password prompt nobody will answer.
+    return [
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=10',
+      '-p',
+      String(port),
+      `${user}@${host}`,
+    ];
   }
 }

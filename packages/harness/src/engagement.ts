@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { HarnessChannelProfile } from '@anvio/core';
+import { writeFileAtomic } from '@anvio/core';
 
 export interface EngagementState {
   channel: string;
@@ -53,11 +54,7 @@ export class FilesystemEngagementStore implements EngagementStore {
   }
 
   async set(state: EngagementState): Promise<void> {
-    const file = this.file(state.channel, state.threadId);
-    await fs.mkdir(path.dirname(file), { recursive: true });
-    const tmp = `${file}.${process.pid}.tmp`;
-    await fs.writeFile(tmp, JSON.stringify(state, null, 2));
-    await fs.rename(tmp, file);
+    await writeFileAtomic(this.file(state.channel, state.threadId), JSON.stringify(state, null, 2));
   }
 }
 

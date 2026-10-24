@@ -1,5 +1,9 @@
 import jwt from 'jsonwebtoken';
 import type { AuthConfig, AuthContext, AuthProvider } from '@anvio/core';
+import { AnvioError } from '@anvio/core';
+
+/** HS256 keys shorter than the hash output (32 bytes) are brute-forceable offline. */
+const RECOMMENDED_JWT_SECRET_LENGTH = 32;
 
 /** Default: no login, no registration — agents run immediately. */
 export class NoAuthProvider implements AuthProvider {
@@ -34,7 +38,7 @@ export class JwtAuthProvider implements AuthProvider {
   async authenticate(token?: string): Promise<AuthContext | null> {
     if (!token) return null;
     try {
-      const payload = jwt.verify(token, this.secret) as {
+      const payload = jwt.verify(token, this.secret, { algorithms: ['HS256'] }) as {
         sub: string;
         email?: string;
         roles?: string[];
@@ -82,11 +86,31 @@ export function createAuthProvider(
 
   switch (config.provider) {
     case 'jwt':
-      return new JwtAuthProvider(options?.jwtSecret ?? 'dev-secret', defaultUserId);
+      return new JwtAuthProvider(requireJwtSecret(options?.jwtSecret), defaultUserId);
     case 'oauth2':
       return new OAuth2AuthProvider(defaultUserId);
     case 'none':
     default:
       return new NoAuthProvider(defaultUserId);
   }
+}
+
+/**
+ * A missing secret used to fall back to a hard-coded `'dev-secret'`, so enabling
+ * JWT auth without `JWT_SECRET` let anyone mint a token for any user (audit CQ-001).
+ * Refusing to start is the only safe outcome.
+ */
+function requireJwtSecret(secret: string | undefined): string {
+  if (!secret || secret.trim() === '') {
+    throw new AnvioError(
+      'VALIDATION_ERROR',
+      'auth.provider is "jwt" but JWT_SECRET is not set. Set JWT_SECRET (at least 32 characters) or disable auth.',
+    );
+  }
+  if (secret.length < RECOMMENDED_JWT_SECRET_LENGTH) {
+    console.warn(
+      `[auth] JWT_SECRET is shorter than ${RECOMMENDED_JWT_SECRET_LENGTH} characters; use a longer random secret.`,
+    );
+  }
+  return secret;
 }

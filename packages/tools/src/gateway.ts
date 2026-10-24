@@ -173,6 +173,11 @@ spec:
   webSearch:
     provider: brave
     apiKeyEnv: WEB_SEARCH_API_KEY
+  # web_fetch / web_extract / http_request refuse loopback, private and metadata
+  # addresses unless allowed here.
+  network:
+    allowPrivateNetwork: false
+    allowHosts: []
 `;
 
 export interface ToolGatewayCallContext {
@@ -180,6 +185,8 @@ export interface ToolGatewayCallContext {
   agentId: string;
   userId?: string;
   soul?: SoulDefinition;
+  /** Aborted when the agent run is stopped. */
+  signal?: AbortSignal;
 }
 
 export type ToolCompletedHandler = (
@@ -198,16 +205,30 @@ export class ToolGateway {
     this.ctx = ctx;
   }
 
+  /**
+   * Loads `tools/gateway.yaml`, or the built-in defaults when the file does not exist.
+   *
+   * A file that exists but cannot be parsed or validated is an error. It used to
+   * fall back to the defaults silently, which re-enabled tools the operator had
+   * switched off with a typo-ed file (audit CQ-012).
+   */
   static async load(workspaceRoot: string, ctx: BuiltinToolContext = {}): Promise<ToolGateway> {
     const filePath = path.join(workspaceRoot, 'tools/gateway.yaml');
+    let raw: string;
     try {
-      const raw = parseYaml(await fs.readFile(filePath, 'utf-8'));
-      return new ToolGateway(parseToolGatewayConfig(raw).spec, { workspaceRoot, ...ctx });
-    } catch {
+      raw = await fs.readFile(filePath, 'utf-8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       return new ToolGateway(parseToolGatewayConfig(parseYaml(DEFAULT_TOOL_GATEWAY_YAML)).spec, {
         workspaceRoot,
         ...ctx,
       });
+    }
+    try {
+      return new ToolGateway(parseToolGatewayConfig(parseYaml(raw)).spec, { workspaceRoot, ...ctx });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`Invalid tool gateway config ${filePath}: ${reason}`, { cause: error });
     }
   }
 
@@ -215,6 +236,7 @@ export class ToolGateway {
     this.onToolCompleted = handler;
   }
 
+  /** Boot-time wiring only: the context is shared by every session using this gateway. */
   mergeContext(partial: BuiltinToolContext): void {
     Object.assign(this.ctx, partial);
   }
@@ -262,6 +284,7 @@ export class ToolGateway {
       userId: runtimeCtx?.userId,
       sessionId: runtimeCtx?.sessionId,
       agentId: runtimeCtx?.agentId,
+      signal: runtimeCtx?.signal,
     });
   }
 
@@ -271,11 +294,20 @@ export class ToolGateway {
   ): Promise<BuiltinToolResult> {
     const result = await this.dispatch(call, runtimeCtx);
     if (runtimeCtx && result.status === 'completed' && this.onToolCompleted) {
-      await this.onToolCompleted(runtimeCtx, call, result);
+      // The tool already ran. A failing observer must not turn that into a failed
+      // call, or the model retries a side effect that happened (audit CQ-032).
+      try {
+        await this.onToolCompleted(runtimeCtx, call, result);
+      } catch (error) {
+        console.error(
+          `[tools] onToolCompleted hook failed for ${call.name}:`,
+          error instanceof Error ? (error.stack ?? error.message) : error,
+        );
+      }
     }
     return result;
   }
 }
 
 export { REMOTE_ROUTED_TOOLS, HOST_ONLY_TOOLS, runRemoteTool } from './remote-dispatch.js';
-export { runBuiltinTool, webFetch, webSearch, executeCode } from './builtins/index.js';
+export { runBuiltinTool, webFetch, webSearch } from './builtins/index.js';

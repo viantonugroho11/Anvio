@@ -1,13 +1,5 @@
 import fs from 'node:fs/promises';
-import path from 'node:path';
-
-function resolveWorkspacePath(workspaceRoot: string, relativePath: string): string {
-  const resolved = path.resolve(workspaceRoot, relativePath);
-  if (!resolved.startsWith(path.resolve(workspaceRoot))) {
-    throw new Error('Path escapes workspace');
-  }
-  return resolved;
-}
+import { resolveRealInsideRoot } from '@anvio/core';
 
 function normalizeWhitespace(s: string): string {
   return s.replace(/\s+/g, ' ').trim();
@@ -55,7 +47,7 @@ export async function patchFile(
   oldString: string,
   newString: string,
 ): Promise<{ path: string; replacements: number; bytes: number; diff: string }> {
-  const resolved = resolveWorkspacePath(workspaceRoot, relativePath);
+  const resolved = await resolveRealInsideRoot(workspaceRoot, relativePath);
   const before = await fs.readFile(resolved, 'utf-8');
   const updated = tryReplace(before, oldString, newString);
   if (updated == null) {

@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type {
-  AgentDefinition,
-  RuntimeProvider,
-  RuntimeProviderId,
-  RuntimeRequest,
-} from '@anvio/core';
+import type { RuntimeProvider, RuntimeProviderId, RuntimeRequest } from '@anvio/core';
 import { runWithRuntimeFallback } from './runtime-fallback-executor.js';
 
 function mockRequest(): RuntimeRequest {

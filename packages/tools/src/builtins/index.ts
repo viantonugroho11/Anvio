@@ -92,9 +92,17 @@ export interface BuiltinToolContext {
   a2aDelegate?: A2ADelegateFn;
   /** Session-bound remote target for shell/file tools (ADR 0034); undefined = host. */
   resolveExecTarget?: (sessionId: string, userId?: string) => Promise<ExecTarget | undefined>;
+  /** Run cancellation; network tools abort their request when it fires. */
+  signal?: AbortSignal;
 }
 
 export { webFetch } from './web-fetch.js';
+import { assertEgressAllowed, DEFAULT_EGRESS_POLICY } from './egress.js';
+
+/** Specs built in code (tests, older callers) may predate the `network` block. */
+function egressPolicy(spec: ToolGatewaySpec): ToolGatewaySpec['network'] {
+  return spec.network ?? DEFAULT_EGRESS_POLICY;
+}
 
 export async function webSearch(query: string, apiKey?: string): Promise<BuiltinToolResult> {
   if (!apiKey) {
@@ -126,26 +134,21 @@ export async function webSearch(query: string, apiKey?: string): Promise<Builtin
   }
 }
 
-export async function executeCode(code: string, language = 'javascript'): Promise<BuiltinToolResult> {
-  if (language !== 'javascript') {
-    return {
-      name: 'anvio_tools__execute_code',
-      output: null,
-      status: 'skipped',
-      error: `Language ${language} not supported in Phase H`,
-    };
-  }
+/**
+ * Browser tools load the first URL through a real browser, so only that URL can be
+ * checked here; redirects and sub-resources inside the page are not covered.
+ */
+async function egressDenial(
+  name: string,
+  url: string,
+  policy: ToolGatewaySpec['network'],
+): Promise<BuiltinToolResult | null> {
+  if (!url || url === 'about:blank') return null;
   try {
-    const fn = new Function(`"use strict"; return (async () => { ${code} })();`);
-    const output = await fn();
-    return { name: 'anvio_tools__execute_code', output, status: 'completed' };
+    await assertEgressAllowed(url, policy);
+    return null;
   } catch (error) {
-    return {
-      name: 'anvio_tools__execute_code',
-      output: null,
-      status: 'failed',
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return { name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -162,7 +165,7 @@ export async function runBuiltinTool(
 
   switch (toolKey) {
     case 'web_fetch':
-      return webFetch(String(call.arguments.url ?? ''));
+      return webFetch(String(call.arguments.url ?? ''), undefined, egressPolicy(spec), ctx.signal);
     case 'web_search':
       return webSearch(
         String(call.arguments.query ?? ''),
@@ -191,7 +194,9 @@ export async function runBuiltinTool(
           };
         }
       }
-      return executeCode(String(call.arguments.code ?? ''), String(call.arguments.language ?? 'javascript'));
+      // There used to be an in-process `new Function(code)` fallback here: model code
+      // ran inside the Anvio host with access to `process` and no timeout (audit CQ-033).
+      return { name: call.name, output: null, status: 'failed', error: 'codeExecutor required for execute_code' };
     case 'file_read': {
       if (!ctx.workspaceRoot) {
         return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
@@ -228,12 +233,15 @@ export async function runBuiltinTool(
         };
       }
     }
-    case 'browser':
+    case 'browser': {
+      const denied = await egressDenial(call.name, String(call.arguments.url ?? ''), egressPolicy(spec));
+      if (denied) return denied;
       return browserAction({
         url: String(call.arguments.url ?? ''),
         action: (call.arguments.action as 'navigate' | 'screenshot' | 'content') ?? 'content',
         selector: call.arguments.selector ? String(call.arguments.selector) : undefined,
       });
+    }
     case 'image_generate':
       return imageGenerate(String(call.arguments.prompt ?? ''), {
         workspaceRoot: ctx.workspaceRoot,
@@ -388,7 +396,8 @@ export async function runBuiltinTool(
           headers,
           body: call.arguments.body ? String(call.arguments.body) : undefined,
           timeoutMs: call.arguments.timeoutMs ? Number(call.arguments.timeoutMs) : undefined,
-        });
+          signal: ctx.signal,
+        }, egressPolicy(spec));
         return { name: call.name, output: out, status: 'completed' };
       } catch (error) {
         return {
@@ -462,7 +471,7 @@ export async function runBuiltinTool(
       return { name: call.name, output: out, status: 'completed' };
     }
     case 'web_extract':
-      return webExtract(String(call.arguments.url ?? ''));
+      return webExtract(String(call.arguments.url ?? ''), undefined, egressPolicy(spec), ctx.signal);
     case 'patch_file': {
       if (!ctx.workspaceRoot) {
         return { name: call.name, output: null, status: 'failed', error: 'workspaceRoot required' };
@@ -497,8 +506,12 @@ export async function runBuiltinTool(
         return { name: call.name, output: null, status: 'failed', error: error instanceof Error ? error.message : String(error) };
       }
     }
-    case 'browser_navigate':
-      return browserNavigate(String(call.arguments.url ?? ''), ctx.sessionId);
+    case 'browser_navigate': {
+      const url = String(call.arguments.url ?? '');
+      const denied = await egressDenial(call.name, url, egressPolicy(spec));
+      if (denied) return denied;
+      return browserNavigate(url, ctx.sessionId);
+    }
     case 'browser_snapshot':
       return browserSnapshot(ctx.sessionId);
     case 'browser_click':

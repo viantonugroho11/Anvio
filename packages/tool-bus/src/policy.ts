@@ -7,9 +7,12 @@ import { z } from 'zod';
  * Policies compose in a fixed precedence chain: **default → tenant → project → agent**.
  * Later layers override earlier ones per-key; `mergeToolPolicies` implements this.
  *
- * The runtime resolves the effective policy once per session, then consults
- * `isToolAllowed(policy, toolName)` at every tool call. Denials produce a
- * typed rejection reason (`allowedIsExhaustive`, `blocked`, `patternMismatch`).
+ * Status: **not wired in**. No runtime or gateway imports this package yet, so
+ * none of these policies are enforced today — tool access is controlled only by
+ * the enable flags in `tools/gateway.yaml` (audit CQ-024). The intended use: the
+ * runtime resolves the effective policy once per session, then consults
+ * `isToolAllowed(policy, toolName)` at every tool call; denials produce a typed
+ * rejection reason (`allowedIsExhaustive`, `blocked`, `patternMismatch`).
  */
 
 export const toolPolicySchema = z

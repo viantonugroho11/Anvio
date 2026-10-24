@@ -31,7 +31,8 @@ export class DockerRuntimeProvider implements RuntimeProvider {
 
   isConfigured(): boolean {
     if (process.env.ANVIO_DOCKER_MOCK === '1') return true;
-    const probe = spawnSync('docker', ['info'], { encoding: 'utf-8' });
+    // Synchronous by interface; bounded so a stuck Docker daemon cannot hang the caller.
+    const probe = spawnSync('docker', ['info'], { encoding: 'utf-8', timeout: 5_000 });
     return probe.status === 0;
   }
 

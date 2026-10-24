@@ -7,6 +7,7 @@ import type {
 } from '@anvio/core';
 import type { ChannelVoiceOptions, VoicePipeline } from '@anvio/voice';
 import { isChannelVoiceEnabled, transcribeInboundAudio, voiceInboundContent } from '@anvio/voice';
+import { KeyedSerialQueue } from '@anvio/core';
 import { BaseChannelAdapter } from './base-channel-adapter.js';
 import { ChannelSessionBridge } from './channel-session-bridge.js';
 
@@ -117,6 +118,7 @@ export class TelegramChannel extends BaseChannelAdapter {
   /** Telegram expires a chat action after ~5s; refresh just inside that. */
   protected readonly typingRefreshMs = TYPING_REFRESH_MS;
   private botUsername: string | null = null;
+  private readonly chatQueue = new KeyedSerialQueue();
 
   constructor(private readonly options: TelegramChannelOptions) {
     super();
@@ -285,20 +287,34 @@ export class TelegramChannel extends BaseChannelAdapter {
           // that decision to one update instead of silently discarding every
           // sibling left in the batch (issue #73).
           this.offset = update.update_id + 1;
-          try {
-            await this.handleUpdate(update);
-          } catch (error) {
-            console.error(
-              `[Telegram] Update ${update.update_id} failed:`,
-              error instanceof Error ? error.message : error,
-            );
-          }
+          this.dispatchUpdate(update);
         }
       } catch (error) {
         console.error('[Telegram] Poll error:', error instanceof Error ? error.message : error);
         await sleep(3000);
       }
     }
+  }
+
+  /**
+   * Hand an update off without waiting for it. Awaiting each update made one long
+   * agent turn stall polling for every chat on the bot (audit CQ-007). Messages
+   * stay ordered per chat/topic; button callbacks are never queued, because the
+   * turn ahead of them may be the one waiting for that approval.
+   */
+  private dispatchUpdate(update: TelegramUpdate): void {
+    const fail = (error: unknown) => {
+      console.error(
+        `[Telegram] Update ${update.update_id} failed:`,
+        error instanceof Error ? error.message : error,
+      );
+    };
+    if (update.callback_query || !update.message) {
+      this.handleUpdate(update).catch(fail);
+      return;
+    }
+    const key = `${update.message.chat.id}:${update.message.message_thread_id ?? 0}`;
+    this.chatQueue.run(key, () => this.handleUpdate(update)).catch(fail);
   }
 
   private async handleUpdate(update: TelegramUpdate): Promise<void> {

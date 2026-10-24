@@ -74,6 +74,7 @@ function renderOneSkill(s: SkillDefinition['spec']): string {
 
 export {
   SkillCatalogResolver,
+  SkillNotFoundError,
   createSkillCatalogResolver,
 } from './catalog-resolver.js';
 export { SkillInstaller, createSkillInstaller } from './skill-installer.js';

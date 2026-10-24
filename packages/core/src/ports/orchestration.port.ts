@@ -7,7 +7,8 @@ export interface OrchestrationTaskResult {
   agentId: string;
   sessionId: string;
   result?: AgentResult;
-  status: 'completed' | 'failed' | 'skipped';
+  /** `awaiting_approval`: the sub-agent paused for a human decision; its output is partial. */
+  status: 'completed' | 'failed' | 'skipped' | 'awaiting_approval';
   error?: string;
 }
 

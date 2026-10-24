@@ -75,6 +75,9 @@ export interface AgentRunCompletedData {
   usage: { inputTokens: number; outputTokens: number; totalTokens: number };
   status: string;
   channel: string;
+  /** Provider/model that served the run, when known. */
+  provider?: string;
+  model?: string;
 }
 
 export interface AgentRunFailedData {

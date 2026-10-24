@@ -14,6 +14,7 @@ import type { EventSubject } from '@anvio/events';
 import { EventSubjects } from '@anvio/events';
 import { v4 as uuidv4 } from 'uuid';
 import { DelegationProgressTracker } from './delegation-progress.js';
+import { AgentRunError } from './runtime.js';
 import {
   getReadyTasks,
   interpolateTaskInput,
@@ -29,18 +30,38 @@ export interface SupervisorOrchestratorDeps {
   loadAgent: (name: string) => Promise<AgentDefinition>;
   storedSessionToRuntime: (stored: StoredSession) => Session;
   publishEvent?: (subject: EventSubject, type: string, data: unknown) => Promise<void>;
+  /** Sub-agents run at once in parallel/fan-out/fan-in waves. Default 4. */
+  maxConcurrency?: number;
+  /** Nested `subPlan` levels allowed. Default 3. */
+  maxDepth?: number;
 }
 
-type TaskOutcome = 'completed' | 'failed' | 'skipped';
+export const DEFAULT_ORCHESTRATION_CONCURRENCY = 4;
+export const DEFAULT_ORCHESTRATION_DEPTH = 3;
+
+type TaskOutcome = 'completed' | 'failed' | 'skipped' | 'awaiting_approval';
 
 export class SupervisorOrchestrator implements AgentOrchestrator {
   constructor(private readonly deps: SupervisorOrchestratorDeps) {}
 
   async execute(
     plan: OrchestrationPlan,
-    _manager: AgentDefinition,
+    manager: AgentDefinition,
     managerSession: Session,
   ): Promise<OrchestrationResult> {
+    return this.executeAtDepth(plan, manager, managerSession, 0);
+  }
+
+  private async executeAtDepth(
+    plan: OrchestrationPlan,
+    manager: AgentDefinition,
+    managerSession: Session,
+    depth: number,
+  ): Promise<OrchestrationResult> {
+    const maxDepth = this.deps.maxDepth ?? DEFAULT_ORCHESTRATION_DEPTH;
+    if (depth > maxDepth) {
+      throw new Error(`Orchestration plans nest deeper than ${maxDepth} levels`);
+    }
     const tasks = normalizeTasks(plan.tasks);
     const results: OrchestrationTaskResult[] = [];
     const outputs = new Map<string, string>();
@@ -62,6 +83,18 @@ export class SupervisorOrchestrator implements AgentOrchestrator {
       mode: plan.mode,
       taskCount: tasks.length,
     });
+
+    const recordFailure = async (
+      task: PlannedTask,
+      policy: SubAgentFailurePolicy,
+      message: string,
+    ): Promise<TaskOutcome> => {
+      failed.add(task.id);
+      results.push({ taskId: task.id, agentId: task.agentId, sessionId: '', status: 'failed', error: message });
+      await progress.taskFailed(task.id, task.agentId, message);
+      if (policy === 'abort') aborted = true;
+      return 'failed';
+    };
 
     const runSingleTask = async (task: PlannedTask): Promise<TaskOutcome> => {
       if (aborted) {
@@ -89,7 +122,17 @@ export class SupervisorOrchestrator implements AgentOrchestrator {
       }
 
       if (task.subPlan) {
-        const nested = await this.execute(task.subPlan, _manager, managerSession);
+        let nested: OrchestrationResult;
+        try {
+          nested = await this.executeAtDepth(task.subPlan, manager, managerSession, depth + 1);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          failed.add(task.id);
+          results.push({ taskId: task.id, agentId: task.agentId, sessionId: '', status: 'failed', error: message });
+          await progress.taskFailed(task.id, task.agentId, message);
+          if ((task.onFailure ?? 'abort') === 'abort') aborted = true;
+          return 'failed';
+        }
         for (const nestedResult of nested.results) {
           results.push(nestedResult);
         }
@@ -111,9 +154,17 @@ export class SupervisorOrchestrator implements AgentOrchestrator {
 
       await progress.taskStarted(task.id, task.agentId);
 
+      let agent: AgentDefinition;
+      try {
+        agent = await this.deps.loadAgent(task.agentId);
+      } catch (err) {
+        // An unknown or invalid agent will not load on a second try either.
+        return recordFailure(task, policy, err instanceof Error ? err.message : String(err));
+      }
+
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        let sessionId = '';
         try {
-          const agent = await this.deps.loadAgent(task.agentId);
           const stored = await this.deps.sessions.create({
             userId: managerSession.userId,
             agentName: task.agentId,
@@ -123,42 +174,34 @@ export class SupervisorOrchestrator implements AgentOrchestrator {
             parentSessionId: managerSession.id,
             detached: true,
           });
+          sessionId = stored.id;
           const session = this.deps.storedSessionToRuntime(stored);
           const result = await this.deps.runtime.run(session, agent, { content: input });
           outputs.set(task.id, result.content);
+
+          if (result.status === 'awaiting_approval') {
+            // The sub-agent paused for a human decision; its output is partial and
+            // dependents must not treat it as done (audit CQ-010).
+            skipped.add(task.id);
+            results.push({ taskId: task.id, agentId: task.agentId, sessionId, result, status: 'awaiting_approval' });
+            await progress.taskFailed(task.id, task.agentId, 'Awaiting human approval');
+            return 'awaiting_approval';
+          }
+
           completed.add(task.id);
-          results.push({
-            taskId: task.id,
-            agentId: task.agentId,
-            sessionId: stored.id,
-            result,
-            status: 'completed',
-          });
+          results.push({ taskId: task.id, agentId: task.agentId, sessionId, result, status: 'completed' });
           await progress.taskCompleted(task.id, task.agentId, result.content.slice(0, 200));
           return 'completed';
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          const isLastAttempt = attempt >= maxAttempts;
-
-          if (policy === 'retry' && !isLastAttempt) {
-            await sleep(Math.min(1000 * 2 ** (attempt - 1), 8000));
+          if (sessionId) {
+            await this.deps.sessions.update(sessionId, { status: 'failed' }).catch(() => undefined);
+          }
+          if (policy === 'retry' && attempt < maxAttempts && isRetryableRunError(err)) {
+            await sleep(backoffMs(attempt));
             continue;
           }
-
-          failed.add(task.id);
-          results.push({
-            taskId: task.id,
-            agentId: task.agentId,
-            sessionId: '',
-            status: 'failed',
-            error: message,
-          });
-          await progress.taskFailed(task.id, task.agentId, message);
-
-          if (policy === 'abort') {
-            aborted = true;
-          }
-          return 'failed';
+          return recordFailure(task, policy, message);
         }
       }
 
@@ -186,17 +229,32 @@ export class SupervisorOrchestrator implements AgentOrchestrator {
           .map((r) => `[${r.agentId}]: ${r.result?.content ?? r.error ?? 'skipped'}`)
           .join('\n\n');
         const managerAgent = await this.deps.loadAgent(plan.managerAgentId);
-        const fanInResult = await this.deps.runtime.run(managerSession, managerAgent, {
-          content: `Synthesize subagent results:\n\n${summary}`,
+        // Synthesize in a child session. Running it on the manager's own session
+        // re-entered the turn that started this plan (delegation runs inside a
+        // manager tool call) and appended a synthetic "Synthesize…" message to the
+        // user's conversation.
+        const synthesisStored = await this.deps.sessions.create({
+          userId: managerSession.userId,
+          agentName: plan.managerAgentId,
+          channel: managerSession.channel,
+          messages: [],
+          status: 'idle',
+          parentSessionId: managerSession.id,
+          detached: true,
         });
+        const fanInResult = await this.deps.runtime.run(
+          this.deps.storedSessionToRuntime(synthesisStored),
+          managerAgent,
+          { content: `Synthesize subagent results:\n\n${summary}` },
+        );
         results.push({
           taskId: 'fan-in',
           agentId: plan.managerAgentId,
-          sessionId: managerSession.id,
+          sessionId: synthesisStored.id,
           result: fanInResult,
           status: 'completed',
         });
-    return this.finalize(managerSession.id, results, fanInResult.content);
+        return this.finalize(managerSession.id, results, fanInResult.content);
       }
       default: {
         const _exhaustive: never = plan.mode;
@@ -228,11 +286,11 @@ export class SupervisorOrchestrator implements AgentOrchestrator {
         break;
       }
 
-      await Promise.all(
-        ready.map(async (task) => {
-          pending.delete(task.id);
-          await runSingleTask(task);
-        }),
+      for (const task of ready) pending.delete(task.id);
+      await mapWithConcurrency(
+        ready,
+        this.deps.maxConcurrency ?? DEFAULT_ORCHESTRATION_CONCURRENCY,
+        runSingleTask,
       );
     }
   }
@@ -243,23 +301,28 @@ export class SupervisorOrchestrator implements AgentOrchestrator {
     synthesized?: string,
   ): OrchestrationResult {
     const hasFailed = results.some((r) => r.status === 'failed');
+    const hasPaused = results.some((r) => r.status === 'awaiting_approval');
     const hasCompleted = results.some((r) => r.status === 'completed');
     let status: OrchestrationResult['status'] = 'completed';
-    if (results.length === 0 || (!hasCompleted && hasFailed)) {
+    if (results.length === 0 || (!hasCompleted && !hasPaused && hasFailed)) {
       status = 'failed';
-    } else if (hasFailed) {
+    } else if (hasFailed || hasPaused) {
       status = 'partial';
     }
 
-    void this.deps.publishEvent?.(
-      EventSubjects.ORCHESTRATION_COMPLETED,
-      'anvio.orchestration.completed',
-      {
+    // Fire-and-forget, but never an unhandled rejection.
+    this.deps
+      .publishEvent?.(EventSubjects.ORCHESTRATION_COMPLETED, 'anvio.orchestration.completed', {
         managerSessionId,
         status,
         resultCount: results.length,
-      },
-    );
+      })
+      .catch((error: unknown) => {
+        console.error(
+          '[orchestrator] publishing orchestration.completed failed:',
+          error instanceof Error ? error.message : error,
+        );
+      });
 
     return { managerSessionId, results, status, synthesized };
   }
@@ -283,4 +346,39 @@ export function createOrchestrationPlan(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Exponential backoff capped at 8 s, with ±25 % jitter so parallel retries spread out. */
+function backoffMs(attempt: number): number {
+  const base = Math.min(1000 * 2 ** (attempt - 1), 8000);
+  return Math.round(base * (0.75 + Math.random() * 0.5));
+}
+
+/**
+ * Retry only failures that a second attempt could fix. A stop, an invalid resume
+ * or a client-side (4xx) error fails the same way every time.
+ */
+export function isRetryableRunError(error: unknown): boolean {
+  if (error instanceof AgentRunError) {
+    if (error.retryable !== undefined) return error.retryable;
+    return error.code !== 'stopped' && error.code !== 'invalid_checkpoint';
+  }
+  const statusCode = (error as { statusCode?: unknown } | null)?.statusCode;
+  if (typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500) return false;
+  return true;
+}
+
+async function mapWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<unknown>,
+): Promise<void> {
+  let next = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (next < items.length) {
+      const item = items[next++]!;
+      await fn(item);
+    }
+  });
+  await Promise.all(workers);
 }

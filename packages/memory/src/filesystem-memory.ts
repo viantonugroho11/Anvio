@@ -1,3 +1,4 @@
+import { newConversationEntries } from './conversation-entries.js';
 import type {
   ChatMessage,
   MemoryContext,
@@ -106,8 +107,9 @@ export class FilesystemMemoryStore implements MemoryStore {
     userId: string,
     messages: ChatMessage[],
   ): Promise<void> {
+    const previous = await this.shortTerm.getMessages(sessionId);
     await this.shortTerm.setMessages(sessionId, messages);
-    for (const msg of messages.slice(-2)) {
+    for (const msg of newConversationEntries(previous, messages)) {
       await this.longTerm.store({
         sessionId,
         userId,

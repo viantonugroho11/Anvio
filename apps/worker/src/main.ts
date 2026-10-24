@@ -1,5 +1,11 @@
 import { initObservability, shutdownObservability } from '@anvio/observability';
-import { createPlatform, installProcessErrorGuards, registerGatewayWorker } from '@anvio/platform';
+import {
+  createPlatform,
+  exitOnShutdownSignals,
+  installProcessErrorGuards,
+  registerGatewayWorker,
+  runShutdownSteps,
+} from '@anvio/platform';
 
 async function main() {
   installProcessErrorGuards('worker');
@@ -16,12 +22,16 @@ async function main() {
   await registerGatewayWorker(platform);
   console.log('Worker ready — use `anvio gateway start` for unified Hermes-style daemon');
 
-  process.on('SIGINT', async () => {
-    await platform.channelHub.stopAll();
-    await platform.eventBus.close();
-    await shutdownObservability();
-    process.exit(0);
-  });
+  exitOnShutdownSignals('worker', () =>
+    runShutdownSteps('worker', [
+      { name: 'platform', run: () => platform.shutdown() },
+      { name: 'observability', run: () => shutdownObservability() },
+    ]),
+  );
 }
 
-main().catch(console.error);
+// A failed boot must exit non-zero, or a supervisor treats it as a clean stop.
+main().catch((err) => {
+  console.error('[worker] failed to start:', err);
+  process.exit(1);
+});
