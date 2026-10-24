@@ -43,7 +43,13 @@ function slowProvider() {
 describe('gateway worker serializes turns per session (CQ-007)', () => {
   const workspaces: string[] = [];
   afterEach(async () => {
-    await Promise.all(workspaces.splice(0).map((w) => fs.rm(w, { recursive: true, force: true })));
+    // Session-end work (learning loop, token audit) can still be writing when the
+    // test finishes; retry the removal instead of failing on ENOTEMPTY.
+    await Promise.all(
+      workspaces
+        .splice(0)
+        .map((w) => fs.rm(w, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })),
+    );
   });
 
   it('runs two messages in one thread one after the other and keeps both turns', async () => {
@@ -99,8 +105,7 @@ describe('gateway worker serializes turns per session (CQ-007)', () => {
       // The later turn ran with the earlier turn already in its history.
       expect(stats.seen[1]).toContain(contents[0]);
     } finally {
-      await platform.channelHub.stopAll();
-      await platform.eventBus.close();
+      await platform.shutdown();
     }
   }, 30_000);
 });
