@@ -62,10 +62,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+      # No `cache: pnpm`: this job never installs, so the pnpm store does not
+      # exist and setup-node's post-step cache save fails the job.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
       # Critical only for now: zod 3 (used by @anvio/core schemas) carries a
       # high-severity advisory fixed only in zod 4 — see
       # docs/audits/code-quality/remediation/05-remaining-issues.md. Raise to
