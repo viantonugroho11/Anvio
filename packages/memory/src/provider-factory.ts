@@ -1,3 +1,4 @@
+import { newConversationEntries } from './conversation-entries.js';
 import type {
   ChatMessage,
   MemoryContext,
@@ -100,9 +101,10 @@ export class FilesystemMemoryProvider implements MemoryProvider {
     userId: string,
     messages: ChatMessage[],
   ): Promise<void> {
+    const previous = await this.getMessages(sessionId);
     const compressed = await this.applySlidingWindow(messages);
     await this.setMessages(sessionId, compressed);
-    for (const msg of messages.slice(-2)) {
+    for (const msg of newConversationEntries(previous, messages)) {
       await this.store({
         sessionId,
         userId,

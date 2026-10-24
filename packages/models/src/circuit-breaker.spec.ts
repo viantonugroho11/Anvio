@@ -135,3 +135,29 @@ describe('walkFallbackChain with circuit breaker', () => {
     expect(called).toBe(1);
   });
 });
+
+describe('ProviderCircuitBreaker half-open probing', () => {
+  it('lets exactly one probe through while half-open', () => {
+    let now = 0;
+    const b = new ProviderCircuitBreaker({ failureThreshold: 1, cooldownMs: 1000, now: () => now });
+    b.recordFailure('p');
+    now = 1000;
+    expect(b.canAttempt('p')).toBe(true); // the probe
+    expect(b.canAttempt('p')).toBe(false); // concurrent callers skip
+    b.recordSuccess('p');
+    expect(b.canAttempt('p')).toBe(true);
+    expect(b.canAttempt('p')).toBe(true);
+  });
+
+  it('expires an unresolved probe after one cooldown', () => {
+    let now = 0;
+    const b = new ProviderCircuitBreaker({ failureThreshold: 1, cooldownMs: 1000, now: () => now });
+    b.recordFailure('p');
+    now = 1000;
+    expect(b.canAttempt('p')).toBe(true);
+    now = 1500;
+    expect(b.canAttempt('p')).toBe(false);
+    now = 2000;
+    expect(b.canAttempt('p')).toBe(true);
+  });
+});

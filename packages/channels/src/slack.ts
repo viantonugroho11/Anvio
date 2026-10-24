@@ -5,6 +5,7 @@ import type {
   SessionStore,
 } from '@anvio/core';
 import { BaseChannelAdapter } from './base-channel-adapter.js';
+import { ReconnectScheduler, RecentIds } from './reconnect.js';
 import { ChannelSessionBridge } from './channel-session-bridge.js';
 
 export interface SlackChannelOptions {
@@ -93,6 +94,8 @@ function parseSlackTarget(session: {
 export class SlackChannel extends BaseChannelAdapter {
   readonly channelType: ChannelType = 'slack';
   private ws: WebSocket | null = null;
+  private readonly reconnect = new ReconnectScheduler('Slack', () => this.connect());
+  private readonly seenEnvelopes = new RecentIds();
   private botUserId: Promise<string | undefined> | null = null;
   /** chat.postMessage rejects anything past 40,000 chars with msg_too_long. */
   protected readonly maxMessageLength = 40_000;
@@ -186,30 +189,69 @@ export class SlackChannel extends BaseChannelAdapter {
   }
 
   async start(): Promise<void> {
-    const url = `wss://wss-primary.slack.com/link/?app_token=${this.options.appToken}`;
-    this.ws = new WebSocket(url);
-    this.ws.onmessage = (ev) =>
-      this.runGuarded('socket message', () => this.handleSocketMessage(String(ev.data)));
-    this.ws.onclose = () => {
-      console.log('[Slack] Socket Mode disconnected, reconnecting in 5s…');
-      setTimeout(() => void this.start(), 5000);
-    };
-    console.log('[Slack] Socket Mode connecting');
+    this.reconnect.begin();
+    await this.connect();
   }
 
   async stop(): Promise<void> {
-    this.ws?.close();
+    this.reconnect.stop();
+    const ws = this.ws;
     this.ws = null;
+    if (ws) {
+      ws.onclose = null;
+      ws.close();
+    }
     this.releaseAllBuffers();
+  }
+
+  /**
+   * Socket Mode needs a one-time WSS URL from `apps.connections.open`, requested
+   * with the app-level token. The token used to be put straight into the socket
+   * URL's query string, which Slack does not accept and which leaks the secret
+   * into any proxy or access log on the path (audit CQ-008).
+   */
+  private async connect(): Promise<void> {
+    const res = await this.httpRequest(`${SLACK_API}/apps.connections.open`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.options.appToken}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    const body = (await res.json()) as { ok: boolean; url?: string; error?: string };
+    if (!body.ok || !body.url) {
+      throw new Error(`Slack apps.connections.open failed: ${body.error ?? res.status}`);
+    }
+    if (this.reconnect.isStopped) return;
+
+    const ws = new WebSocket(body.url);
+    this.ws = ws;
+    ws.onmessage = (ev) =>
+      this.runGuarded('socket message', () => this.handleSocketMessage(String(ev.data)));
+    ws.onclose = () => {
+      if (this.ws === ws) this.ws = null;
+      this.reconnect.schedule('Socket Mode disconnected');
+    };
+    console.log('[Slack] Socket Mode connecting');
   }
 
   private async handleSocketMessage(raw: string): Promise<void> {
     const envelope = JSON.parse(raw) as SlackSocketEnvelope;
 
-    if (envelope.type === 'hello') return;
+    if (envelope.type === 'hello') {
+      this.reconnect.connected();
+      return;
+    }
+    if (envelope.type === 'disconnect') {
+      // Slack is about to rotate this socket; reconnect on close.
+      return;
+    }
 
     if (envelope.envelope_id) {
       this.ws?.send(JSON.stringify({ envelope_id: envelope.envelope_id }));
+      // Slack redelivers an envelope it thinks was not acknowledged (e.g. across
+      // a reconnect); handling it twice would run the agent twice.
+      if (!this.seenEnvelopes.add(envelope.envelope_id)) return;
     }
 
     if (envelope.type === 'events_api' && envelope.payload) {

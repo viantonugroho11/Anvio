@@ -2,7 +2,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import type { SkillDefinition } from '@anvio/core';
-import { parseSkillDefinition } from '@anvio/core';
+import { parseSkillDefinition, resolveInsideRoot } from '@anvio/core';
+
+/** No executable (YAML) definition exists for the slug — normal for prose-only skills. */
+export class SkillNotFoundError extends Error {
+  constructor(readonly slug: string) {
+    super(`Skill not found: ${slug}`);
+    this.name = 'SkillNotFoundError';
+  }
+}
 
 export interface SkillCatalogPaths {
   bundledDir: string;
@@ -29,28 +37,43 @@ export class SkillCatalogResolver {
     return [...merged.values()];
   }
 
+  /**
+   * Load a skill definition by slug, workspace first. A file that exists but does
+   * not parse is an error naming the file; it used to be reported as "not found",
+   * hiding the typo. Slugs can come from model tool calls (`skill_view`,
+   * `skill_call`), so they are kept inside the catalog directories.
+   */
   async load(slug: string): Promise<SkillDefinition> {
     for (const dir of [this.paths.workspaceDir, this.paths.bundledDir]) {
       for (const ext of ['yaml', 'yml']) {
-        const filePath = path.join(dir, `${slug}.${ext}`);
+        const filePath = resolveInsideRoot(dir, `${slug}.${ext}`, `Invalid skill slug: ${slug}`);
+        let raw: string;
         try {
-          const raw = await fs.readFile(filePath, 'utf-8');
+          raw = await fs.readFile(filePath, 'utf-8');
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+          throw error;
+        }
+        try {
           return parseSkillDefinition(parseYaml(raw));
-        } catch {
-          // try next
+        } catch (error) {
+          throw new Error(
+            `Invalid skill definition ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error },
+          );
         }
       }
     }
-    throw new Error(`Skill not found: ${slug}`);
+    throw new SkillNotFoundError(slug);
   }
 
   async readBundledRaw(slug: string): Promise<string | null> {
     for (const ext of ['yaml', 'yml']) {
-      const filePath = path.join(this.paths.bundledDir, `${slug}.${ext}`);
+      const filePath = resolveInsideRoot(this.paths.bundledDir, `${slug}.${ext}`, `Invalid skill slug: ${slug}`);
       try {
         return await fs.readFile(filePath, 'utf-8');
-      } catch {
-        // try next
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
     }
     return null;

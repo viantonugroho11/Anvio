@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import type { SkillDefinition } from '@anvio/core';
-import { parseSkillDefinition } from '@anvio/core';
+import { parseSkillDefinition, resolveInsideRoot, writeFileAtomic } from '@anvio/core';
 
 export interface SkillDraftInput {
   slug: string;
@@ -83,9 +83,9 @@ export class SkillEvolutionWriter {
         tags: input.tags ?? ['draft', 'learning-loop'],
       },
     });
-    const filePath = path.join(this.draftsDir, `${slug}.md`);
+    const filePath = resolveInsideRoot(this.draftsDir, `${slug}.md`, `Invalid draft slug: ${slug}`);
     const md = renderSkillMd(definition, lineage);
-    await fs.writeFile(filePath, md, 'utf-8');
+    await writeFileAtomic(filePath, md);
     return { path: filePath, definition };
   }
 
@@ -125,12 +125,12 @@ export class SkillEvolutionWriter {
    */
   async getDraft(slug: string): Promise<{ path: string; content: string } | null> {
     for (const name of this.candidates(slug)) {
-      const p = path.join(this.draftsDir, name);
+      const p = this.draftPath(name, slug);
       try {
         const content = await fs.readFile(p, 'utf-8');
         return { path: p, content };
-      } catch {
-        /* try next */
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
     }
     return null;
@@ -144,17 +144,17 @@ export class SkillEvolutionWriter {
    */
   async discardDraft(slug: string): Promise<{ path: string } | null> {
     for (const name of this.candidates(slug)) {
-      const src = path.join(this.draftsDir, name);
+      const src = this.draftPath(name, slug);
       try {
         await fs.access(src);
-        const trash = path.join(this.draftsDir, '_discarded');
-        await fs.mkdir(trash, { recursive: true });
-        const dest = path.join(trash, name);
-        await fs.rename(src, dest);
-        return { path: dest };
       } catch {
-        /* try next */
+        continue;
       }
+      const trash = path.join(this.draftsDir, '_discarded');
+      await fs.mkdir(trash, { recursive: true });
+      const dest = path.join(trash, path.basename(src));
+      await fs.rename(src, dest);
+      return { path: dest };
     }
     return null;
   }
@@ -192,57 +192,62 @@ export class SkillEvolutionWriter {
     return [slug, `${slug}.md`, `${slug}.yaml`, `${slug}.yml`];
   }
 
+  /**
+   * Draft slugs arrive from chat (`/draft`, `/discard`, `/promote`). They were
+   * joined into paths unchecked, so `../../…` could read, move or copy any file
+   * the process can reach.
+   */
+  private draftPath(name: string, slug: string): string {
+    return resolveInsideRoot(this.draftsDir, name, `Invalid draft slug: ${slug}`);
+  }
+
   async promoteDraft(
     slug: string,
     targetDir: string,
     options: { force?: boolean } = {},
   ): Promise<{ path: string; alreadyExisted: boolean; diff?: string }> {
-    const candidates = [
-      slug,
-      `${slug}.md`,
-      `${slug}.yaml`,
-      `${slug}.yml`,
-    ];
-    for (const name of candidates) {
-      const src = path.join(this.draftsDir, name);
+    // `slug` comes from `/promote <slug>` typed in a chat channel. Joining it
+    // unchecked let `../..` read any file and write it into the skills directory.
+    const invalid = `Invalid draft slug: ${slug}`;
+    for (const name of this.candidates(slug)) {
+      const src = this.draftPath(name, slug);
       try {
         await fs.access(src);
-        // Strip extension first, then either the legacy `-draft-<ms>` or
-        // the current `-<sessionShort>-<ms>` suffix so promotion recovers
-        // the canonical slug (e.g. `tech-lead-abc12345-1735...` → `tech-lead`).
-        const base = path
-          .basename(name)
-          .replace(/\.(md|ya?ml)$/, '')
-          .replace(/-[0-9a-z]{4,8}-\d+$/i, '')
-          .replace(/-draft-\d+$/, '');
-        const dest = path.join(targetDir, `${base}.md`);
-        await fs.mkdir(targetDir, { recursive: true });
-        const raw = await fs.readFile(src, 'utf-8');
-        const rendered = name.endsWith('.md')
-          ? raw
-          : renderSkillMd(parseSkillDefinition(parseYaml(raw)));
-
-        // Diff-mode guard: refuse to overwrite an existing skill unless
-        // the caller passed `force: true`. Return the diff so the caller
-        // can surface it (issue #56, nice-to-have).
-        let existingContent: string | null = null;
-        try {
-          existingContent = await fs.readFile(dest, 'utf-8');
-        } catch {
-          existingContent = null;
-        }
-        if (existingContent !== null && existingContent !== rendered && !options.force) {
-          return {
-            path: dest,
-            alreadyExisted: true,
-            diff: unifiedDiff(existingContent, rendered),
-          };
-        }
-        await fs.writeFile(dest, rendered, 'utf-8');
-        return { path: dest, alreadyExisted: existingContent !== null };
       } catch {
-        // try next candidate
+        continue; // try the next extension
       }
+      // Strip extension first, then either the legacy `-draft-<ms>` or
+      // the current `-<sessionShort>-<ms>` suffix so promotion recovers
+      // the canonical slug (e.g. `tech-lead-abc12345-1735...` → `tech-lead`).
+      const base = path
+        .basename(name)
+        .replace(/\.(md|ya?ml)$/, '')
+        .replace(/-[0-9a-z]{4,8}-\d+$/i, '')
+        .replace(/-draft-\d+$/, '');
+      const dest = resolveInsideRoot(targetDir, `${base}.md`, invalid);
+      const raw = await fs.readFile(src, 'utf-8');
+      const rendered = name.endsWith('.md') ? raw : renderSkillMd(parseSkillDefinition(parseYaml(raw)));
+
+      // Diff-mode guard: refuse to overwrite an existing skill unless
+      // the caller passed `force: true`. Return the diff so the caller
+      // can surface it (issue #56, nice-to-have).
+      let existingContent: string | null = null;
+      try {
+        existingContent = await fs.readFile(dest, 'utf-8');
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+      if (existingContent !== null && existingContent !== rendered && !options.force) {
+        return {
+          path: dest,
+          alreadyExisted: true,
+          diff: unifiedDiff(existingContent, rendered),
+        };
+      }
+      // A failed write used to be swallowed by the candidate loop and reported as
+      // "Draft not found".
+      await writeFileAtomic(dest, rendered);
+      return { path: dest, alreadyExisted: existingContent !== null };
     }
     throw new Error(`Draft not found: ${slug}`);
   }

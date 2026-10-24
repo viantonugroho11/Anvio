@@ -7,6 +7,7 @@ import type {
 import type { ChannelVoiceOptions, VoicePipeline } from '@anvio/voice';
 import { isChannelVoiceEnabled, transcribeInboundAudio, voiceInboundContent } from '@anvio/voice';
 import { BaseChannelAdapter } from './base-channel-adapter.js';
+import { ReconnectScheduler, RecentIds } from './reconnect.js';
 import { ChannelSessionBridge } from './channel-session-bridge.js';
 
 export interface DiscordChannelOptions {
@@ -65,6 +66,13 @@ export class DiscordChannel extends BaseChannelAdapter {
   readonly channelType: ChannelType = 'discord';
   private ws: WebSocket | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private heartbeatAcked = true;
+  private sequence: number | null = null;
+  private sessionId: string | null = null;
+  private resumeGatewayUrl: string | null = null;
+  private readonly reconnect = new ReconnectScheduler('Discord', () => this.connect());
+  /** A RESUME replays events; message ids keep a replayed message from running twice. */
+  private readonly seenMessages = new RecentIds();
   /** Discord rejects message content over 2000 characters. */
   protected readonly maxMessageLength = 2000;
   protected readonly isLiveChatSurface = true;
@@ -162,42 +170,94 @@ export class DiscordChannel extends BaseChannelAdapter {
   }
 
   async start(): Promise<void> {
-    const { url } = await this.rest<{ url: string }>('GET', '/gateway/bot');
-    this.ws = new WebSocket(`${url}?v=10&encoding=json`);
-    this.ws.onmessage = (ev) =>
-      this.runGuarded('gateway message', () => this.handleGatewayMessage(String(ev.data)));
-    this.ws.onclose = () => {
-      console.log('[Discord] Gateway disconnected, reconnecting in 5s…');
-      setTimeout(() => void this.start(), 5000);
-    };
-    console.log('[Discord] Bot gateway connecting');
+    this.reconnect.begin();
+    await this.connect();
   }
 
   async stop(): Promise<void> {
-    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
-    this.ws?.close();
+    this.reconnect.stop();
+    this.stopHeartbeat();
+    const ws = this.ws;
     this.ws = null;
+    if (ws) {
+      ws.onclose = null;
+      ws.close();
+    }
     this.releaseAllBuffers();
+  }
+
+  /**
+   * Open the gateway socket. After a drop it reconnects to `resume_gateway_url` and
+   * sends RESUME, so Discord replays the events missed in between instead of the
+   * bot silently losing them.
+   */
+  private async connect(): Promise<void> {
+    const base = this.resumable ? this.resumeGatewayUrl : (await this.rest<{ url: string }>('GET', '/gateway/bot')).url;
+    if (this.reconnect.isStopped) return;
+    const ws = new WebSocket(`${base}?v=10&encoding=json`);
+    this.ws = ws;
+    ws.onmessage = (ev) =>
+      this.runGuarded('gateway message', () => this.handleGatewayMessage(String(ev.data)));
+    ws.onclose = (ev?: { code?: number }) => {
+      if (this.ws === ws) this.ws = null;
+      this.stopHeartbeat();
+      // 4004 bad token, 4010-4014 bad shard/intents: reconnecting cannot fix these.
+      const code = ev?.code ?? 0;
+      if (code === 4004 || (code >= 4010 && code <= 4014)) {
+        console.error(`[Discord] Gateway closed with fatal code ${code}; not reconnecting`);
+        this.reconnect.stop();
+        return;
+      }
+      this.reconnect.schedule('Gateway disconnected');
+    };
+    console.log(`[Discord] Bot gateway ${this.resumable ? 'resuming' : 'connecting'}`);
+  }
+
+  private get resumable(): boolean {
+    return Boolean(this.sessionId && this.resumeGatewayUrl);
   }
 
   private async handleGatewayMessage(raw: string): Promise<void> {
     const payload = JSON.parse(raw) as DiscordGatewayPayload;
+    if (typeof payload.s === 'number') this.sequence = payload.s;
 
     switch (payload.op) {
       case 10: {
         const interval = (payload.d as { heartbeat_interval: number }).heartbeat_interval;
         this.startHeartbeat(interval);
-        this.identify();
+        if (this.resumable) this.resume();
+        else this.identify();
         break;
       }
+      case 11:
+        this.heartbeatAcked = true;
+        break;
+      case 1:
+        this.sendHeartbeat();
+        break;
       case 0:
+        if (payload.t === 'READY') {
+          const ready = payload.d as { session_id?: string; resume_gateway_url?: string };
+          this.sessionId = ready.session_id ?? null;
+          this.resumeGatewayUrl = ready.resume_gateway_url ?? null;
+          this.reconnect.connected();
+        } else if (payload.t === 'RESUMED') {
+          this.reconnect.connected();
+        }
         await this.handleDispatch(payload.t, payload.d);
         break;
       case 7:
+        // Reconnect requested: close and resume.
         this.ws?.close();
         break;
       case 9:
-        this.identify();
+        // Invalid session. `d: true` means it can still be resumed.
+        if (payload.d !== true) {
+          this.sessionId = null;
+          this.resumeGatewayUrl = null;
+          this.sequence = null;
+        }
+        this.ws?.close();
         break;
       default:
         break;
@@ -221,11 +281,42 @@ export class DiscordChannel extends BaseChannelAdapter {
     );
   }
 
+  private resume(): void {
+    this.ws?.send(
+      JSON.stringify({
+        op: 6,
+        d: { token: this.options.botToken, session_id: this.sessionId, seq: this.sequence },
+      }),
+    );
+  }
+
+  /**
+   * Heartbeats carry the last sequence number (Discord uses it to detect gaps) and
+   * must be acknowledged. A missing ACK means a zombie connection: close it so the
+   * reconnect path takes over, instead of sitting on a socket that delivers nothing.
+   */
   private startHeartbeat(intervalMs: number): void {
-    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.stopHeartbeat();
+    this.heartbeatAcked = true;
     this.heartbeatTimer = setInterval(() => {
-      this.ws?.send(JSON.stringify({ op: 1, d: null }));
+      if (!this.heartbeatAcked) {
+        console.warn('[Discord] Heartbeat not acknowledged; reconnecting');
+        this.ws?.close();
+        return;
+      }
+      this.sendHeartbeat();
     }, intervalMs);
+    this.heartbeatTimer.unref?.();
+  }
+
+  private sendHeartbeat(): void {
+    this.heartbeatAcked = false;
+    this.ws?.send(JSON.stringify({ op: 1, d: this.sequence }));
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
   }
 
   private async handleDispatch(event: string | undefined, data: unknown): Promise<void> {
@@ -239,6 +330,7 @@ export class DiscordChannel extends BaseChannelAdapter {
 
   private async handleMessage(msg: DiscordMessage): Promise<void> {
     if (msg.author.bot) return;
+    if (!this.seenMessages.add(msg.id)) return;
 
     const threadId = threadKey(msg.channel_id);
     const userId = `discord:${msg.author.id}`;

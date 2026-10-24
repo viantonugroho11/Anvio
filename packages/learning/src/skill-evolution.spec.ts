@@ -198,3 +198,24 @@ describe('per-session draft dedupe (issue #64)', () => {
     expect(await writer.listDrafts()).toHaveLength(2);
   });
 });
+
+describe('draft slug containment', () => {
+  it('rejects slugs that escape the drafts directory', async () => {
+    const os = await import('node:os');
+    const fsp = await import('node:fs/promises');
+    const pathMod = await import('node:path');
+    const root = await fsp.mkdtemp(pathMod.join(os.tmpdir(), 'anvio-drafts-'));
+    try {
+      await fsp.writeFile(pathMod.join(root, 'outside.md'), 'secret');
+      const writer = new SkillEvolutionWriter(pathMod.join(root, 'skills', '_drafts'));
+      await expect(writer.getDraft('../../outside')).rejects.toThrow(/Invalid draft slug/);
+      await expect(writer.discardDraft('../../outside')).rejects.toThrow(/Invalid draft slug/);
+      await expect(
+        writer.promoteDraft('../../outside', pathMod.join(root, 'skills')),
+      ).rejects.toThrow(/Invalid draft slug/);
+      expect(await fsp.readFile(pathMod.join(root, 'outside.md'), 'utf-8')).toBe('secret');
+    } finally {
+      await fsp.rm(root, { recursive: true, force: true });
+    }
+  });
+});

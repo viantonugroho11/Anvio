@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { EventSubjects, type AgentRunChunkData, type AgentRunCompletedData } from '@anvio/events';
 import { WebChatChannel } from '@anvio/channels';
 import { initObservability, shutdownObservability } from '@anvio/observability';
+import { runShutdownSteps } from './process-guards.js';
 import { createPlatform } from './index.js';
 import { registerGatewayWorker } from './gateway-worker.js';
 import { handleGatewayHttp } from './gateway-http.js';
@@ -173,16 +174,20 @@ export async function startUnifiedGateway(
   console.log(`  Health     /health`);
   console.log(`  Sessions   ${storage} store · Channel Hub active · Cron/automation running`);
 
+  // Stop taking requests, stop producers, close the bus, then flush telemetry.
+  // The old order closed the event bus before the hook and automation engines
+  // that publish to it, and one failing step skipped every step after it.
   const shutdown = async () => {
-    await platform.channelHub.stopAll();
-    await webChat.stop();
-    await platform.eventBus.close();
-    await platform.hookEngine.stop();
-    await platform.automationEngine.stop();
-    await shutdownObservability();
-    await new Promise<void>((resolve, reject) => {
+    const serverClosed = new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
     });
+    server.closeIdleConnections?.();
+    await runShutdownSteps('gateway', [
+      { name: 'web chat', run: () => webChat.stop() },
+      { name: 'platform', run: () => platform.shutdown() },
+      { name: 'http server', run: () => serverClosed },
+      { name: 'observability', run: () => shutdownObservability() },
+    ]);
   };
 
   return { port, shutdown };

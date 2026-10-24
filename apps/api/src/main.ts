@@ -5,9 +5,11 @@ import { AppModule } from './app.module.js';
 import { AppService } from './app.service.js';
 import {
   assertSafeBinding,
+  exitOnShutdownSignals,
   installProcessErrorGuards,
   isLoopbackHost,
   resolveApiBinding,
+  runShutdownSteps,
 } from '@anvio/platform';
 
 async function bootstrap() {
@@ -57,13 +59,15 @@ async function bootstrap() {
     );
   }
 
-  const shutdown = async () => {
-    await app.close();
-    await shutdownObservability();
-    process.exit(0);
-  };
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  exitOnShutdownSignals('api', () =>
+    runShutdownSteps('api', [
+      { name: 'nest app', run: () => app.close() },
+      { name: 'observability', run: () => shutdownObservability() },
+    ]),
+  );
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('[api] failed to start:', err);
+  process.exit(1);
+});

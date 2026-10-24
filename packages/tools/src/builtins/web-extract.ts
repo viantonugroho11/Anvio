@@ -1,17 +1,27 @@
 import type { BuiltinToolResult } from '@anvio/core';
+import { DEFAULT_EGRESS_POLICY, guardedFetch, readBodyCapped, withTimeout, type EgressPolicy } from './egress.js';
 
 /** Hermes-style web_extract — fetch URL and return markdown-ish content. */
-export async function webExtract(url: string, maxChars = 12_000): Promise<BuiltinToolResult> {
+export async function webExtract(
+  url: string,
+  maxChars = 12_000,
+  policy: EgressPolicy = DEFAULT_EGRESS_POLICY,
+  signal?: AbortSignal,
+): Promise<BuiltinToolResult> {
   try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Anvio-ToolGateway/1.0', Accept: 'text/html,application/xhtml+xml' },
-      signal: AbortSignal.timeout(20_000),
-    });
+    const { response: res } = await guardedFetch(
+      url,
+      {
+        headers: { 'User-Agent': 'Anvio-ToolGateway/1.0', Accept: 'text/html,application/xhtml+xml' },
+        signal: withTimeout(20_000, signal),
+      },
+      policy,
+    );
     if (!res.ok) {
       return { name: 'anvio_tools__web_extract', output: null, status: 'failed', error: `HTTP ${res.status}` };
     }
     const contentType = res.headers.get('content-type') ?? '';
-    const text = await res.text();
+    const { text } = await readBodyCapped(res, policy.maxResponseBytes);
     let markdown: string;
     if (contentType.includes('pdf')) {
       markdown = `[PDF content at ${url} — use file_read if downloaded locally]\n${text.slice(0, 500)}`;

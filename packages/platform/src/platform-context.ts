@@ -65,7 +65,8 @@ export interface PlatformContext {
    * inbound updates that were meant for the gateway (issue #48).
    *
    * Safe to call more than once. Errors from individual subsystems are
-   * swallowed so a broken adapter cannot block teardown of the rest.
+   * logged and do not block teardown of the rest; the whole sequence is capped
+   * by a timeout.
    */
   shutdown: () => Promise<void>;
 }

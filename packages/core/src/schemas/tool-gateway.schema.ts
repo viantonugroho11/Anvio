@@ -93,6 +93,18 @@ export const toolGatewaySpecSchema = z.object({
       apiKeyEnv: z.string().default('WEB_SEARCH_API_KEY'),
     })
     .default({}),
+  /**
+   * Egress policy for tools that fetch model-chosen URLs (web_fetch, web_extract,
+   * http_request). Loopback, link-local, private and metadata addresses are refused
+   * unless `allowPrivateNetwork` is set or the host is listed in `allowHosts`.
+   */
+  network: z
+    .object({
+      allowPrivateNetwork: z.boolean().default(false),
+      allowHosts: z.array(z.string()).default([]),
+      maxResponseBytes: z.number().int().positive().default(2_000_000),
+    })
+    .default({}),
 });
 
 export const toolGatewayConfigSchema = z.object({

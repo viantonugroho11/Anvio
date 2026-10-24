@@ -1,3 +1,4 @@
+import { buildSandboxEnv } from '@anvio/core';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { CodeExecutor } from '@anvio/core';
 import { executeCodeWithExecutor } from './filesystem.js';
@@ -22,7 +23,8 @@ export async function runTerminal(
 ): Promise<{ command: string; stdout: string; stderr: string; exitCode: number; backgroundId?: string }> {
   if (background) {
     const id = `proc-${++processCounter}`;
-    const proc = spawn('sh', ['-c', command], { env: process.env });
+    // Same environment policy as the code sandbox: no host secrets (audit CQ-003).
+    const proc = spawn('sh', ['-c', command], { env: buildSandboxEnv({}, true) });
     const managed: ManagedProcess = {
       id,
       command,

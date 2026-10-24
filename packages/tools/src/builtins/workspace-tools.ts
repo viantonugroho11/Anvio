@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { resolveRealInsideRoot } from '@anvio/core';
 import type { CodeExecutor } from '@anvio/core';
 import { executeCodeWithExecutor } from './filesystem.js';
 
@@ -58,10 +59,7 @@ export async function grepSearch(
   maxResults = 30,
 ): Promise<{ pattern: string; matches: Array<{ file: string; line: number; text: string }> }> {
   const re = new RegExp(pattern, 'i');
-  const root = path.resolve(workspaceRoot, searchPath);
-  if (!root.startsWith(path.resolve(workspaceRoot))) {
-    throw new Error('Path escapes workspace');
-  }
+  const root = await resolveRealInsideRoot(workspaceRoot, searchPath);
   const relFiles: string[] = [];
   await walkFiles(root, '', relFiles, 500);
   const extRe = /\.(ts|tsx|js|md|yml|yaml|json)$/;

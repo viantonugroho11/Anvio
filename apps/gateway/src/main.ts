@@ -1,15 +1,13 @@
-import { installProcessErrorGuards, startUnifiedGateway } from '@anvio/platform';
+import {
+  exitOnShutdownSignals,
+  installProcessErrorGuards,
+  startUnifiedGateway,
+} from '@anvio/platform';
 
 async function main() {
   installProcessErrorGuards('gateway');
   const handle = await startUnifiedGateway();
-  const shutdown = async () => {
-    console.log('\n[gateway] Shutting down…');
-    await handle.shutdown();
-    process.exit(0);
-  };
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  exitOnShutdownSignals('gateway', () => handle.shutdown());
 }
 
 main().catch((err) => {

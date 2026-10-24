@@ -50,6 +50,8 @@ export interface AgentRuntimeContext {
   messages: ChatMessage[];
 }
 
+export type AgentStopReason = 'end_turn' | 'iteration_limit' | 'interrupted';
+
 export type AgentStreamEvent =
   | { type: 'chunk'; delta?: string }
   | { type: 'progress'; phase: string; status: 'running' | 'completed' | 'failed' }
@@ -60,8 +62,28 @@ export type AgentStreamEvent =
    * starting cold (issue #63). Opaque and vendor-scoped — never compare
    * or reuse one across runtimes.
    */
-  | { type: 'done'; usage?: TokenUsage; vendorSessionId?: string; runtimeId?: string }
-  | { type: 'error'; error?: string }
+  | {
+      type: 'done';
+      usage?: TokenUsage;
+      vendorSessionId?: string;
+      runtimeId?: string;
+      /** Provider and model that served the final model call (set by the local runtime). */
+      provider?: string;
+      model?: string;
+      /**
+       * Why the turn ended. `iteration_limit`: the tool loop hit `maxToolIterations`
+       * while the model still wanted tools; `interrupted`: the provider died mid-answer.
+       */
+      stopReason?: AgentStopReason;
+    }
+  | {
+      type: 'error';
+      error?: string;
+      /** Machine-readable cause, e.g. `stopped`, `model_idle_timeout`, `invalid_checkpoint`. */
+      code?: string;
+      /** Whether retrying the same request could succeed (from the provider when known). */
+      retryable?: boolean;
+    }
   | { type: 'approval_required'; request: ApprovalRequest; checkpoint?: Record<string, unknown> };
 
 export interface AgentRuntime {

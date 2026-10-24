@@ -6,6 +6,7 @@ import type {
   RuntimeStreamEvent,
 } from '@anvio/core';
 import { AnvioError } from '@anvio/core';
+import { execCommand } from '../exec-command.js';
 
 export interface RemoteExecResult {
   stdout: string;
@@ -38,13 +39,7 @@ abstract class RemoteRuntimeStub implements RuntimeProvider {
 
   async execRemote(command: string): Promise<RemoteExecResult> {
     if (this.isMockMode()) {
-      const { spawnSync } = await import('node:child_process');
-      const result = spawnSync('sh', ['-c', command], { encoding: 'utf-8' });
-      return {
-        stdout: (result.stdout ?? '').trim(),
-        stderr: (result.stderr ?? '').trim(),
-        exitCode: result.status ?? 1,
-      };
+      return execCommand('sh', ['-c', command]);
     }
     if (!this.isConfigured()) {
       throw new AnvioError('VALIDATION_ERROR', this.notConfiguredMessage());

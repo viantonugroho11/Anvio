@@ -9,6 +9,9 @@ export async function publishAgentRunCompleted(
     channel: string;
     usage?: TokenUsage;
     status?: 'completed' | 'failed';
+    /** Provider/model that actually served the run, when the runtime reported it. */
+    provider?: string;
+    model?: string;
   },
 ): Promise<void> {
   await eventBus.publishCore(EventSubjects.AGENT_RUN_COMPLETED, 'anvio.agent.run.completed', {
@@ -17,6 +20,8 @@ export async function publishAgentRunCompleted(
     usage: input.usage,
     status: input.status ?? 'completed',
     channel: input.channel,
+    provider: input.provider,
+    model: input.model,
   });
 }
 
@@ -27,6 +32,8 @@ export async function finalizeAgentRun(
     content: string;
     channel: string;
     usage?: TokenUsage;
+    provider?: string;
+    model?: string;
   },
 ): Promise<void> {
   await publishAgentRunCompleted(eventBus, input);

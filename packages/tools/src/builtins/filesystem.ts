@@ -1,21 +1,14 @@
 import type { CodeExecutor } from '@anvio/core';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-
-function resolveWorkspacePath(workspaceRoot: string, relativePath: string): string {
-  const resolved = path.resolve(workspaceRoot, relativePath);
-  if (!resolved.startsWith(path.resolve(workspaceRoot))) {
-    throw new Error('Path escapes workspace');
-  }
-  return resolved;
-}
+import { resolveRealInsideRoot } from '@anvio/core';
 
 export async function fileRead(
   workspaceRoot: string,
   relativePath: string,
   maxChars = 16_000,
 ): Promise<{ path: string; content: string }> {
-  const resolved = resolveWorkspacePath(workspaceRoot, relativePath);
+  const resolved = await resolveRealInsideRoot(workspaceRoot, relativePath);
   const content = await fs.readFile(resolved, 'utf-8');
   return { path: relativePath, content: content.slice(0, maxChars) };
 }
@@ -25,7 +18,7 @@ export async function fileWrite(
   relativePath: string,
   content: string,
 ): Promise<{ path: string; bytes: number }> {
-  const resolved = resolveWorkspacePath(workspaceRoot, relativePath);
+  const resolved = await resolveRealInsideRoot(workspaceRoot, relativePath);
   await fs.mkdir(path.dirname(resolved), { recursive: true });
   await fs.writeFile(resolved, content, 'utf-8');
   return { path: relativePath, bytes: Buffer.byteLength(content, 'utf-8') };
@@ -35,7 +28,7 @@ export async function listDir(
   workspaceRoot: string,
   relativePath = '.',
 ): Promise<{ path: string; entries: Array<{ name: string; type: 'file' | 'dir'; size?: number }> }> {
-  const resolved = resolveWorkspacePath(workspaceRoot, relativePath);
+  const resolved = await resolveRealInsideRoot(workspaceRoot, relativePath);
   const stat = await fs.stat(resolved);
   if (!stat.isDirectory()) {
     throw new Error('Not a directory');
@@ -61,7 +54,7 @@ export async function editFile(
   newString: string,
   replaceAll = false,
 ): Promise<{ path: string; replacements: number; bytes: number }> {
-  const resolved = resolveWorkspacePath(workspaceRoot, relativePath);
+  const resolved = await resolveRealInsideRoot(workspaceRoot, relativePath);
   const content = await fs.readFile(resolved, 'utf-8');
   if (!content.includes(oldString)) {
     throw new Error('old_string not found in file');
@@ -78,7 +71,7 @@ export async function pathExists(
   workspaceRoot: string,
   relativePath: string,
 ): Promise<{ path: string; exists: boolean; type?: 'file' | 'dir' }> {
-  const resolved = resolveWorkspacePath(workspaceRoot, relativePath);
+  const resolved = await resolveRealInsideRoot(workspaceRoot, relativePath);
   try {
     const stat = await fs.stat(resolved);
     return {
@@ -95,7 +88,7 @@ export async function fileDelete(
   workspaceRoot: string,
   relativePath: string,
 ): Promise<{ path: string; deleted: boolean }> {
-  const resolved = resolveWorkspacePath(workspaceRoot, relativePath);
+  const resolved = await resolveRealInsideRoot(workspaceRoot, relativePath);
   const stat = await fs.stat(resolved);
   if (!stat.isFile()) {
     throw new Error('Only files can be deleted');
@@ -109,7 +102,7 @@ export async function appendFile(
   relativePath: string,
   content: string,
 ): Promise<{ path: string; bytesAppended: number }> {
-  const resolved = resolveWorkspacePath(workspaceRoot, relativePath);
+  const resolved = await resolveRealInsideRoot(workspaceRoot, relativePath);
   await fs.mkdir(path.dirname(resolved), { recursive: true });
   await fs.appendFile(resolved, content, 'utf-8');
   return { path: relativePath, bytesAppended: Buffer.byteLength(content, 'utf-8') };

@@ -19,7 +19,7 @@ describe('Claude Code allowedTools narrowing (#78)', () => {
       executeTool: vi.fn(),
     };
 
-    const runtime = new ClaudeCodeRuntimeProvider({
+    const _runtime = new ClaudeCodeRuntimeProvider({
       oauthToken: 'test-token',
       toolPort,
       approvalPort: {

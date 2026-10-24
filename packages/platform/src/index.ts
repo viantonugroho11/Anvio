@@ -26,6 +26,8 @@ import type {
   MemoryConfig,
 } from '@anvio/core';
 import { createEventBus, EventSubjects } from '@anvio/events';
+import { createLogger } from '@anvio/observability';
+import { runShutdownSteps } from './process-guards.js';
 import { createMemoryProvider, type GbrainClient, type GbrainConfig } from '@anvio/memory';
 import { createCredentialPoolManager } from '@anvio/credentials';
 import {
@@ -61,24 +63,8 @@ import { A2ATool, createAnvioUserBuilder } from '@anvio/a2a';
 import { createSlashCommandRegistry } from './slash-commands.js';
 import { registerPlatformExtras } from './slash-commands-extras.js';
 import { createRemoteBinding } from './remote-binding.js';
-
-/**
- * Channels that show a picker where /promote and /discard mean something.
- * Kept in sync with CHAT_CHANNELS in gateway-worker.ts — one list per
- * concern (task_completed suppression vs draft-prompt eligibility), but
- * currently the same set.
- */
-const CHAT_CHANNELS_FOR_DRAFT_PROMPT: ReadonlySet<string> = new Set([
-  'telegram',
-  'discord',
-  'slack',
-  'whatsapp',
-  'web-chat',
-  'cli',
-  'matrix',
-  'teams',
-  'mattermost',
-]);
+import { createRunCompletedHandler } from './handlers/run-completed.js';
+import { createMockModelProvider } from './mock-model-provider.js';
 
 export type { PlatformContext } from './platform-context.js';
 
@@ -166,6 +152,13 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     ? new Map<string, ModelProvider>()
     : createModelProviderRegistryFromEnv({ anthropicApiKey: options.anthropicApiKey });
   if (providerMap.size === 0) {
+    if (!options.simulation) {
+      // Runs still "complete" against the mock, so say it once at boot (audit CQ-030).
+      console.warn(
+        '[platform] No model provider credentials found; every agent will answer with the mock provider. ' +
+          'Set a model API key (e.g. ANTHROPIC_API_KEY) or run `anvio setup-token`.',
+      );
+    }
     const mock = options.simulation?.modelProvider ?? createMockModelProvider();
     for (const id of allKnownProviderIds()) {
       providerMap.set(id, mock);
@@ -186,7 +179,11 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   if (spec.defaultSoul) {
     try {
       soulDefinition = await soulService.get(spec.defaultSoul);
-    } catch {
+    } catch (error) {
+      console.warn(
+        `[platform] defaultSoul "${spec.defaultSoul}" could not be loaded; harness runs without it:`,
+        error instanceof Error ? error.message : error,
+      );
       soulDefinition = undefined;
     }
   }
@@ -459,7 +456,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
     credentialPools,
   });
 
+  const runtimeLog = createLogger('agents:runtime');
   const localRuntime = new DefaultAgentRuntime({
+    warn: (message, error) => runtimeLog.warn({ err: error }, message),
     personaService,
     skillRegistry,
     skillCatalog,
@@ -472,14 +471,9 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
       const activeGoals = await sharedGoalEngine.list('active');
       return activeGoals.flatMap((g) => g.spec.skills ?? []);
     },
-    onProgress: (sessionId, phase) => {
-      void eventBus.publishCore(EventSubjects.AGENT_RUN_PROGRESS, 'anvio.agent.run.progress', {
-        sessionId,
-        phase,
-        status: 'running' as const,
-        channel: 'cli',
-      });
-    },
+    // No `onProgress` here: stream consumers (gateway worker, CLI) already get every
+    // progress event. The callback re-published each phase with a hard-coded
+    // `channel: 'cli'`, so every phase was emitted twice (audit CQ-020).
   });
 
   const resolveConnectionPayload = harness.connectBroker
@@ -933,68 +927,18 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
 
   const tokenUsageAudit = createTokenUsageAudit(workspace.storage);
 
-  await eventBus.subscribeCore(EventSubjects.AGENT_RUN_COMPLETED, async (event) => {
-    const data = event.data as {
-      sessionId: string;
-      content?: string;
-      channel?: string;
-      usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
-    };
-    const stored = await workspace.sessions.get(data.sessionId);
-    if (!stored) return;
-
-    if (data.usage && data.usage.totalTokens > 0) {
-      let model: string | undefined;
-      try {
-        const agent = await workspace.loader.loadAgent(stored.agentName);
-        model = agent.spec.model.model;
-      } catch {
-        model = undefined;
-      }
-      await tokenUsageAudit.record({
-        sessionId: stored.id,
-        channel: data.channel ?? stored.channel,
-        agentId: stored.agentName,
-        userId: stored.userId,
-        provider: modelProvider.providerId,
-        model,
-        usage: data.usage,
-      });
-    }
-
-    const soul = await resolveLearningSoul(stored.agentName);
-    const learningResult = await learningEngine.onSessionCompleted({
-      sessionId: stored.id,
-      userId: stored.userId,
-      agentId: stored.agentName,
-      messages: stored.messages,
-      soul,
-      channel: stored.channel,
-    });
-
-    // Prompt the user in-channel when the learning loop produced a draft
-    // (issue #56 (b)). Right now the draft lands silently on disk and the
-    // user only finds it if they think to run `anvio learning drafts`.
-    // Chat channels only — non-chat surfaces already got a task_completed
-    // notification and don't have a picker to /promote from.
-    if (learningResult.skillDraft && CHAT_CHANNELS_FOR_DRAFT_PROMPT.has(stored.channel)) {
-      try {
-        await channelHub.sendMessage(stored.channel as ChannelType, stored.id, {
-          sessionId: stored.id,
-          type: 'done',
-          content: [
-            `📝 Skill draft captured: \`${learningResult.skillDraft.slug}\``,
-            '',
-            `View: /draft ${learningResult.skillDraft.slug}`,
-            `Save: /promote ${learningResult.skillDraft.slug}`,
-            `Drop: /discard ${learningResult.skillDraft.slug}`,
-          ].join('\n'),
-        });
-      } catch {
-        // Non-fatal — the draft is on disk regardless.
-      }
-    }
-  });
+  await eventBus.subscribeCore(
+    EventSubjects.AGENT_RUN_COMPLETED,
+    createRunCompletedHandler({
+      sessions: workspace.sessions,
+      loadAgent: (name) => workspace.loader.loadAgent(name),
+      tokenUsageAudit,
+      resolveLearningSoul,
+      learningEngine,
+      sendMessage: (channel, sessionId, message) => channelHub.sendMessage(channel, sessionId, message),
+      fallbackProviderId: modelProvider.providerId,
+    }),
+  );
 
   // A2A protocol server (ADR-0028)
   let a2aServer: PlatformContext['a2aServer'];
@@ -1009,8 +953,13 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
         gatewayBaseUrl: `${gatewayHost}:${gatewayPort}`,
         userBuilder: spec.a2a.auth?.enabled ? createAnvioUserBuilder(spec.a2a.auth) : undefined,
       });
-    } catch {
-      // A2A boot failure is non-fatal
+    } catch (error) {
+      // Non-fatal for the rest of the platform, but `a2a.enabled: true` with no
+      // server must be visible (audit CQ-012).
+      console.error(
+        '[platform] A2A server failed to start; continuing without it:',
+        error instanceof Error ? (error.stack ?? error.message) : error,
+      );
     }
   }
 
@@ -1040,21 +989,32 @@ export async function createPlatform(options: PlatformOptions = {}): Promise<Pla
   let shutdownPromise: Promise<void> | null = null;
   const shutdown = () => {
     if (shutdownPromise) return shutdownPromise;
-    shutdownPromise = (async () => {
-      const attempts: Array<Promise<unknown>> = [
-        channelHub.stopAll(),
-        Promise.resolve(automationEngine.stop()),
-        hookEngine.stop(),
-      ];
-      if (a2aServer) {
-        attempts.push(a2aServer.stop());
-      }
-      const bus = eventBus as EventBusLikeWithClose;
-      if (typeof bus.close === 'function') {
-        attempts.push(bus.close());
-      }
-      await Promise.allSettled(attempts);
-    })();
+    // Producers first (they publish onto the bus), the bus last. Closing the bus
+    // alongside them let a cron tick or channel message publish into a closed bus.
+    shutdownPromise = runShutdownSteps('platform', [
+      {
+        name: 'producers',
+        run: async () => {
+          const results = await Promise.allSettled([
+            channelHub.stopAll(),
+            Promise.resolve(automationEngine.stop()),
+            hookEngine.stop(),
+            ...(a2aServer ? [a2aServer.stop()] : []),
+          ]);
+          const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+          for (const failure of failures) {
+            console.error('[platform] stopping a subsystem failed:', failure.reason);
+          }
+        },
+      },
+      {
+        name: 'event bus',
+        run: async () => {
+          const bus = eventBus as EventBusLikeWithClose;
+          if (typeof bus.close === 'function') await bus.close();
+        },
+      },
+    ]).then(() => undefined);
     return shutdownPromise;
   };
 
@@ -1087,34 +1047,17 @@ interface EventBusLikeWithClose {
   close?: () => Promise<void>;
 }
 
-function createMockModelProvider(): ModelProvider {
-  return {
-    providerId: 'mock',
-    async chat(request) {
-      const last = request.messages.at(-1)?.content ?? '';
-      return {
-        content: `[Mock — set a model API key] You said: ${last}`,
-        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-        model: 'mock',
-        finishReason: 'end_turn',
-      };
-    },
-    async *stream(request) {
-      const last = request.messages.at(-1)?.content ?? '';
-      const text = `[Mock — set a model API key] You said: ${last}`;
-      yield { type: 'text_delta', delta: text };
-      yield {
-        type: 'done',
-        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-      };
-    },
-  };
-}
 
 export { createSlashCommandRegistry, applySlashUpdate } from './slash-commands.js';
 export { loadAgent, storedSessionToRuntime } from './session-runtime.js';
 export { registerGatewayWorker } from './gateway-worker.js';
-export { installProcessErrorGuards } from './process-guards.js';
+export {
+  installProcessErrorGuards,
+  runShutdownSteps,
+  exitOnShutdownSignals,
+  DEFAULT_SHUTDOWN_TIMEOUT_MS,
+  type ShutdownStep,
+} from './process-guards.js';
 export {
   startUnifiedGateway,
   type UnifiedGatewayHandle,
