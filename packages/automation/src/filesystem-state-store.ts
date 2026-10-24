@@ -29,11 +29,15 @@ export class FilesystemAutomationStateStore {
     );
   }
 
-  async recordRun(slug: string, status: AutomationRunState['lastStatus']): Promise<void> {
+  async recordRun(
+    slug: string,
+    status: AutomationRunState['lastStatus'],
+    at = new Date(),
+  ): Promise<void> {
     const state = await this.get(slug);
     await this.storage.writeJson(this.key(slug), {
       ...state,
-      lastRunAt: new Date().toISOString(),
+      lastRunAt: at.toISOString(),
       lastStatus: status,
       runCount: state.runCount + 1,
     });

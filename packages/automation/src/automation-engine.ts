@@ -3,7 +3,7 @@ import { parseAutomationDefinition } from '@anvio/core';
 import { EventSubjects } from '@anvio/events';
 import type { FilesystemStorageProvider } from '@anvio/storage';
 import { parse as parseYaml } from 'yaml';
-import { cronMatches } from './cron-parser.js';
+import { cronMatches, cronMinuteKey } from './cron-parser.js';
 import type { ActionExecutor } from './action-executor.js';
 import { FilesystemAutomationStateStore } from './filesystem-state-store.js';
 
@@ -26,7 +26,10 @@ export class CronScheduler {
 
   constructor(
     private readonly stateStore: FilesystemAutomationStateStore,
-    private readonly onTrigger: (automation: AutomationDefinition) => Promise<void>,
+    private readonly onTrigger: (
+      automation: AutomationDefinition,
+      scheduledAt: Date,
+    ) => Promise<void>,
   ) {}
 
   setAutomations(automations: AutomationDefinition[]): void {
@@ -39,6 +42,7 @@ export class CronScheduler {
     this.stop();
     void this.tick();
     this.timer = setInterval(() => void this.tick(), intervalMs);
+    this.timer.unref?.();
   }
 
   stop(): void {
@@ -53,24 +57,27 @@ export class CronScheduler {
     for (const automation of this.automations) {
       const trigger = automation.spec.trigger;
       if (trigger.type !== 'cron') continue;
-      if (!cronMatches(trigger.schedule, now)) continue;
-
-      const state = await this.stateStore.get(automation.metadata.slug);
-      if (state.lastRunAt) {
-        const last = new Date(state.lastRunAt);
+      const slug = automation.metadata.slug;
+      // One automation's failure (bad timezone, storage error, executor throwing)
+      // used to reject the whole tick and skip every automation after it.
+      try {
+        if (!cronMatches(trigger.schedule, now, trigger.timezone)) continue;
+        const state = await this.stateStore.get(slug);
         if (
-          last.getFullYear() === now.getFullYear() &&
-          last.getMonth() === now.getMonth() &&
-          last.getDate() === now.getDate() &&
-          last.getHours() === now.getHours() &&
-          last.getMinutes() === now.getMinutes()
+          state.lastRunAt &&
+          cronMinuteKey(new Date(state.lastRunAt), trigger.timezone) ===
+            cronMinuteKey(now, trigger.timezone)
         ) {
           continue;
         }
+        await this.onTrigger(automation, now);
+        triggered.push(slug);
+      } catch (error) {
+        console.error(
+          `[automation] cron run of "${slug}" failed:`,
+          error instanceof Error ? (error.stack ?? error.message) : error,
+        );
       }
-
-      await this.onTrigger(automation);
-      triggered.push(automation.metadata.slug);
     }
     return triggered;
   }
@@ -92,7 +99,15 @@ export class AutomationRegistry {
     )) {
       const raw = await this.storage.read(file);
       if (!raw) continue;
-      automations.push(parseAutomationDefinition(parseYaml(raw)));
+      // One malformed file used to throw out of start() and abort platform boot.
+      try {
+        automations.push(parseAutomationDefinition(parseYaml(raw)));
+      } catch (error) {
+        console.error(
+          `[automation] skipping invalid automation ${file}:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
     }
 
     return automations;
@@ -117,7 +132,9 @@ export class AutomationEngine {
     private readonly actionExecutor: ActionExecutor,
     private readonly options: AutomationEngineOptions,
   ) {
-    this.cronScheduler = new CronScheduler(stateStore, (automation) => this.runAutomation(automation));
+    this.cronScheduler = new CronScheduler(stateStore, (automation, scheduledAt) =>
+      this.runAutomation(automation, undefined, scheduledAt),
+    );
   }
 
   async start(): Promise<void> {
@@ -158,7 +175,10 @@ export class AutomationEngine {
     const trigger = automation.spec.trigger;
     if (trigger.type === 'event') {
       const unsub = await this.options.eventBus.subscribeCore(trigger.event, async (event) => {
-        if (trigger.filter && !matchesFilter(trigger.filter, event.data as Record<string, unknown>)) {
+        if (
+          trigger.filter &&
+          !matchesFilter(trigger.filter, event.data as Record<string, unknown>)
+        ) {
           return;
         }
         await this.runAutomation(automation, event.data as Record<string, unknown>);
@@ -185,6 +205,7 @@ export class AutomationEngine {
   private async runAutomation(
     automation: AutomationDefinition,
     eventPayload?: Record<string, unknown>,
+    scheduledAt?: Date,
   ): Promise<void> {
     const slug = automation.metadata.slug;
     await this.options.eventBus.publish(
@@ -198,7 +219,13 @@ export class AutomationEngine {
       eventPayload,
     });
 
-    await this.stateStore.recordRun(slug, result.status === 'completed' ? 'completed' : 'failed');
+    // Record the scheduled minute, not completion time: a run that crosses into
+    // the next minute must not make that minute look already handled.
+    await this.stateStore.recordRun(
+      slug,
+      result.status === 'completed' ? 'completed' : 'failed',
+      scheduledAt,
+    );
 
     if (result.status === 'completed') {
       await this.options.eventBus.publish(
@@ -212,10 +239,14 @@ export class AutomationEngine {
         { workflowId: slug, status: 'completed' },
       );
     } else {
-      await this.options.eventBus.publish(EventSubjects.AUTOMATION_FAILED, 'anvio.automation.failed', {
-        slug,
-        error: result.error,
-      });
+      await this.options.eventBus.publish(
+        EventSubjects.AUTOMATION_FAILED,
+        'anvio.automation.failed',
+        {
+          slug,
+          error: result.error,
+        },
+      );
     }
   }
 }

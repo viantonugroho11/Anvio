@@ -47,11 +47,17 @@ function resolveEnv(env: Record<string, string>): Record<string, string> {
 }
 
 /** Minimal MCP client over stdio (JSON-RPC + Content-Length framing). */
+/** How long one MCP request may take before it is failed. */
+export const MCP_REQUEST_TIMEOUT_MS = 30_000;
+
 export class McpStdioClient {
   private proc: ChildProcessWithoutNullStreams | null = null;
   private nextId = 1;
   private buffer = Buffer.alloc(0);
-  private pending = new Map<number | string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+  private pending = new Map<
+    number | string,
+    { resolve: (v: unknown) => void; reject: (e: Error) => void }
+  >();
   private started = false;
   private restartCount = 0;
 
@@ -67,32 +73,52 @@ export class McpStdioClient {
 
   private async spawnProcess(): Promise<void> {
     if (!this.spec.command) throw new Error('MCP stdio server has no command');
-    this.proc = spawn(this.spec.command, this.spec.args, {
+    const proc = spawn(this.spec.command, this.spec.args, {
       env: resolveEnv(this.spec.env),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
+    this.proc = proc;
+    // Without an 'error' listener a missing binary (ENOENT) or a spawn permission
+    // error is an uncaught exception, and the process guard exits the whole
+    // daemon — one misconfigured MCP server took every channel down.
+    const spawned = new Promise<void>((resolve, reject) => {
+      proc.once('spawn', () => resolve());
+      proc.once('error', reject);
+    });
+    proc.on('error', (error) => {
+      console.error(`[mcp-stdio] ${this.spec.command}: ${error.message}`);
+      for (const pending of this.pending.values()) pending.reject(error);
+      this.pending.clear();
+      this.started = false;
+      if (this.proc === proc) this.proc = null;
+    });
+    proc.stdin.on('error', (error) => {
+      // EPIPE when the server exits while a request is being written.
+      console.error(`[mcp-stdio] stdin: ${error.message}`);
+    });
 
-    this.proc.stdout.on('data', (chunk: Buffer) => {
+    proc.stdout.on('data', (chunk: Buffer) => {
       this.buffer = Buffer.concat([this.buffer, chunk]);
       this.drain();
     });
 
-    this.proc.stderr.on('data', (chunk: Buffer) => {
+    proc.stderr.on('data', (chunk: Buffer) => {
       const text = chunk.toString('utf-8').trim();
       if (text) {
         console.error(`[mcp-stdio] ${text}`);
       }
     });
 
-    this.proc.on('exit', (code) => {
+    proc.on('exit', (code) => {
       for (const pending of this.pending.values()) {
         pending.reject(new Error(`MCP process exited with code ${code ?? 'unknown'}`));
       }
       this.pending.clear();
       this.started = false;
-      this.proc = null;
+      if (this.proc === proc) this.proc = null;
     });
 
+    await spawned;
     await this.request('initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
@@ -155,60 +181,97 @@ export class McpStdioClient {
   private request(method: string, params: Record<string, unknown>): Promise<unknown> {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      this.send({ jsonrpc: '2.0', id, method, params });
-      setTimeout(() => {
-        if (this.pending.has(id)) {
-          this.pending.delete(id);
-          reject(new Error(`MCP request timeout: ${method}`));
-        }
-      }, 30_000);
+      // Cleared on settle and unref'd: a 30 s timer per request used to keep the
+      // process alive after shutdown.
+      const timer = setTimeout(() => {
+        if (this.pending.delete(id)) reject(new Error(`MCP request timeout: ${method}`));
+      }, MCP_REQUEST_TIMEOUT_MS);
+      timer.unref?.();
+      this.pending.set(id, {
+        resolve: (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        reject: (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      });
+      try {
+        this.send({ jsonrpc: '2.0', id, method, params });
+      } catch (error) {
+        this.pending.delete(id);
+        clearTimeout(timer);
+        reject(error as Error);
+      }
     });
   }
 
+  /**
+   * MCP's stdio transport is newline-delimited JSON-RPC: one message per line, no
+   * headers. This client used LSP-style `Content-Length` framing, which servers
+   * built on the official SDK never answer — every request waited out its timeout
+   * (post-refactoring verification, PR-02).
+   */
   private send(message: JsonRpcMessage): void {
     if (!this.proc?.stdin.writable) {
       throw new Error('MCP stdio process not running');
     }
-    const json = JSON.stringify(message);
-    const frame = `Content-Length: ${Buffer.byteLength(json, 'utf-8')}\r\n\r\n${json}`;
-    this.proc.stdin.write(frame);
+    this.proc.stdin.write(`${JSON.stringify(message)}\n`);
   }
 
+  /**
+   * Parse newline-delimited messages. `Content-Length` frames are still accepted
+   * on input so older non-standard servers keep working.
+   */
   private drain(): void {
-    while (true) {
-      const headerEnd = this.buffer.indexOf('\r\n\r\n');
-      if (headerEnd < 0) return;
-
-      const header = this.buffer.subarray(0, headerEnd).toString('utf-8');
-      const match = /Content-Length:\s*(\d+)/i.exec(header);
-      if (!match) {
-        this.buffer = this.buffer.subarray(headerEnd + 4);
+    for (;;) {
+      if (this.buffer.subarray(0, 15).toString('utf-8').toLowerCase() === 'content-length:') {
+        if (!this.drainLengthPrefixed()) return;
         continue;
       }
+      const newline = this.buffer.indexOf(0x0a);
+      if (newline < 0) return;
+      const line = this.buffer.subarray(0, newline).toString('utf-8').trim();
+      this.buffer = this.buffer.subarray(newline + 1);
+      if (line) this.dispatch(line);
+    }
+  }
 
-      const length = Number.parseInt(match[1]!, 10);
-      const bodyStart = headerEnd + 4;
-      if (this.buffer.length < bodyStart + length) return;
+  /** Returns false when the frame is incomplete. */
+  private drainLengthPrefixed(): boolean {
+    const headerEnd = this.buffer.indexOf('\r\n\r\n');
+    if (headerEnd < 0) return false;
+    const header = this.buffer.subarray(0, headerEnd).toString('utf-8');
+    const match = /Content-Length:\s*(\d+)/i.exec(header);
+    if (!match) {
+      this.buffer = this.buffer.subarray(headerEnd + 4);
+      return true;
+    }
+    const length = Number.parseInt(match[1]!, 10);
+    const bodyStart = headerEnd + 4;
+    if (this.buffer.length < bodyStart + length) return false;
+    const body = this.buffer.subarray(bodyStart, bodyStart + length).toString('utf-8');
+    this.buffer = this.buffer.subarray(bodyStart + length);
+    this.dispatch(body);
+    return true;
+  }
 
-      const bodyText = this.buffer.subarray(bodyStart, bodyStart + length).toString('utf-8');
-      this.buffer = this.buffer.subarray(bodyStart + length);
-
-      let message: JsonRpcMessage;
-      try {
-        message = JSON.parse(bodyText) as JsonRpcMessage;
-      } catch {
-        continue;
-      }
-
-      if (message.id != null && this.pending.has(message.id)) {
-        const pending = this.pending.get(message.id)!;
-        this.pending.delete(message.id);
-        if (message.error) {
-          pending.reject(new Error(message.error.message));
-        } else {
-          pending.resolve(message.result);
-        }
+  private dispatch(text: string): void {
+    let message: JsonRpcMessage;
+    try {
+      message = JSON.parse(text) as JsonRpcMessage;
+    } catch {
+      console.error(`[mcp-stdio] ignoring non-JSON output: ${text.slice(0, 200)}`);
+      return;
+    }
+    if (message.id != null && this.pending.has(message.id)) {
+      const pending = this.pending.get(message.id)!;
+      this.pending.delete(message.id);
+      if (message.error) {
+        pending.reject(new Error(message.error.message));
+      } else {
+        pending.resolve(message.result);
       }
     }
   }

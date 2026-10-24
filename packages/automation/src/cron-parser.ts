@@ -87,18 +87,83 @@ function matchesField(field: CronField, value: number): boolean {
   return field.values.has(value);
 }
 
-export function cronMatches(expression: string, date: Date): boolean {
+export interface CronDateParts {
+  minute: number;
+  hour: number;
+  dayOfMonth: number;
+  month: number;
+  dayOfWeek: number;
+  year: number;
+}
+
+const WEEKDAYS: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * Calendar fields of `date` in `timeZone` (IANA name), or in the process's local
+ * zone when omitted. Throws RangeError for an unknown zone.
+ */
+export function cronDateParts(date: Date, timeZone?: string): CronDateParts {
+  if (!timeZone) {
+    return {
+      minute: date.getMinutes(),
+      hour: date.getHours(),
+      dayOfMonth: date.getDate(),
+      month: date.getMonth() + 1,
+      dayOfWeek: date.getDay(),
+      year: date.getFullYear(),
+    };
+  }
+  let formatter = formatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      weekday: 'short',
+    });
+    formatters.set(timeZone, formatter);
+  }
+  const parts = Object.fromEntries(formatter.formatToParts(date).map((p) => [p.type, p.value]));
+  return {
+    minute: Number(parts.minute),
+    hour: Number(parts.hour),
+    dayOfMonth: Number(parts.day),
+    month: Number(parts.month),
+    dayOfWeek: WEEKDAYS[parts.weekday ?? ''] ?? 0,
+    year: Number(parts.year),
+  };
+}
+
+/**
+ * Whether `date` matches `expression`, evaluated in `timeZone` when given.
+ * Automations declare `spec.trigger.timezone` (default UTC) and the docs promise
+ * timezone-aware schedules, but the engine used to evaluate every schedule in
+ * the server's local time.
+ */
+export function cronMatches(expression: string, date: Date, timeZone?: string): boolean {
   const cron = parseCronExpression(expression);
+  const p = cronDateParts(date, timeZone);
   return (
-    matchesField(cron.minute, date.getMinutes()) &&
-    matchesField(cron.hour, date.getHours()) &&
-    matchesField(cron.dayOfMonth, date.getDate()) &&
-    matchesField(cron.month, date.getMonth() + 1) &&
-    matchesField(cron.dayOfWeek, date.getDay())
+    matchesField(cron.minute, p.minute) &&
+    matchesField(cron.hour, p.hour) &&
+    matchesField(cron.dayOfMonth, p.dayOfMonth) &&
+    matchesField(cron.month, p.month) &&
+    matchesField(cron.dayOfWeek, p.dayOfWeek)
   );
 }
 
-export function nextCronRuns(expression: string, from: Date, limit = 5): Date[] {
+/** Minute-resolution key of `date` in `timeZone`, for "already ran this minute". */
+export function cronMinuteKey(date: Date, timeZone?: string): string {
+  const p = cronDateParts(date, timeZone);
+  return `${p.year}-${p.month}-${p.dayOfMonth} ${p.hour}:${p.minute}`;
+}
+
+export function nextCronRuns(expression: string, from: Date, limit = 5, timeZone?: string): Date[] {
   const results: Date[] = [];
   const cursor = new Date(from);
   cursor.setSeconds(0, 0);
@@ -106,7 +171,7 @@ export function nextCronRuns(expression: string, from: Date, limit = 5): Date[] 
 
   let guard = 0;
   while (results.length < limit && guard < 525600) {
-    if (cronMatches(expression, cursor)) results.push(new Date(cursor));
+    if (cronMatches(expression, cursor, timeZone)) results.push(new Date(cursor));
     cursor.setMinutes(cursor.getMinutes() + 1);
     guard++;
   }
