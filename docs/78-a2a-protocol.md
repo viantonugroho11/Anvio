@@ -1,8 +1,18 @@
 # A2A Protocol Integration
 
-**Status:** shipped (v2.4.0) · **ADR:** [0026](../docs/adr/0026-a2a-protocol-integration.md)
+**Status:** shipped (v2.4.0); experimental for remote delegation (see limitations below) · **ADR:** [0026](adr/0026-a2a-protocol-integration.md) (Proposed), [0027–0031](adr/README.md)
 
 Anvio implements [Google's Agent-to-Agent (A2A) protocol v1.0](https://a2a-protocol.org/latest/) for cross-platform agent interoperability. Where MCP connects agents to **tools** and ACP connects agents to **editors**, A2A connects agents to **other agents**.
+
+## Current limitations (verified 2026-10-25)
+
+These are checked against the code; see [ROADMAP](ROADMAP.md#p1-reliability-and-interoperability) for status.
+
+- **Client credentials (T-048).** The A2A client accepts `apiKey` / `bearerToken` in `a2a.remotes` but does not send them. Remotes that require auth fail. `timeoutMs` is ignored. Source: `packages/a2a/src/client/a2a-client.ts`.
+- **Cancel (T-051).** `cancelTask` publishes a canceled status but does not stop the running agent turn. Source: `packages/a2a/src/server/anvio-agent-executor.ts`.
+- **Secure defaults (T-052).** Server auth defaults to off and push notifications default to on (`packages/core/src/schemas/workspace.schema.ts`). Enable `a2a.auth` before exposing the gateway.
+- **Agent selection (T-053).** Requests run on the first exposed agent (`packages/platform/src/a2a-bootstrap.ts`).
+- **Not re-verified here:** session-per-message, approval reporting and streaming semantics (T-049, T-050). See [audit phase 3, doc 01](audit/phase-3/01-a2a-protocol-compliance.md).
 
 ## Protocol Overview
 

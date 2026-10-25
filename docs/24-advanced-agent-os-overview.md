@@ -1,15 +1,15 @@
 # Advanced Agent OS — Overview
 
-Anvio Advanced Agent OS extends the Level 1 foundation into a full **local-first, file-first, configuration-driven** platform for long-lived agents, persistent goals, automation, multi-agent coordination, and vendor-agnostic execution.
+Anvio Advanced Agent OS extends the Level 1 foundation into a full **file-first, configuration-driven** platform for long-lived agents, persistent goals, automation, multi-agent coordination, and vendor-agnostic execution.
 
 ## Design Principles (Mandatory)
 
 | Principle | Meaning |
 |-----------|---------|
-| **Local First** | Works offline; no mandatory cloud |
+| **Local by default** | Runs as one process with file-based state; no mandatory cloud ([ADR-0038](adr/0038-extensible-agent-platform-positioning.md)) |
 | **File First** | Filesystem is the default store for all state |
 | **Configuration Driven** | YAML/JSON/Markdown; no core code changes for behavior |
-| **Plugin Based** | Memory, runtime, storage, integrations are swappable |
+| **Port based** | Memory, runtime, storage and integrations sit behind ports and are selected in config; there is no plugin system ([ROADMAP T-058](ROADMAP.md#p2-and-below)) |
 | **Vendor Agnostic** | No coupling to a single LLM or editor |
 | **Progressive Enhancement** | Level 1 works alone; databases and sandboxes are optional |
 
@@ -120,7 +120,7 @@ gantt
   Skills + Integrations        :2026-12, 2M
 ```
 
-See [plans/2026-06-19-001-feat-advanced-agent-os-plan.md](./plans/2026-06-19-001-feat-advanced-agent-os-plan.md) for implementation units.
+Open work is tracked in [ROADMAP.md](ROADMAP.md).
 
 ## CLI Surface
 

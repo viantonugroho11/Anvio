@@ -183,3 +183,7 @@ The key design decisions within Option A:
 7. [ ] Serve `/.well-known/agent.json` for Agent Card discovery
 8. [ ] Write integration tests against a mock A2A peer
 9. [ ] Document in `docs/` — architecture, configuration, usage examples
+
+## Reconciliation note (2026-10-25)
+
+Still **Proposed**. The decision is implemented: `packages/a2a` (server, Agent Card, client, `a2a_delegate` tool), and ADR-0027..0031 build on it as Accepted. Acceptance is left to the owners. Known gaps from audit phase 3, re-checked 2026-10-25: the client does not send the configured `apiKey`/`bearerToken`; `cancelTask` marks the task canceled without stopping the run; server auth is off by default. See [docs/ROADMAP.md](../ROADMAP.md). Original decision text above is unchanged.

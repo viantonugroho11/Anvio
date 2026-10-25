@@ -5,7 +5,7 @@
 
 ## Goals
 
-Close remote runtime, voice streaming, and email channel gaps from [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md).
+Close remote runtime, voice streaming, and email channel gaps from [69-post-v1.17-gap-register.md](../superseded-designs/69-post-v1.17-gap-register.md).
 
 ## P13 deliverables
 

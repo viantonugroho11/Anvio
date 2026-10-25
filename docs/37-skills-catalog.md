@@ -176,6 +176,8 @@ flowchart TB
 
 ### Plugin Manifest for Skills
 
+> **Not implemented.** Skills are installed with `anvio skill install|import` and described by their own frontmatter; no `plugin.yaml` is read ([ROADMAP T-058](ROADMAP.md#p2-and-below)).
+
 ```yaml
 # skill plugin.yaml
 name: aws-skill

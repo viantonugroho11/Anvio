@@ -2,7 +2,7 @@
 
 Built-in tools without external MCP setup. Prefix runtime: `anvio_tools__*`.
 
-**Katalog Hermes lengkap (~71 tools) + mapping:** [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md)
+**Current tool list:** run `anvio tools list` (source: `packages/tools/src/builtins/index.ts`).
 
 ## Anvio gateway tools (42)
 
@@ -53,6 +53,5 @@ anvio mcp health
 
 ## Related
 
-- [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) — full Hermes tool inventory
 - [38-integration-architecture.md](./38-integration-architecture.md) — external MCP
 - [43-learning-loop.md](./43-learning-loop.md)

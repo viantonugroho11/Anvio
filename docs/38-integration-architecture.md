@@ -154,6 +154,8 @@ steps:
 
 ## Extension Guide
 
+> **Status (2026-10-25):** items below that mention a *plugin* or *plugin manifest* describe design intent. Anvio has no plugin system ([ROADMAP T-058](ROADMAP.md#p2-and-below)); extending this subsystem today means changing the package code.
+
 1. Add MCP server to `workspace/mcp/servers.yaml`
 2. For custom services: implement `Integration` port as plugin
 3. Register tools in `workspace/tools/`

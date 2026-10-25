@@ -158,6 +158,8 @@ Maps Anvio concepts:
 
 ## Custom Provider Plugin
 
+> **Not implemented.** There is no plugin loader; `workspace/plugins/` is not read. A new memory provider is added in `packages/memory/src/provider-factory.ts` ([ROADMAP T-058](ROADMAP.md#p2-and-below)).
+
 ```yaml
 # workspace/plugins/my-memory/plugin.yaml
 name: my-memory

@@ -29,7 +29,7 @@ Expand Anvio built-in gateway from **21 → 42 tools** to cover core Hermes tool
 
 - `delegate_task`, `cronjob`, `mixture_of_agents`, `x_search`, `video_*`, RL (`rl_*`), Home Assistant, Spotify, Feishu, Discord admin, `computer_use`, `browser_cdp`
 
-See [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md).
+See [65-hermes-tools-catalog.md](../superseded-designs/65-hermes-tools-catalog.md).
 
 ## Enable browser tools
 

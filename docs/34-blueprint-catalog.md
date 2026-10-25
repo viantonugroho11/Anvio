@@ -218,6 +218,8 @@ sequenceDiagram
 
 ## Extension Guide
 
+> **Status (2026-10-25):** items below that mention a *plugin* or *plugin manifest* describe design intent. Anvio has no plugin system ([ROADMAP T-058](ROADMAP.md#p2-and-below)); extending this subsystem today means changing the package code.
+
 1. Create blueprint YAML in `workspace/blueprints/`
 2. Add custom step types via plugin (`type: my-step`)
 3. Publish to team catalog via git submodule or private registry (future)

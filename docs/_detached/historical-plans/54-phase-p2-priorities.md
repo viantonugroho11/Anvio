@@ -63,6 +63,6 @@ Env: `MATTERMOST_SERVER_URL`, `MATTERMOST_BOT_TOKEN`
 
 ## Related
 
-- [41-channel-harness.md](./41-channel-harness.md)
-- [53-phase-p1-priorities.md](./53-phase-p1-priorities.md)
-- [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md)
+- [41-channel-harness.md](../../41-channel-harness.md)
+- [53-phase-p1-priorities.md](53-phase-p1-priorities.md)
+- [51-gap-hermes-slaude.md](../superseded-designs/51-gap-hermes-slaude.md)

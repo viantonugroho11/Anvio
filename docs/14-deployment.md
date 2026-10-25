@@ -1,13 +1,16 @@
 # Deployment
 
-## Phase 1
+| Mode                            | How                                                                                                                                                                                                 | Status                                                                                                                                                                               |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CLI                             | `anvio run` / `anvio chat` against a workspace directory                                                                                                                                            | Supported; verified                                                                                                                                                                  |
+| Single-process daemon           | `anvio gateway start [--foreground]`: channel hub, run worker, HTTP API, WebSocket and A2A routes in one process. Binds to `127.0.0.1:3001` by default (`ANVIO_GATEWAY_HOST`, `ANVIO_GATEWAY_PORT`) | Supported; verified at Level 1 in a single process ([post-refactoring/06](audits/post-refactoring/06-production-readiness.md))                                                       |
+| Separate API / worker processes | `apps/api` (NestJS) and `apps/worker`                                                                                                                                                               | Code present; multi-process operation on one workspace was not verified, and startup session repair is unsafe there ([ROADMAP R-03](ROADMAP.md#p1-reliability-and-interoperability)) |
+| Containers                      | `docker/Dockerfile.api`, `Dockerfile.gateway`, `Dockerfile.worker`; `docker/docker-compose.yml` (PostgreSQL, Redis, NATS, API) and `docker-compose.dev.yml`                                         | Files provided; not verified in the latest audit                                                                                                                                     |
+| Kubernetes                      | —                                                                                                                                                                                                   | No manifests or Helm chart in this repository                                                                                                                                        |
 
-Single VM with Docker Compose.
+## Operating notes
 
-## Services
-
-postgres, redis, nats, api, worker, gateway
-
-## Phase 4
-
-Kubernetes Helm chart (optional).
+- **One process per workspace.** Run one Anvio process per workspace directory. The scheduler and the session repair assume they are the only process using it.
+- **Restarts.** Shutdown does not drain in-flight turns. Turns running at shutdown are reported as failed on the next start, and messages queued behind the concurrency cap are lost ([ROADMAP R-01](ROADMAP.md#p1-reliability-and-interoperability)).
+- **Network exposure.** Before exposing the gateway beyond loopback, enable auth and put TLS in front of it. The API refuses to run unauthenticated on a reachable interface ([ADR-0018](adr/0018-api-network-exposure.md)). A2A server auth is configured separately (`a2a.auth`).
+- **Environment.** Do not run with `NODE_TLS_REJECT_UNAUTHORIZED=0`.

@@ -25,11 +25,11 @@ pnpm anvio <args>                # node apps/cli/dist/main.js (needs `pnpm build
 
 Unit tests are colocated as `*.spec.ts` next to source (e.g. `packages/core/src/token-usage.spec.ts`). Integration tests live only in `tests/integration/*.integration.spec.ts`. Turbo's `test` task depends on `^build`, so a package's compiled `dist/` of its dependencies must exist before its tests run — after touching a package other packages depend on, `pnpm build` before testing.
 
-There is no repo `workspace/` used for building/testing the code itself — `./workspace` (gitignored contents like `sessions/`, `state.db`, `connections/`) is *runtime data* for whatever agent workspace you point `ANVIO_WORKSPACE` at, not build output.
+There is no repo `workspace/` used for building/testing the code itself — `./workspace` (gitignored contents like `sessions/`, `state.db`, `connections/`) is _runtime data_ for whatever agent workspace you point `ANVIO_WORKSPACE` at, not build output.
 
 ## Architecture
 
-Anvio is a pnpm/turbo monorepo implementing a **local-first AI agent operating system**: agents are configured in Markdown (frontmatter + persona body), infra in YAML, and the whole thing runs from a CLI without requiring a database or Docker at the default tier.
+Anvio is a pnpm/turbo monorepo implementing an **extensible AI agent platform** (ADR-0038): it runs workspace agents in a tool loop and manages/delegates to other agents (sub-agents, external A2A agents, vendor CLI runtimes). Agents are configured in Markdown, infra in YAML, and the default tier runs from the CLI as one process without a database or Docker.
 
 ### Dependency rule
 
@@ -51,9 +51,9 @@ apps → platform → packages → core
 ### Packages (`packages/`) — grouped by role
 
 - **Foundation**: `core` (schemas/ports), `workspace` (loader + session store), `storage` (pluggable, filesystem default), `auth` (optional plugin, off by default)
-- **Runtime engine**: `agents` (multi-turn tool-loop orchestration), `models` (18 provider routing/fallback), `runtimes` (execution backends: local, claude-code, cursor, codex, antigravity, ssh, daytona, modal, singularity), `tools` (73 built-in tool gateway), `memory` (FTS5, Honcho delegate)
+- **Runtime engine**: `agents` (multi-turn tool-loop orchestration), `models` (18 provider routing/fallback), `runtimes` (execution backends: local, claude-code, cursor, codex, antigravity, ssh, docker, singularity; daytona/modal are exec-only stubs), `tools` (~75 built-in tools behind the gateway allow-list), `memory` (filesystem, sqlite FTS5, Honcho, gbrain; `qdrant` is a stub)
 - **Advanced Agent OS**: `souls` (long-lived identity + soul-gated self-evolution), `soul-gate`, `goals`, `automation` (cron/hooks), `blueprints`, `kanban`, `batch`, `workflows` (DAGs), `execution` (sandboxed code exec), `credentials` (encrypted key pools), `skills` (catalog + learning-loop drafts), `learning` (skill evolution, memory nudges, session summaries)
-- **Connectivity**: `channels` (14 chat/voice adapters), `harness` (channel formatting/engagement/approval), `integrations` (MCP-first registry), `acp` (Cursor/editor integration), `voice` (STT/TTS), `knowledge` (raw → wiki ingest), `personas`, `events` (in-process bus + optional NATS), `hooks`, `observability`, `db` (Drizzle/PostgreSQL, Level 3+)
+- **Connectivity**: `channels` (15 adapters), `harness` (channel formatting/engagement/approval), `integrations` (MCP client: stdio + HTTP, registry), `a2a` (A2A server + client/`a2a_delegate`), `acp` (proprietary editor bridge — not the standard Agent Client Protocol), `voice` (STT/TTS), `knowledge` (raw → wiki ingest), `personas`, `events` (in-process bus + optional NATS), `hooks`, `observability`, `db` (Drizzle/PostgreSQL, Level 3+)
 
 ### Two distinct auth layers — do not conflate
 
@@ -64,10 +64,14 @@ Never set `ANTHROPIC_API_KEY` in the same environment as `runtime.provider: clau
 
 ### Agent definition & tool loop
 
-Agents are `workspace/agents/*.md` (frontmatter: `persona`, `skills`, `model`, `runtime`, `soul`; body: system prompt). `packages/agents` runs the multi-turn loop: prompt → model → optional `anvio_tool` fenced-block or native `tool_use` call → `packages/tools` executes → up to 5 round-trips → learning loop fires on session end (memory nudge, LLM summary, skill draft via `packages/learning`, gated by the soul's `evolution.allowAutoUpdate`).
+Agents are `workspace/agents/*.md` (frontmatter: `persona`, `skills`, `model`, `runtime`, `soul`; body: description only — the **persona** body at `workspace/personas/<persona>.md` is the system prompt, and the persona file must exist). `packages/agents` runs the multi-turn loop: prompt → model → optional `anvio_tool` fenced-block or native `tool_use` call → `packages/tools` executes → up to 5 round-trips → learning loop fires on session end (memory nudge, LLM summary, skill draft via `packages/learning`, gated by the soul's `evolution.allowAutoUpdate`).
 
 ### Progressive storage/infra tiers
 
-Level 1 (default): filesystem sessions (`workspace/sessions/*.jsonl`), no auth, in-process events, no Docker. Level 2: flip `storage.provider: sqlite` in `anvio.yaml` for `state.db` + FTS5 search. Level 3+: PostgreSQL + Qdrant + NATS JetStream + JWT (`packages/db`, `docker/docker-compose.dev.yml`). Don't introduce a Level 3+ dependency into code paths meant to work at Level 1.
+Level 1 (default): filesystem sessions (`workspace/sessions/*.json`), no auth, in-process events, no Docker. Level 2: flip `storage.provider: sqlite` in `anvio.yaml` for `state.db` + FTS5 search. Level 3+: PostgreSQL + Redis + NATS JetStream + JWT (Qdrant is declared but not implemented) (`packages/db`, `docker/docker-compose.dev.yml`). Don't introduce a Level 3+ dependency into code paths meant to work at Level 1.
 
-Further detail: `docs/02-architecture.md`, `docs/24-advanced-agent-os-overview.md`, `docs/adr/0009-runtime-oauth-authentication.md`.
+Further detail: `docs/README.md` (documentation index), `docs/02-architecture.md`, `docs/ROADMAP.md`, `docs/adr/README.md`, `docs/adr/0009-runtime-oauth-authentication.md`.
+
+## Documentation authority
+
+Documentation under `docs/_detached/` is historical and non-authoritative. AI coding agents must not read, search, index, summarize, or use detached documents during normal development workflows. Use current source code, active documentation (`docs/README.md`), and accepted ADRs (`docs/adr/README.md`) as authoritative context. Detached documents may only be accessed when the user explicitly requests historical investigation, migration analysis, or previous-decision review. Historical content must never override current implementation evidence. (`.claude/settings.json` makes reads of `docs/_detached/**` ask for approval.)

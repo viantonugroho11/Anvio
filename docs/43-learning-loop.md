@@ -61,6 +61,6 @@ sequenceDiagram
 
 ## Related
 
-- [55-phase-l6-learning-priorities.md](./55-phase-l6-learning-priorities.md)
+- [ROADMAP.md](ROADMAP.md)
 - [37-skills-catalog.md](./37-skills-catalog.md)
 - [29-memory-providers.md](./29-memory-providers.md)

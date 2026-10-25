@@ -1,0 +1,6 @@
+---
+description: "Which documentation is authoritative; keep docs/_detached out of context"
+alwaysApply: true
+---
+
+Documentation under `docs/_detached/` is historical and non-authoritative. Do not read, search, index, summarize or use it in normal development work. Use current source code, the active docs indexed in `docs/README.md`, and accepted ADRs (`docs/adr/README.md`) as authoritative context. Open detached documents only when the user explicitly asks for historical investigation, migration analysis or a review of a previous decision. Historical content never overrides current implementation evidence.

@@ -214,6 +214,8 @@ Delegation tasks sync to kanban:
 
 ## Extension Guide
 
+> **Status (2026-10-25):** items below that mention a *plugin* or *plugin manifest* describe design intent. Anvio has no plugin system ([ROADMAP T-058](ROADMAP.md#p2-and-below)); extending this subsystem today means changing the package code.
+
 1. Add custom aggregation strategies via plugin
 2. Implement `TaskPlanner` for automatic plan generation from goals
 3. Hook `onOrchestrationCompleted` for notifications

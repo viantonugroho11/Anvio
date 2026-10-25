@@ -89,7 +89,7 @@ anvio tools test anvio_tools__web_fetch https://example.com
 
 ## Related
 
-- [43-learning-loop.md](./43-learning-loop.md)
-- [44-tool-gateway.md](./44-tool-gateway.md)
-- [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md)
-- [54-phase-p2-priorities.md](./54-phase-p2-priorities.md)
+- [43-learning-loop.md](../../43-learning-loop.md)
+- [44-tool-gateway.md](../../44-tool-gateway.md)
+- [51-gap-hermes-slaude.md](../superseded-designs/51-gap-hermes-slaude.md)
+- [54-phase-p2-priorities.md](54-phase-p2-priorities.md)

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "ask": [
+      "Read(./docs/_detached/**)",
+      "Edit(./docs/_detached/**)"
+    ]
+  }
+}

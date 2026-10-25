@@ -25,4 +25,4 @@ Expand gateway from **42 → 57 tools**: full kanban agent API, browser depth, O
 
 RL (`rl_*`), Home Assistant, Spotify, Feishu, Yuanbao, Discord admin, `mixture_of_agents`, `x_search`, `video_*`, `computer_use`, full raw CDP grant.
 
-See [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md).
+See [65-hermes-tools-catalog.md](../superseded-designs/65-hermes-tools-catalog.md).

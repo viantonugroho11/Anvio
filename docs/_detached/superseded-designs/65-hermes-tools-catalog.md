@@ -362,9 +362,9 @@ Urutan ROI untuk mendekati Hermes `hermes-cli`:
 
 ## Dokumen terkait
 
-- [44-tool-gateway.md](./44-tool-gateway.md) — konfigurasi Anvio gateway
-- [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md) — gap register T1
-- [64-phase-p11a-priorities.md](./64-phase-p11a-priorities.md) — P11a shipped
+- [44-tool-gateway.md](../../44-tool-gateway.md) — konfigurasi Anvio gateway
+- [51-gap-hermes-slaude.md](51-gap-hermes-slaude.md) — gap register T1
+- [64-phase-p11a-priorities.md](../historical-plans/64-phase-p11a-priorities.md) — P11a shipped
 - [Hermes Tools Reference](https://hermes-agent.nousresearch.com/docs/reference/tools-reference) — sumber otoritatif upstream
 
 Terakhir diperbarui: v1.17.0 (2026-06-19).

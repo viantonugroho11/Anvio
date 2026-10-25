@@ -51,4 +51,4 @@ Cached by content hash under `workspace/souls/_cache/` (unchanged).
 
 ## Remaining (P10+)
 
-See [Phase P9](./62-phase-p9-priorities.md) for completed P8 follow-ups.
+See [Phase P9](62-phase-p9-priorities.md) for completed P8 follow-ups.

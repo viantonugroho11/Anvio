@@ -169,6 +169,8 @@ filter:
 
 ## Extension Guide
 
+> **Status (2026-10-25):** items below that mention a *plugin* or *plugin manifest* describe design intent. Anvio has no plugin system ([ROADMAP T-058](ROADMAP.md#p2-and-below)); extending this subsystem today means changing the package code.
+
 1. Add hooks to `workspace/hooks/hooks.yaml`
 2. Create handler scripts with executable permissions
 3. Register custom events via plugin (extends `EventSubjects`)

@@ -5,7 +5,7 @@
 **Depth:** Deep  
 **Origin:** User request — combine [Hermes Agent](https://hermes-agent.nousresearch.com/docs) capabilities with [slaude](https://github.com/barockok/slaude)-style harness, **generalized across all channels** (not Slack-only)
 
-**Depends on:** [2026-06-19-001-feat-advanced-agent-os-plan.md](./2026-06-19-001-feat-advanced-agent-os-plan.md) (Phases A–F ✅)
+**Depends on:** [2026-06-19-001-feat-advanced-agent-os-plan.md](2026-06-19-001-feat-advanced-agent-os-plan.md) (Phases A–F ✅)
 
 ---
 
@@ -612,7 +612,7 @@ anvio tools list|test
 
 - [Hermes Agent Documentation](https://hermes-agent.nousresearch.com/docs)
 - [slaude — Slack-native Claude Agent SDK harness](https://github.com/barockok/slaude)
-- [Anvio Advanced Agent OS Plan](./2026-06-19-001-feat-advanced-agent-os-plan.md)
-- [Channels Architecture](../10-channels.md)
-- [Soul System](../25-soul-system.md)
-- [Workflows (Phase 3)](../11-workflows.md)
+- [Anvio Advanced Agent OS Plan](2026-06-19-001-feat-advanced-agent-os-plan.md)
+- [Channels Architecture](../../10-channels.md)
+- [Soul System](../../25-soul-system.md)
+- [Workflows (Phase 3)](../../11-workflows.md)

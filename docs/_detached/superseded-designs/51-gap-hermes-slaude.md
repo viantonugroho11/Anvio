@@ -4,9 +4,9 @@ Status baseline: **Phase A–J + P4–P14 + v1.20–v1.21.1 selesai** (72 gatewa
 Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude](https://github.com/barockok/slaude) · [hermes-tech](https://github.com/viantonugroho11/hermes-tech)
 
 **Ringkasan:** arsitektur gabungan production-viable (~**97% Hermes**, ~**98% slaude** as of 2026-07-02).  
-**Gap tersisa (dikoreksi 2026-07-02 — P12/P13/P14 sudah shipped, dokumen sebelumnya basi):** [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md).
+**Gap tersisa (dikoreksi 2026-07-02 — P12/P13/P14 sudah shipped, dokumen sebelumnya basi):** [69-post-v1.17-gap-register.md](69-post-v1.17-gap-register.md).
 
-**Katalog tools Hermes lengkap:** [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md)
+**Katalog tools Hermes lengkap:** [65-hermes-tools-catalog.md](65-hermes-tools-catalog.md)
 
 ---
 
@@ -25,7 +25,7 @@ Referensi: [Hermes Agent](https://hermes-agent.nousresearch.com/docs) · [slaude
 
 | #   | Gap                                       | Hermes | slaude  | Anvio v1.15.0                                              | Target                             |
 | --- | ----------------------------------------- | ------ | ------- | ---------------------------------------------------------- | ---------------------------------- |
-| T1  | Built-in tools (60+)                      | ✅      | via MCP | ✅ ~71 gateway tools + MCP — [catalog](./65-hermes-tools-catalog.md) | MCP sub-tool variants (Spotify bundle) |
+| T1  | Built-in tools (60+)                      | ✅      | via MCP | ✅ ~71 gateway tools + MCP — [catalog](65-hermes-tools-catalog.md) | MCP sub-tool variants (Spotify bundle) |
 | T2  | Browser sandbox (Playwright)              | ✅      | —       | ✅ Playwright + fetch fallback                              | —                                  |
 | T3  | Image generation                          | ✅      | —       | ✅ DALL-E via OpenAI API                                    | —                                  |
 | T4  | Text-to-speech (tool)                     | ✅      | —       | ✅ OpenAI TTS via `@anvio/voice`                           | —                                  |
@@ -159,7 +159,7 @@ Token usage: `workspace/audit/tokens.jsonl`, `anvio usage stats`, `GET /api/metr
 
 ## Prioritas rekomendasi (P12+)
 
-Lihat **[69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md)** untuk roadmap lengkap.
+Lihat **[69-post-v1.17-gap-register.md](69-post-v1.17-gap-register.md)** untuk roadmap lengkap.
 
 ### P12 — Integration & polish (recommended next)
 
@@ -208,16 +208,16 @@ Lihat **[69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md)** untuk
 
 ## Dokumen terkait
 
-- [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md) — **Gap post-P11, roadmap P12+**
-- [64-phase-p11a-priorities.md](./64-phase-p11a-priorities.md) — Phase P11a (v1.17.0)
-- [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) — katalog ~71 tools Hermes + mapping Anvio
-- [63-phase-p10-priorities.md](./63-phase-p10-priorities.md) — Phase P10 (v1.15.0)
-- [62-phase-p9-priorities.md](./62-phase-p9-priorities.md) — Phase P9 (v1.14.0)
-- [61-phase-p8-priorities.md](./61-phase-p8-priorities.md) — Phase P8 (v1.13.0)
-- [56-phase-p3-priorities.md](./56-phase-p3-priorities.md) — Phase P3 (v1.8.0)
-- [55-phase-l6-learning-priorities.md](./55-phase-l6-learning-priorities.md) — Phase L6 (v1.7.0)
-- [50-hermes-slaude-parity.md](./50-hermes-slaude-parity.md) — audit ringkas
-- [49-workspace-artifacts.md](./49-workspace-artifacts.md) — konvensi MD vs YAML
-- [plans/2026-06-19-002-feat-unified-agent-product-plan.md](./plans/2026-06-19-002-feat-unified-agent-product-plan.md) — plan asli
+- [69-post-v1.17-gap-register.md](69-post-v1.17-gap-register.md) — **Gap post-P11, roadmap P12+**
+- [64-phase-p11a-priorities.md](../historical-plans/64-phase-p11a-priorities.md) — Phase P11a (v1.17.0)
+- [65-hermes-tools-catalog.md](65-hermes-tools-catalog.md) — katalog ~71 tools Hermes + mapping Anvio
+- [63-phase-p10-priorities.md](../historical-plans/63-phase-p10-priorities.md) — Phase P10 (v1.15.0)
+- [62-phase-p9-priorities.md](../historical-plans/62-phase-p9-priorities.md) — Phase P9 (v1.14.0)
+- [61-phase-p8-priorities.md](../historical-plans/61-phase-p8-priorities.md) — Phase P8 (v1.13.0)
+- [56-phase-p3-priorities.md](../historical-plans/56-phase-p3-priorities.md) — Phase P3 (v1.8.0)
+- [55-phase-l6-learning-priorities.md](../historical-plans/55-phase-l6-learning-priorities.md) — Phase L6 (v1.7.0)
+- [50-hermes-slaude-parity.md](50-hermes-slaude-parity.md) — audit ringkas
+- [49-workspace-artifacts.md](../../49-workspace-artifacts.md) — konvensi MD vs YAML
+- [plans/2026-06-19-002-feat-unified-agent-product-plan.md](../historical-plans/2026-06-19-002-feat-unified-agent-product-plan.md) — plan asli
 
 Terakhir diperbarui: v1.17.0 (2026-06-19).

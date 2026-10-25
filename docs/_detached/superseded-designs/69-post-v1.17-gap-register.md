@@ -3,14 +3,14 @@
 **Baseline:** v1.17.0 (Phase P11a–P11d shipped — **71 built-in gateway tools**)
 **Tanggal review awal:** 2026-06-19
 **Update terakhir:** 2026-07-04 (v1.22.0 + web dashboard + Nous/Singularity/Atropos/Yuanbao/video/IMAP-IDLE)
-**Referensi:** [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md) · [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) · [50-hermes-slaude-parity.md](./50-hermes-slaude-parity.md)
+**Referensi:** [51-gap-hermes-slaude.md](51-gap-hermes-slaude.md) · [65-hermes-tools-catalog.md](65-hermes-tools-catalog.md) · [50-hermes-slaude-parity.md](50-hermes-slaude-parity.md)
 
 > ⚠️ **Koreksi penting:** Dokumen ini sempat tidak ter-update setelah P12/P13/P14 shipped (lihat
-> [70-phase-p12-priorities.md](./70-phase-p12-priorities.md), [73-phase-p13-priorities.md](./73-phase-p13-priorities.md),
-> [75-phase-p14-priorities.md](./75-phase-p14-priorities.md) — semuanya berstatus **shipped v1.18–v1.19**), sehingga
+> [70-phase-p12-priorities.md](../historical-plans/70-phase-p12-priorities.md), [73-phase-p13-priorities.md](../historical-plans/73-phase-p13-priorities.md),
+> [75-phase-p14-priorities.md](../historical-plans/75-phase-p14-priorities.md) — semuanya berstatus **shipped v1.18–v1.19**), sehingga
 > sempat terbaca seolah P12 "belum dikerjakan". Tabel di bawah sudah dikoreksi ke status real per 2026-07-02.
 > Untuk rilis terbaru (v1.20–v1.21.1: unified gateway, SQLite sessions, runtime OAuth, chain fallback) belum ada
-> phase-doc bernomor — lihat [76-unified-gateway.md](./76-unified-gateway.md) dan [CHANGELOG.md](../CHANGELOG.md).
+> phase-doc bernomor — lihat [76-unified-gateway.md](../../76-unified-gateway.md) dan [CHANGELOG.md](../../../CHANGELOG.md).
 
 ---
 
@@ -115,7 +115,7 @@
 |---|-----|----------------------|---------|
 | O1 | Trajectory export (Hermes research) | ✅ `anvio session export <id> [--md]` | Shipped in P14 |
 | O2 | Atropos RL training live | ✅ MCP preset + direct HTTP fallback + mock (`rl_tool`, `ATROPOS_API_URL`) | Genuinely *live* run still needs a real Tinker-Atropos service — not something this repo can stand up |
-| O3 | Langfuse dashboard templates | ✅ [configs/observability/langfuse-dashboard.json](../configs/observability/langfuse-dashboard.json) | Shipped in P14 |
+| O3 | Langfuse dashboard templates | ✅ [configs/observability/langfuse-dashboard.json](../../../configs/observability/langfuse-dashboard.json) | Shipped in P14 |
 | O4 | Token audit + Prometheus | ✅ P9–P10 | — |
 
 ---
@@ -124,8 +124,8 @@
 
 | # | Gap | Anvio (2026-07-02) | Catatan |
 |---|-----|----------------------|---------|
-| W1 | Hermes workflow→skill pattern docs | ✅ [74-workflow-to-skill-example.md](./74-workflow-to-skill-example.md) | Shipped in P14 |
-| W2 | hermes-tech skill import automation | ✅ [hermes-skills-catalog.yml](../.github/workflows/hermes-skills-catalog.yml) — weekly + manual dispatch, opens a PR on catalog changes | Shipped 2026-07-02 |
+| W1 | Hermes workflow→skill pattern docs | ✅ [74-workflow-to-skill-example.md](../../74-workflow-to-skill-example.md) | Shipped in P14 |
+| W2 | hermes-tech skill import automation | ✅ [hermes-skills-catalog.yml](../../../.github/workflows/hermes-skills-catalog.yml) — weekly + manual dispatch, opens a PR on catalog changes | Shipped 2026-07-02 |
 | W3 | Cron / planner / batch / DAG | ✅ | — |
 
 ---
@@ -169,13 +169,13 @@ Semua item P12/P13/P14 di atas sudah shipped. Sisa gap nyata, diurutkan berdasar
 
 | Doc | Isi |
 |-----|-----|
-| [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md) | **This file** — gap register, updated to reflect actual shipped state |
-| [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md) | Master gap register (baseline updated alongside this file) |
-| [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md) | Tool-by-tool mapping |
-| [70-phase-p12-priorities.md](./70-phase-p12-priorities.md) | P12 — shipped v1.18.0 |
-| [73-phase-p13-priorities.md](./73-phase-p13-priorities.md) | P13 — shipped v1.19.0 |
-| [75-phase-p14-priorities.md](./75-phase-p14-priorities.md) | P14 — shipped v1.19.0 |
-| [76-unified-gateway.md](./76-unified-gateway.md) | v1.20.0 — unified gateway, SQLite sessions |
-| [CHANGELOG.md](../CHANGELOG.md) | v1.20.0–v1.21.1 + Unreleased (Nous/Singularity/Atropos/Yuanbao/video/IMAP-IDLE) |
+| [69-post-v1.17-gap-register.md](69-post-v1.17-gap-register.md) | **This file** — gap register, updated to reflect actual shipped state |
+| [51-gap-hermes-slaude.md](51-gap-hermes-slaude.md) | Master gap register (baseline updated alongside this file) |
+| [65-hermes-tools-catalog.md](65-hermes-tools-catalog.md) | Tool-by-tool mapping |
+| [70-phase-p12-priorities.md](../historical-plans/70-phase-p12-priorities.md) | P12 — shipped v1.18.0 |
+| [73-phase-p13-priorities.md](../historical-plans/73-phase-p13-priorities.md) | P13 — shipped v1.19.0 |
+| [75-phase-p14-priorities.md](../historical-plans/75-phase-p14-priorities.md) | P14 — shipped v1.19.0 |
+| [76-unified-gateway.md](../../76-unified-gateway.md) | v1.20.0 — unified gateway, SQLite sessions |
+| [CHANGELOG.md](../../../CHANGELOG.md) | v1.20.0–v1.21.1 + Unreleased (Nous/Singularity/Atropos/Yuanbao/video/IMAP-IDLE) |
 
 Terakhir diperbarui: 2026-07-04.
