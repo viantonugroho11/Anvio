@@ -1,6 +1,6 @@
 import type { ConfigLoader, SkillDefinition } from '@anvio/core';
 import { AnvioError, parseSkillDefinition } from '@anvio/core';
-import type { SkillCatalogResolver } from './catalog-resolver.js';
+import { SkillNotFoundError, type SkillCatalogResolver } from './catalog-resolver.js';
 
 export class SkillRegistry {
   constructor(
@@ -17,8 +17,16 @@ export class SkillRegistry {
           ? await this.catalog.load(slug)
           : parseSkillDefinition(await this.loader.loadSkill(slug));
         results.push(def.spec);
-      } catch {
-        throw new AnvioError('NOT_FOUND', `Skill not found: ${slug}`);
+      } catch (error) {
+        // A skill file that exists but does not parse used to be reported as
+        // "not found", which sent operators looking for a missing file.
+        const missing =
+          error instanceof SkillNotFoundError || (error as NodeJS.ErrnoException).code === 'ENOENT';
+        if (missing) throw new AnvioError('NOT_FOUND', `Skill not found: ${slug}`);
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new AnvioError('VALIDATION_ERROR', `Skill ${slug} is invalid: ${reason}`, {
+          cause: error instanceof Error ? error : undefined,
+        });
       }
     }
     return results;
@@ -78,7 +86,12 @@ export {
   createSkillCatalogResolver,
 } from './catalog-resolver.js';
 export { SkillInstaller, createSkillInstaller } from './skill-installer.js';
-export { importSkills, findSkillDirs, isGitSource, type SkillImportOptions } from './skill-import.js';
+export {
+  importSkills,
+  findSkillDirs,
+  isGitSource,
+  type SkillImportOptions,
+} from './skill-import.js';
 export { validateParams, interpolateArgs, SkillParamError } from './param-validator.js';
 export type { ParamContext } from './param-validator.js';
 export { executeSkill, SkillStepError } from './executor.js';
@@ -86,9 +99,6 @@ export type { SkillExecuteInput, SkillExecuteResult, SkillStepResult } from './e
 export { matchTriggers, mergeSkillSlugs } from './trigger-matcher.js';
 export type { TriggerMatchContext } from './trigger-matcher.js';
 export { SkillTriggerCache } from './trigger-index.js';
-export {
-  ComposableSkillRegistry,
-  createComposableSkillRegistry,
-} from './composable-registry.js';
+export { ComposableSkillRegistry, createComposableSkillRegistry } from './composable-registry.js';
 export { SkillTestRunner, createSkillTestRunner } from './test-runner.js';
 export type { SkillTestResult, SkillTestCall } from './test-runner.js';

@@ -17,10 +17,69 @@ import {
 /** Module-level so Microsoft's key cache survives between requests. */
 const botFrameworkJwks: JwksSource = createBotFrameworkJwks();
 
-async function readBody(req: IncomingMessage): Promise<string> {
+/** Largest request body accepted by the gateway (chat messages and webhook payloads). */
+export const MAX_REQUEST_BODY_BYTES = 1_000_000;
+
+/** A client error with an HTTP status; anything else thrown by a route is a 500. */
+class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Reads the body with a size cap. The previous version buffered whatever the
+ * client sent, so one large POST could exhaust the process's memory.
+ */
+async function readBody(req: IncomingMessage, limit = MAX_REQUEST_BODY_BYTES): Promise<string> {
+  const declared = Number(req.headers['content-length'] ?? 0);
+  if (declared > limit) throw new HttpError(413, `Request body larger than ${limit} bytes`);
   const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(chunk as Buffer);
+  let size = 0;
+  for await (const chunk of req) {
+    size += (chunk as Buffer).byteLength;
+    if (size > limit) throw new HttpError(413, `Request body larger than ${limit} bytes`);
+    chunks.push(chunk as Buffer);
+  }
   return Buffer.concat(chunks).toString('utf-8');
+}
+
+/**
+ * `JSON.parse` straight on the body threw inside the async request handler: the
+ * client got no response at all and the process logged an unhandled rejection.
+ */
+function parseJson<T>(raw: string): T {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    throw new HttpError(400, 'Request body is not valid JSON');
+  }
+}
+
+function requireString(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new HttpError(400, `"${field}" must be a non-empty string`);
+  }
+  return value;
+}
+
+/**
+ * Hand a run to the worker without waiting for it. On the in-process bus,
+ * `publish` resolves only after the subscriber finishes the whole turn, so the
+ * "202 queued" response used to arrive when the answer was already done.
+ */
+function enqueueRun(platform: PlatformContext, data: Record<string, unknown>): void {
+  platform.eventBus
+    .publish(EventSubjects.AGENT_RUN_REQUESTED, 'anvio.agent.run.requested', data)
+    .catch((error: unknown) => {
+      console.error(
+        `[gateway-http] run for session ${String(data.sessionId)} failed to dispatch:`,
+        error instanceof Error ? (error.stack ?? error.message) : error,
+      );
+    });
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -69,6 +128,32 @@ export async function handleGatewayHttp(
   res: ServerResponse,
   pathname: string,
 ): Promise<boolean> {
+  try {
+    return await routeGatewayHttp(platform, req, res, pathname);
+  } catch (error) {
+    if (!res.headersSent) {
+      if (error instanceof HttpError) {
+        json(res, error.status, { error: error.message });
+      } else {
+        console.error(
+          `[gateway-http] ${req.method} ${pathname} failed:`,
+          error instanceof Error ? (error.stack ?? error.message) : error,
+        );
+        json(res, 500, { error: 'Internal server error' });
+      }
+    } else {
+      res.end();
+    }
+    return true;
+  }
+}
+
+async function routeGatewayHttp(
+  platform: PlatformContext,
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+): Promise<boolean> {
   const method = req.method ?? 'GET';
 
   if (method === 'GET' && (pathname === '/health' || pathname === '/api/health')) {
@@ -88,12 +173,13 @@ export async function handleGatewayHttp(
       return true;
     }
     const raw = await readBody(req);
-    const body = JSON.parse(raw) as {
+    const body = parseJson<{
       agentName: string;
       channel?: string;
       detached?: boolean;
       channelThreadId?: string;
-    };
+    }>(raw);
+    requireString(body.agentName, 'agentName');
 
     try {
       await platform.workspace.loader.loadAgent(body.agentName);
@@ -154,19 +240,16 @@ export async function handleGatewayHttp(
       return true;
     }
     const raw = await readBody(req);
-    const body = JSON.parse(raw) as { content: string };
-    await platform.eventBus.publish(
-      EventSubjects.AGENT_RUN_REQUESTED,
-      'anvio.agent.run.requested',
-      {
-        sessionId: session.id,
-        userId: ctx.userId,
-        agentId: session.agentName,
-        content: body.content,
-        channel: session.channel,
-        detached: session.detached,
-      },
-    );
+    const body = parseJson<{ content?: unknown }>(raw);
+    const content = requireString(body.content, 'content');
+    enqueueRun(platform, {
+      sessionId: session.id,
+      userId: ctx.userId,
+      agentId: session.agentName,
+      content,
+      channel: session.channel,
+      detached: session.detached,
+    });
     json(res, 202, { status: 'queued', sessionId: session.id });
     return true;
   }
@@ -221,7 +304,7 @@ export async function handleGatewayHttp(
       json(res, 404, { error: 'WhatsApp channel not enabled' });
       return true;
     }
-    await whatsapp.handleWebhook(JSON.parse(raw));
+    await whatsapp.handleWebhook(parseJson(raw));
     res.writeHead(200);
     res.end('OK');
     return true;
@@ -233,7 +316,7 @@ export async function handleGatewayHttp(
     if (!teamsAppId) {
       if (!unverifiedAllowed(res, 'Set TEAMS_APP_ID to verify Bot Framework tokens')) return true;
     } else {
-      const activity = JSON.parse(raw) as { serviceUrl?: string };
+      const activity = parseJson<{ serviceUrl?: string }>(raw);
       let verdict: WebhookVerdict;
       try {
         verdict = await verifyTeamsJwt({
@@ -259,7 +342,7 @@ export async function handleGatewayHttp(
       json(res, 404, { error: 'Teams channel not registered' });
       return true;
     }
-    await adapter.handleActivity(JSON.parse(raw));
+    await adapter.handleActivity(parseJson(raw));
     json(res, 200, {});
     return true;
   }
@@ -291,7 +374,7 @@ export async function handleGatewayHttp(
       return true;
     }
     const raw = await readBody(req);
-    const payload = JSON.parse(raw) as { roomId?: string; senderId?: string; body?: string };
+    const payload = parseJson<{ roomId?: string; senderId?: string; body?: string }>(raw);
     if (!payload.roomId || !payload.senderId || !payload.body) {
       json(res, 400, { error: 'roomId, senderId, and body required' });
       return true;
@@ -306,7 +389,13 @@ export async function handleGatewayHttp(
   }
 
   // A2A protocol routes (ADR-0026, ADR-0030 streaming)
-  if (platform.a2aServer && (pathname.startsWith('/a2a') || pathname === '/.well-known/agent.json' || pathname === '/.well-known/agent-card.json' || pathname === '/.well-known/agents.json')) {
+  if (
+    platform.a2aServer &&
+    (pathname.startsWith('/a2a') ||
+      pathname === '/.well-known/agent.json' ||
+      pathname === '/.well-known/agent-card.json' ||
+      pathname === '/.well-known/agents.json')
+  ) {
     res.socket?.setNoDelay(true);
     res.setHeader('X-Accel-Buffering', 'no');
     res.setHeader('Cache-Control', 'no-cache, no-transform');

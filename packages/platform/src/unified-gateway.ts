@@ -5,16 +5,20 @@ import { EventSubjects, type AgentRunChunkData, type AgentRunCompletedData } fro
 import { WebChatChannel } from '@anvio/channels';
 import { initObservability, shutdownObservability } from '@anvio/observability';
 import { runShutdownSteps } from './process-guards.js';
-import { createPlatform } from './index.js';
+import type { AddressInfo } from 'node:net';
+import { createPlatform, type PlatformOptions } from './index.js';
 import { registerGatewayWorker } from './gateway-worker.js';
 import { handleGatewayHttp } from './gateway-http.js';
 import { assertSafeBinding, isLoopbackHost } from './http-binding.js';
 
 export interface UnifiedGatewayOptions {
   workspacePath?: string;
+  /** 0 picks a free port; the handle reports the one actually bound. */
   port?: number;
   host?: string;
   anthropicApiKey?: string;
+  /** Extra platform options (e.g. `simulation` for end-to-end tests). */
+  platform?: Omit<PlatformOptions, 'workspacePath' | 'anthropicApiKey'>;
 }
 
 export interface UnifiedGatewayHandle {
@@ -45,6 +49,7 @@ export async function startUnifiedGateway(
   });
 
   const platform = await createPlatform({
+    ...options.platform,
     workspacePath: options.workspacePath ?? process.env.ANVIO_WORKSPACE,
     anthropicApiKey: options.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY,
   });
@@ -125,18 +130,23 @@ export async function startUnifiedGateway(
             ws.send(JSON.stringify({ type: 'error', error: 'Session not found' }));
             return;
           }
-          await platform.eventBus.publish(
-            EventSubjects.AGENT_RUN_REQUESTED,
-            'anvio.agent.run.requested',
-            {
+          // Not awaited: on the local bus that would hold this handler for the
+          // whole turn, and a run failure would surface as "Invalid message format".
+          platform.eventBus
+            .publish(EventSubjects.AGENT_RUN_REQUESTED, 'anvio.agent.run.requested', {
               sessionId,
               userId: stored.userId,
               agentId: stored.agentName,
               content: msg.content,
               channel: stored.channel,
               detached: stored.detached,
-            },
-          );
+            })
+            .catch((error: unknown) => {
+              console.error(
+                `[gateway] run for session ${sessionId} failed to dispatch:`,
+                error instanceof Error ? error.message : error,
+              );
+            });
         }
       } catch {
         ws.send(JSON.stringify({ type: 'error', error: 'Invalid message format' }));
@@ -159,14 +169,16 @@ export async function startUnifiedGateway(
     allowInsecure: process.env.ANVIO_API_ALLOW_INSECURE === 'true',
   });
 
-  await new Promise<void>((resolve) => {
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
     server.listen(port, host, () => resolve());
   });
+  const boundPort = (server.address() as AddressInfo | null)?.port ?? port;
 
   const storage = platform.workspace.config.spec.storage.provider;
   const reach = isLoopbackHost(host) ? 'this machine only' : `reachable on ${host}`;
   console.log(
-    `Anvio unified gateway on http://${host}:${port} — ${reach}, ` +
+    `Anvio unified gateway on http://${host}:${boundPort} — ${reach}, ` +
       `auth ${platform.auth.enabled ? 'enabled' : 'disabled'}`,
   );
   console.log(`  REST API   /api/*`);
@@ -190,7 +202,7 @@ export async function startUnifiedGateway(
     ]);
   };
 
-  return { port, shutdown };
+  return { port: boundPort, shutdown };
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
