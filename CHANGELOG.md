@@ -7,25 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-10-26
+
+**Hardening release: code-quality remediation, end-to-end verification with 18 regression fixes, and documentation rewritten around Anvio as an extensible multi-agent platform.**
+
 ### Security
 
-- **Learned skills are no longer published automatically** — a successful tool call could turn raw tool output (e.g. a fetched web page carrying prompt injection) into a live skill under `skills/`. Tool-use drafts now stay in `skills/_drafts/` unless the soul sets `evolution.requireApproval: false`; an agent with no soul never auto-publishes. The model-less fallback quotes tool output as untrusted data instead of copying it into instructions.
-- **Saving a soul no longer drops its policy** — `SoulService.create` / `importFromMarkdown` rewrote SOUL.md without its frontmatter or the sections soul-gate reads, which turned learning back on (`allowAutoUpdate`, `requireApproval`) and removed `## Approvers` / `## Mandate`. Frontmatter and unrecognised sections are now kept.
+- **Learned skills are no longer published automatically** ([#112](https://github.com/viantonugroho11/Anvio/pull/112)) — a successful tool call could turn raw tool output (e.g. a fetched web page carrying prompt injection) into a live skill under `skills/`. Tool-use drafts now stay in `skills/_drafts/` unless the soul sets `evolution.requireApproval: false`; an agent with no soul never auto-publishes. The model-less fallback quotes tool output as untrusted data instead of copying it into instructions.
+- **Saving a soul no longer drops its policy** ([#112](https://github.com/viantonugroho11/Anvio/pull/112)) — `SoulService.create` / `importFromMarkdown` rewrote SOUL.md without its frontmatter or the sections soul-gate reads, which turned learning back on (`allowAutoUpdate`, `requireApproval`) and removed `## Approvers` / `## Mandate`. Frontmatter and unrecognised sections are now kept.
+- **JWT auth refuses to start without `JWT_SECRET`** ([#117](https://github.com/viantonugroho11/Anvio/pull/117)) — the hard-coded `dev-secret` fallback is gone; HS256 is pinned.
+- **Egress guard for model-chosen URLs** ([#117](https://github.com/viantonugroho11/Anvio/pull/117)) — network tools block loopback, private and metadata addresses, re-check redirects and cap response size. `tools/gateway.yaml` gains an optional `network` block (`allowHosts`, `allowPrivateNetwork`).
+- **Sandboxed code no longer sees host secrets** ([#117](https://github.com/viantonugroho11/Anvio/pull/117)) — environment allow-list, process-group kill and output caps. Opt back in per variable with `ANVIO_SANDBOX_ENV_PASSTHROUGH`.
+- **Skill conditions use a restricted evaluator** ([#117](https://github.com/viantonugroho11/Anvio/pull/117)) instead of `new Function`; the in-process `execute_code` fallback is removed. Path traversal fixed in storage, tool builtins, `/draft` `/discard` `/promote` and the skill catalog.
+- **An invalid `anvio.yaml` no longer falls back to defaults** ([#118](https://github.com/viantonugroho11/Anvio/pull/118)) — a typo used to boot the platform with default settings, auth disabled included. Boot now fails with the file path and reason; a missing file still uses defaults.
+- **`cronjob create` YAML injection** ([#118](https://github.com/viantonugroho11/Anvio/pull/118)) — the tool built automation YAML by string templating, so model-supplied text could rewrite the trigger. It now validates the slug, cron expression and agent and serialises a parsed definition.
+- **HTTP gateway input limits** ([#118](https://github.com/viantonugroho11/Anvio/pull/118)) — request bodies are capped at 1 MB (413), malformed JSON returns 400 instead of hanging, and messages without `content` are rejected.
+- `pnpm audit --prod`: 2 critical / 12 high → 0 critical / 1 high (zod 3, deferred per ADR-0012); CI now runs an audit gate ([#117](https://github.com/viantonugroho11/Anvio/pull/117)).
 
 ### Fixed
 
-- **Duplicate learned facts** — the learning loop runs after every turn with the whole transcript and re-stored every fact each time. Facts are now deduplicated against what is already stored, text shaped like a tool result is ignored, and facts render in the soul prompt once, labelled as unverified notes.
-- **One channel could take the gateway down** — `ChannelHub.startAll` used `Promise.all`, so one adapter failing to start (e.g. an expired token) failed the whole boot. Failures are now logged and returned as `ChannelStartFailure[]`; the other channels keep running.
-- **A bad socket frame could kill the process** — Slack, Discord and Mattermost socket handlers left rejections unhandled, and Node exits on those. Handlers are now guarded, and the gateway, worker, API and CLI log unhandled rejections instead of exiting.
-- **Session-end learning ignored the agent's soul** — it read only `defaultSoul`, so an agent with `evolution.allowAutoUpdate: false` still had facts and drafts captured. Both learning hooks now use the agent's soul, then the default.
+- **Duplicate learned facts** ([#112](https://github.com/viantonugroho11/Anvio/pull/112)) — the learning loop runs after every turn with the whole transcript and re-stored every fact each time. Facts are now deduplicated against what is already stored, text shaped like a tool result is ignored, and facts render in the soul prompt once, labelled as unverified notes.
+- **One channel could take the gateway down** ([#112](https://github.com/viantonugroho11/Anvio/pull/112)) — `ChannelHub.startAll` used `Promise.all`, so one adapter failing to start (e.g. an expired token) failed the whole boot. Failures are now logged and returned as `ChannelStartFailure[]`; the other channels keep running.
+- **A bad socket frame could kill the process** ([#112](https://github.com/viantonugroho11/Anvio/pull/112)) — Slack, Discord and Mattermost socket handlers left rejections unhandled, and Node exits on those. Handlers are now guarded, and the gateway, worker, API and CLI log unhandled rejections instead of exiting.
+- **Session-end learning ignored the agent's soul** ([#112](https://github.com/viantonugroho11/Anvio/pull/112)) — it read only `defaultSoul`, so an agent with `evolution.allowAutoUpdate: false` still had facts and drafts captured. Both learning hooks now use the agent's soul, then the default.
+- **Unbounded recursive delegation** ([#118](https://github.com/viantonugroho11/Anvio/pull/118)) — an agent delegating to an agent that delegates again created thousands of nested sessions. Delegation depth is now limited (default 3, `ANVIO_MAX_DELEGATION_DEPTH`) and `mixture_of_agents` fans out to at most 8 agents.
+- **MCP stdio did not work with official MCP servers** ([#118](https://github.com/viantonugroho11/Anvio/pull/118)) — the client used `Content-Length` framing; the MCP stdio transport is newline-delimited JSON. Now NDJSON, still accepting `Content-Length` frames. A missing MCP binary no longer raises an unhandled `spawn ENOENT`, request timers no longer keep the process alive, and MCP server processes are stopped on `platform.shutdown()`.
+- **`POST /api/sessions/:id/messages` waited for the whole turn** ([#118](https://github.com/viantonugroho11/Anvio/pull/118)) before returning 202; it now returns immediately. WebSocket messages likewise no longer block the socket.
+- **Lost or stuck turns** ([#118](https://github.com/viantonugroho11/Anvio/pull/118)) — an agent with broken frontmatter made its turn vanish with no reply; the run now fails visibly (`failed` status, `AGENT_RUN_FAILED`, a "Task Failed" notice). Sessions left in `calling_model` by a crash are marked `failed` with `metadata.interruptedAt` on the next start.
+- **Cron schedules ignored `timezone`** ([#118](https://github.com/viantonugroho11/Anvio/pull/118)) and ran in host-local time. One failing automation no longer aborts the rest of a tick, and one malformed automation file no longer aborts boot.
+- **Skill parse errors reported as "Skill not found"** ([#118](https://github.com/viantonugroho11/Anvio/pull/118)) — the real YAML error is now kept (`VALIDATION_ERROR`).
+- **Every channel message read every session file** ([#118](https://github.com/viantonugroho11/Anvio/pull/118)) — thread lookup is now indexed; at 500 sessions throughput rose from 69.6 to 89.9 turns/s and p50 latency fell from 6.97 s to 4.35 s (scripted model, Level 1).
+- **Concurrent turns on one session overwrote each other's history** ([#117](https://github.com/viantonugroho11/Anvio/pull/117)) — turns are now serialised per session and capped globally (`ANVIO_MAX_CONCURRENT_RUNS`, default 8); Telegram no longer blocks across chats.
+- **Approval resume re-ran executed tools** ([#117](https://github.com/viantonugroho11/Anvio/pull/117)) — checkpoints keep executed tool results (validated v2 checkpoints; v1 still readable). Cancellation now reaches providers and tools, and a model idle timeout ends hung calls (`ANVIO_MODEL_IDLE_TIMEOUT_MS`, default 300 s).
+- **Slack and Discord reconnect lifecycle** ([#117](https://github.com/viantonugroho11/Anvio/pull/117)) — no reconnect after stop, backoff, event dedupe, Discord RESUME and Slack `apps.connections.open`. Not yet verified against live workspaces.
+- **Shutdown** ([#117](https://github.com/viantonugroho11/Anvio/pull/117)) — ordered, time-boxed shutdown on SIGINT/SIGTERM; atomic file writes.
+- **Workspace trash** ([#113](https://github.com/viantonugroho11/Anvio/pull/113)) keeps both entries when a slug is trashed twice in the same millisecond.
 
 ### Changed
 
-- **Behavior change:** `evolution.requireApproval` now defaults to `true`. Souls that relied on auto-published tool-use skills must set `requireApproval: false`.
+- **Behavior change:** ([#112](https://github.com/viantonugroho11/Anvio/pull/112)) `evolution.requireApproval` now defaults to `true`. Souls that relied on auto-published tool-use skills must set `requireApproval: false`.
+- **Behavior change:** JWT auth fails boot without `JWT_SECRET`; network tools refuse private targets unless listed in `network.allowHosts`; an invalid `tools/gateway.yaml` or `anvio.yaml` fails boot; sandboxed code no longer inherits the host environment ([#117](https://github.com/viantonugroho11/Anvio/pull/117), [#118](https://github.com/viantonugroho11/Anvio/pull/118)).
+- **Documentation rewritten** ([#119](https://github.com/viantonugroho11/Anvio/pull/119)) — new root README describing Anvio as an extensible multi-agent platform (ADR-0038); `docs/README.md` index, consolidated `docs/ROADMAP.md`, ADR index with reconciled statuses; obsolete plans and gap registers moved to `docs/_detached/` and excluded from AI coding-agent context; the vNext plan of record moved to `docs/plans/`.
+- **CLI split** ([#117](https://github.com/viantonugroho11/Anvio/pull/117)) — `apps/cli/src/main.ts` 2,883 → 262 lines; lint runs on every package; CI tests Node 22 and 24.
 
 ### Added
 
 - **Phase 2 audit** — `docs/audit/phase-2/` (11 reports, Indonesian): reconciliation of Phase 1 findings, soul and identity, planning, learning loop, skill lifecycle, channel inventory and error handling, and a unified backlog (T-001…T-045).
+- **Audits** — phase 3 (A2A and plugin system) and phase 4 (slaude comparison) ([#113](https://github.com/viantonugroho11/Anvio/pull/113)); code-quality audit ([#116](https://github.com/viantonugroho11/Anvio/pull/116)) with its remediation reports ([#117](https://github.com/viantonugroho11/Anvio/pull/117)); post-refactoring verification and production-readiness reports ([#118](https://github.com/viantonugroho11/Anvio/pull/118)).
+- **End-to-end suite** `tests/integration/e2e/` ([#118](https://github.com/viantonugroho11/Anvio/pull/118)) — 43 tests against the real platform with a scripted model: workflows, gateway HTTP/WebSocket, an official-SDK MCP server over stdio with approval, scheduler, failure injection and load (`ANVIO_LOAD_*` profiles).
+- **ADR-0038** (positioning) and **ADR-0039** (in-house MCP client, proposed) ([#119](https://github.com/viantonugroho11/Anvio/pull/119)).
+
+### Known issues
+
+- MCP stdio servers and hook scripts inherit the full process environment (ROADMAP T-047).
+- The A2A client does not send configured remote credentials, and A2A cancel does not stop the run (T-048, T-051).
+- Shutdown does not drain in-flight turns; messages queued behind the concurrency cap are lost (R-01).
 
 ## [2.10.0] - 2026-10-23
 
@@ -513,7 +549,7 @@ A minor version because the operator surface grows: `workspace/agents/*` and `wo
 
 - **`${VAR}` never expanded in MCP + workspace YAML** ([#47](https://github.com/viantonugroho11/Anvio/issues/47)). Placeholders reached child processes verbatim, so every server configured that way crashed at spawn (`Invalid URL`, `env var required`, …). Adds `expandEnvDeep` to `@anvio/core` — shell-shaped `${NAME}` / `${NAME:-default}` / `${NAME:?message}`, `$${` to escape — applied at `IntegrationRegistry.load()` and `Workspace` config reads.
 - **`anvio run` / `anvio chat` leaked Telegram pollers** ([#48](https://github.com/viantonugroho11/Anvio/issues/48)). One-shot CLI runs started a second long-poller against the same bot the gateway was already polling; whichever won consumed the update and acked it, so the bot silently dropped messages. Adds `PlatformOptions.startChannels` (default `true`, preserves gateway/worker/api behavior) and `PlatformContext.shutdown()`. CLI opts out of inbound and tears down on `beforeExit` / `SIGINT` / `SIGTERM`.
-- **`claude-code` runtime forwarded `spec.model.model` as its Anthropic model id** ([#49](https://github.com/viantonugroho11/Anvio/issues/49)). Same field also configured the `local` fallback's model provider, so a `deepseek-chat` id landed at the Anthropic SDK and every run failed with *"It may not exist or you may not have access to it."* Adds `runtime.model` to the agent runtime binding for the vendor's own id; schema rejects the misconfiguration at parse time.
+- **`claude-code` runtime forwarded `spec.model.model` as its Anthropic model id** ([#49](https://github.com/viantonugroho11/Anvio/issues/49)). Same field also configured the `local` fallback's model provider, so a `deepseek-chat` id landed at the Anthropic SDK and every run failed with _"It may not exist or you may not have access to it."_ Adds `runtime.model` to the agent runtime binding for the vendor's own id; schema rejects the misconfiguration at parse time.
 - **`anvio gateway start` (no `--foreground`) always failed with "Cannot locate gateway binary"** ([#50](https://github.com/viantonugroho11/Anvio/issues/50)). Daemon path assumed a monorepo layout; tarball / npm / homebrew installs had no such path. Re-spawns `argv[1]` with `gateway start --foreground` instead, logging into `workspace/logs/gateway.log`.
 
 ### Tests
@@ -1430,7 +1466,8 @@ Carried forward, recorded rather than fixed:
 
 4. GitHub Actions **Release** workflow validates the build and publishes a GitHub Release with notes extracted from this file.
 
-[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.10.0...HEAD
+[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.11.0...HEAD
+[2.11.0]: https://github.com/viantonugroho11/Anvio/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/viantonugroho11/Anvio/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/viantonugroho11/Anvio/compare/v2.8.1...v2.9.0
 [2.8.1]: https://github.com/viantonugroho11/Anvio/compare/v2.8.0...v2.8.1
