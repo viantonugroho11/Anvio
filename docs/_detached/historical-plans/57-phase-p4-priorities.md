@@ -1,7 +1,7 @@
 # Phase P4 — Native tool_use & expanded gateway (2026)
 
 **Status:** ✅ v1.9.0  
-**Scope:** Close T1/T5 gaps from [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md) after Phase P3.
+**Scope:** Close T1/T5 gaps from [51-gap-hermes-slaude.md](../superseded-designs/51-gap-hermes-slaude.md) after Phase P3.
 
 ---
 
@@ -56,4 +56,4 @@ Legacy alias `import-slaude` still works for existing scripts.
 - Additional Hermes-parity tools (memory_recall, calendar, …)
 - Desktop app (R8)
 
-See [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md).
+See [51-gap-hermes-slaude.md](../superseded-designs/51-gap-hermes-slaude.md).

@@ -24,7 +24,7 @@ workspace/
 ├── providers/              # Routing and provider overrides
 ├── batch/                  # Batch job state and results
 ├── audit/                  # Execution and hook audit logs
-└── plugins/                # Workspace-local plugins
+└── plugins/                # Reserved; not read (no plugin system — ROADMAP T-058)
 ```
 
 ## Portability Guarantees
@@ -147,6 +147,8 @@ Safe to commit:
 No workspace restructure required — only config change + optional data migration.
 
 ## Extension Guide
+
+> **Status (2026-10-25):** items below that mention a *plugin* or *plugin manifest* describe design intent. Anvio has no plugin system ([ROADMAP T-058](ROADMAP.md#p2-and-below)); extending this subsystem today means changing the package code.
 
 1. Add new top-level directories via plugin manifest
 2. Register loaders in `packages/workspace/src/workspace-loader.ts`

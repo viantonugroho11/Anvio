@@ -44,4 +44,4 @@ anvio learning promote <draft-id>
 3. Add `metadata.sourceWorkflow: example-dag` in skill frontmatter
 4. Validate: `anvio skill validate dag-report-skill`
 
-See [49-workspace-artifacts.md](./49-workspace-artifacts.md) and [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md) W1.
+See [49-workspace-artifacts.md](./49-workspace-artifacts.md) and the [ROADMAP](ROADMAP.md).

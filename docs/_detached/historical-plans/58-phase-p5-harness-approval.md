@@ -80,4 +80,4 @@ spec:
 
 When enabled, runtime tool port merges built-in gateway + `anvio_channel__*` tools.
 
-See [41-channel-harness.md](./41-channel-harness.md).
+See [41-channel-harness.md](../../41-channel-harness.md).

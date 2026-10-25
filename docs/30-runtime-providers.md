@@ -128,7 +128,7 @@ ANVIO_NOUS_MOCK=1 anvio setup-token --nous  # dev/test — synthetic token, no n
 
 Env: `NOUS_PORTAL_URL` (defaults to the public portal). The stored connection
 (`service: nous`) currently gates access only — no `nous` model-provider row
-in the routing catalog yet (see [69-post-v1.17-gap-register.md](./69-post-v1.17-gap-register.md)).
+in the routing catalog yet (see [ROADMAP](ROADMAP.md)).
 
 Agent binding:
 
@@ -266,6 +266,8 @@ spec:
 ```
 
 ## Extension Guide
+
+> **Status (2026-10-25):** items below that mention a *plugin* or *plugin manifest* describe design intent. Anvio has no plugin system ([ROADMAP T-058](ROADMAP.md#p2-and-below)); extending this subsystem today means changing the package code.
 
 1. Implement `RuntimeProvider` for new editor/agent CLIs
 2. Register via plugin manifest (`type: runtime-provider`)

@@ -13,3 +13,8 @@ Stop: "stop caveman" or "normal mode"
 Auto-Clarity: drop caveman for security warnings, irreversible actions, user confused. Resume after.
 
 Boundaries: code/commits/PRs written normal.
+
+
+## Documentation authority
+
+Documentation under `docs/_detached/` is historical and non-authoritative. AI coding agents must not read, search, index, summarize, or use detached documents during normal development workflows. Use current source code, active documentation (`docs/README.md`), and accepted ADRs (`docs/adr/README.md`) as authoritative context. Detached documents may only be accessed when the user explicitly requests historical investigation, migration analysis, or previous-decision review. Historical content must never override current implementation evidence.

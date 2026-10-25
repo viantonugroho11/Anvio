@@ -34,4 +34,4 @@ Close remaining Hermes **hermes-cli** gaps: **57 → 71 built-in gateway tools**
 
 Extra Spotify/Feishu/Yuanbao/RL individual keys remain on MCP servers — not duplicated as 71 separate gateway keys.
 
-See [65-hermes-tools-catalog.md](./65-hermes-tools-catalog.md).
+See [65-hermes-tools-catalog.md](../superseded-designs/65-hermes-tools-catalog.md).

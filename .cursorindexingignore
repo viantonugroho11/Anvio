@@ -1,0 +1,4 @@
+# Historical, non-authoritative documentation (see docs/_detached/README.md).
+# Excluded from Cursor's codebase index and semantic search. Files stay
+# readable when explicitly @-mentioned, for historical investigation only.
+docs/_detached/

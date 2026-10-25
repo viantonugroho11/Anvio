@@ -1,0 +1,3 @@
+# Windsurf / Codeium indexing exclusion (gitignore syntax).
+# Historical, non-authoritative documentation — see docs/_detached/README.md.
+docs/_detached/

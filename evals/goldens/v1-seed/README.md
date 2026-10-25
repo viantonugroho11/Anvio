@@ -1,6 +1,6 @@
 # v1-seed goldens
 
-Golden trajectory captures from Anvio v1 sessions. Story [P1.S6](../../../docs/engineering-backlog-vnext.md) — used to gate future refactors (Model Gateway shim, memory engine swap, tool bus rewrite) against behavioral regressions.
+Golden trajectory captures from Anvio v1 sessions. Story [P1.S6](../../../docs/plans/engineering-backlog-vnext.md) — used to gate future refactors (Model Gateway shim, memory engine swap, tool bus rewrite) against behavioral regressions.
 
 ## Contents
 

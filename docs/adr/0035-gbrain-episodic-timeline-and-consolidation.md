@@ -36,3 +36,7 @@ Anvio already has the consolidation half: `packages/learning` (`SessionSummarize
 
 - **Embed gbrain like slaude.** Rejected for now (build coupling above); revisit if gbrain publishes a stable Node-compatible package.
 - **Store transcripts only on the filesystem and send summaries.** That is PR #88's behaviour; kept as the default, with timelines as opt-in.
+
+## Reconciliation note (2026-10-25)
+
+Still **Proposed**. The gbrain provider and episodic options exist (`packages/memory/src/providers/gbrain`, `memory.gbrain.episodic`). The gbrain MCP client is not closed on platform shutdown (post-refactoring risk R-06). Acceptance is left to the owners. Original decision text above is unchanged.

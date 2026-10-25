@@ -1,7 +1,7 @@
 # Phase P1 — Channel Harness & Contextual Connections (2026)
 
 **Status:** Active  
-**Depends on:** [52-phase-k-priorities.md](./52-phase-k-priorities.md) P0 complete (v1.4.0)
+**Depends on:** [52-phase-k-priorities.md](52-phase-k-priorities.md) P0 complete (v1.4.0)
 
 P1 closes harness depth and per-user contextual connections before voice/desktop breadth (P2).
 
@@ -62,6 +62,6 @@ anvio connect revoke --service github
 
 ## Related
 
-- [41-channel-harness.md](./41-channel-harness.md)
-- [39-editor-integration.md](./39-editor-integration.md)
-- [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md)
+- [41-channel-harness.md](../../41-channel-harness.md)
+- [39-editor-integration.md](../../39-editor-integration.md)
+- [51-gap-hermes-slaude.md](../superseded-designs/51-gap-hermes-slaude.md)

@@ -36,3 +36,7 @@ DMs keep `engageOn: always` via the channel profile; no special-casing in code.
 
 - **Copy slaude's Slack-only implementation into `packages/channels/src/slack.ts`.** Rejected: duplicates logic per channel and violates "domain logic in packages, adapters stay thin".
 - **Let the model decide engagement from the persona prompt.** Rejected: unenforceable, and the same reason Anvio moved approval decisions into the harness (PRs #80–#84).
+
+## Reconciliation note (2026-10-25)
+
+Still **Proposed**. Implementation evidence exists (`packages/harness/src/one-on-one-command.ts`, `engagement.ts`; `anvio session 1on1` in `apps/cli`). Acceptance is left to the owners. Original decision text above is unchanged.

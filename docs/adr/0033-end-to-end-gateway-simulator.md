@@ -34,3 +34,7 @@ Grow the existing simulator into a full-turn harness rather than adding a second
 
 - **Mock each adapter per test.** Rejected: that is the status quo and drifts from production wiring.
 - **Record/replay real Slack traffic.** Rejected for now: needs credentials and leaks workspace data into fixtures.
+
+## Reconciliation note (2026-10-25)
+
+Still **Proposed**. Implemented: `SimulatedChannel` (`packages/channels/src/simulated-channel.ts`), `anvio harness simulate`, and the E2E suite in `tests/integration/e2e/`. Acceptance is left to the owners. Original decision text above is unchanged.

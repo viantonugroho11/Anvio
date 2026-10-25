@@ -91,6 +91,6 @@ Runtime → HarnessOutputPort → format + redact → ChannelAdapter
 
 ## Related
 
-- Plan: [2026-06-19-002-feat-unified-agent-product-plan.md](./plans/2026-06-19-002-feat-unified-agent-product-plan.md)
+- Roadmap: [ROADMAP.md](ROADMAP.md)
 - Channels: [10-channels.md](./10-channels.md)
 - Soul: [25-soul-system.md](./25-soul-system.md)

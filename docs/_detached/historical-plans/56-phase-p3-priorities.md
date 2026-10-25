@@ -1,7 +1,7 @@
 # Phase P3 — Tools, slaude import & scheduled learning (2026)
 
 **Status:** Complete (v1.8.0)  
-**Scope:** Close high-impact gaps from [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md) after Phase L6.
+**Scope:** Close high-impact gaps from [51-gap-hermes-slaude.md](../superseded-designs/51-gap-hermes-slaude.md) after Phase L6.
 
 ---
 
@@ -79,12 +79,12 @@ Requires worker/automation engine running for cron. Uses LLM summarizer when mod
 
 ## Remaining gaps (next)
 
-See [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md) — remaining gaps at v1.15.0 (~87% Hermes, ~92% slaude): tool catalog breadth, desktop, streaming STT, RL export, slaude polish.
+See [51-gap-hermes-slaude.md](../superseded-designs/51-gap-hermes-slaude.md) — remaining gaps at v1.15.0 (~87% Hermes, ~92% slaude): tool catalog breadth, desktop, streaming STT, RL export, slaude polish.
 
 ---
 
 ## Related
 
-- [43-learning-loop.md](./43-learning-loop.md)
-- [44-tool-gateway.md](./44-tool-gateway.md)
-- [55-phase-l6-learning-priorities.md](./55-phase-l6-learning-priorities.md)
+- [43-learning-loop.md](../../43-learning-loop.md)
+- [44-tool-gateway.md](../../44-tool-gateway.md)
+- [55-phase-l6-learning-priorities.md](55-phase-l6-learning-priorities.md)

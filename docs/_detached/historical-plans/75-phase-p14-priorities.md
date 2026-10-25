@@ -13,15 +13,15 @@
 | Google Chat SA | JWT auth + REST in `google-chat.ts` |
 | Teams/Matrix hardening | `fetchWithRetry` backoff |
 | Feishu/SMS channels | `FeishuChannel`, `SmsChannel` (Twilio) |
-| Workflow→skill | [74-workflow-to-skill-example.md](./74-workflow-to-skill-example.md) |
-| Langfuse dashboard | [configs/observability/langfuse-dashboard.json](../configs/observability/langfuse-dashboard.json) |
+| Workflow→skill | [74-workflow-to-skill-example.md](../../74-workflow-to-skill-example.md) |
+| Langfuse dashboard | [configs/observability/langfuse-dashboard.json](../../../configs/observability/langfuse-dashboard.json) |
 
 ## P14 research
 
 | Item | Deliverable |
 |------|-------------|
 | Trajectory export | `anvio session export <id> [--md]` |
-| Desktop shell | [apps/desktop/README.md](../apps/desktop/README.md) scaffold |
+| Desktop shell | [apps/desktop/README.md](../../../apps/desktop/README.md) scaffold |
 
 ## Still deferred (P15+)
 

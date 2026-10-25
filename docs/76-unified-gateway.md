@@ -71,4 +71,4 @@ Legacy split processes still work for development; unified gateway is recommende
 
 - [41-channel-harness.md](./41-channel-harness.md)
 - [48-voice-mode.md](./48-voice-mode.md)
-- [50-hermes-slaude-parity.md](./50-hermes-slaude-parity.md)
+- [Audit phase 4 — slaude comparison](audit/phase-4/00-executive-summary.md)

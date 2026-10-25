@@ -794,7 +794,7 @@ Carried forward, recorded rather than fixed:
 
 ### Fixed
 
-- **Stale gap-register docs** — [69-post-v1.17-gap-register.md](docs/69-post-v1.17-gap-register.md) and [51-gap-hermes-slaude.md](docs/51-gap-hermes-slaude.md) hadn't been updated since the v1.17 baseline despite P12/P13/P14 (v1.18–v1.19) already shipping most of their listed gaps — corrected to reflect actual shipped state
+- **Stale gap-register docs** — [69-post-v1.17-gap-register.md](docs/_detached/superseded-designs/69-post-v1.17-gap-register.md) and [51-gap-hermes-slaude.md](docs/_detached/superseded-designs/51-gap-hermes-slaude.md) hadn't been updated since the v1.17 baseline despite P12/P13/P14 (v1.18–v1.19) already shipping most of their listed gaps — corrected to reflect actual shipped state
 
 ---
 
@@ -879,9 +879,9 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [73-phase-p13-priorities.md](./docs/73-phase-p13-priorities.md)
+- [73-phase-p13-priorities.md](docs/_detached/historical-plans/73-phase-p13-priorities.md)
 - [74-workflow-to-skill-example.md](./docs/74-workflow-to-skill-example.md)
-- [75-phase-p14-priorities.md](./docs/75-phase-p14-priorities.md)
+- [75-phase-p14-priorities.md](docs/_detached/historical-plans/75-phase-p14-priorities.md)
 
 ---
 
@@ -904,8 +904,8 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [69-post-v1.17-gap-register.md](./docs/69-post-v1.17-gap-register.md)
-- [70-phase-p12-priorities.md](./docs/70-phase-p12-priorities.md)
+- [69-post-v1.17-gap-register.md](docs/_detached/superseded-designs/69-post-v1.17-gap-register.md)
+- [70-phase-p12-priorities.md](docs/_detached/historical-plans/70-phase-p12-priorities.md)
 - [71-mcp-setup-guide.md](./docs/71-mcp-setup-guide.md)
 - [72-observability-langfuse.md](./docs/72-observability-langfuse.md)
 
@@ -924,8 +924,8 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [65-hermes-tools-catalog.md](./docs/65-hermes-tools-catalog.md) — full Hermes → Anvio mapping
-- [64-phase-p11a-priorities.md](./docs/64-phase-p11a-priorities.md) through [68-phase-p11d-priorities.md](./docs/68-phase-p11d-priorities.md)
+- [65-hermes-tools-catalog.md](docs/_detached/superseded-designs/65-hermes-tools-catalog.md) — full Hermes → Anvio mapping
+- [64-phase-p11a-priorities.md](docs/_detached/historical-plans/64-phase-p11a-priorities.md) through [68-phase-p11d-priorities.md](docs/_detached/historical-plans/68-phase-p11d-priorities.md)
 
 ---
 
@@ -942,7 +942,7 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [63-phase-p10-priorities.md](./docs/63-phase-p10-priorities.md)
+- [63-phase-p10-priorities.md](docs/_detached/historical-plans/63-phase-p10-priorities.md)
 
 ---
 
@@ -965,7 +965,7 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [62-phase-p9-priorities.md](./docs/62-phase-p9-priorities.md)
+- [62-phase-p9-priorities.md](docs/_detached/historical-plans/62-phase-p9-priorities.md)
 
 ---
 
@@ -983,7 +983,7 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [61-phase-p8-priorities.md](./docs/61-phase-p8-priorities.md)
+- [61-phase-p8-priorities.md](docs/_detached/historical-plans/61-phase-p8-priorities.md)
 
 ---
 
@@ -1000,7 +1000,7 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [60-phase-p7-priorities.md](./docs/60-phase-p7-priorities.md)
+- [60-phase-p7-priorities.md](docs/_detached/historical-plans/60-phase-p7-priorities.md)
 
 ---
 
@@ -1023,7 +1023,7 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [59-phase-p6-priorities.md](./docs/59-phase-p6-priorities.md)
+- [59-phase-p6-priorities.md](docs/_detached/historical-plans/59-phase-p6-priorities.md)
 
 ---
 
@@ -1042,7 +1042,7 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [58-phase-p5-harness-approval.md](./docs/58-phase-p5-harness-approval.md)
+- [58-phase-p5-harness-approval.md](docs/_detached/historical-plans/58-phase-p5-harness-approval.md)
 
 ---
 
@@ -1065,7 +1065,7 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [57-phase-p4-priorities.md](./docs/57-phase-p4-priorities.md)
+- [57-phase-p4-priorities.md](docs/_detached/historical-plans/57-phase-p4-priorities.md)
 
 ---
 
@@ -1085,7 +1085,7 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [56-phase-p3-priorities.md](./docs/56-phase-p3-priorities.md)
+- [56-phase-p3-priorities.md](docs/_detached/historical-plans/56-phase-p3-priorities.md)
 - Gap register: T3, T4, S6, L5 cron ✅
 
 ---
@@ -1116,8 +1116,8 @@ Carried forward, recorded rather than fixed:
 
 ### Docs
 
-- [55-phase-l6-learning-priorities.md](./docs/55-phase-l6-learning-priorities.md)
-- Updated [43-learning-loop.md](./docs/43-learning-loop.md), [50-hermes-slaude-parity.md](./docs/50-hermes-slaude-parity.md), [51-gap-hermes-slaude.md](./docs/51-gap-hermes-slaude.md)
+- [55-phase-l6-learning-priorities.md](docs/_detached/historical-plans/55-phase-l6-learning-priorities.md)
+- Updated [43-learning-loop.md](./docs/43-learning-loop.md), [50-hermes-slaude-parity.md](docs/_detached/superseded-designs/50-hermes-slaude-parity.md), [51-gap-hermes-slaude.md](docs/_detached/superseded-designs/51-gap-hermes-slaude.md)
 
 ---
 
@@ -1224,7 +1224,7 @@ Carried forward, recorded rather than fixed:
 
 #### Documentation
 
-- [52-phase-k-priorities.md](docs/52-phase-k-priorities.md) — five-pillar priority stack
+- [52-phase-k-priorities.md](docs/_detached/historical-plans/52-phase-k-priorities.md) — five-pillar priority stack
 - Updated gap register and roadmap for Phase K focus
 
 ### Changed

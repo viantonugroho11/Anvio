@@ -11,6 +11,8 @@ Agent Client Protocol (ACP) integration for editors — VS Code, Cursor, Windsur
 
 ## Supported Editors (Target)
 
+> **Status (2026-10-25):** `packages/acp` contains only `src/acp-server.ts` and `src/protocol/`. The per-editor packages listed below (`packages/acp/vscode`, `windsurf`, `zed`, `jetbrains`) do **not** exist. Cursor integration goes through the `cursor` runtime. Audit finding G-07 / [T-015](audit/phase-2/07-remaining-gap-breakdown.md) records that this server is a proprietary prompt/response bridge and is not compatible with the standard Agent Client Protocol.
+
 | Editor | Protocol | Package |
 |--------|----------|---------|
 | **Cursor** | ACP + MCP | `packages/runtimes/cursor` |

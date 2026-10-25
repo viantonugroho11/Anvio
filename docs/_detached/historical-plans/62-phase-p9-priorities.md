@@ -45,4 +45,4 @@ Optional cost estimate for known models (`claude-sonnet-4-20250514`, `gpt-4o`, `
 
 ## Remaining (P11+)
 
-See [Phase P10](./63-phase-p10-priorities.md) for completed P9 follow-ups.
+See [Phase P10](63-phase-p10-priorities.md) for completed P9 follow-ups.

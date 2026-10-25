@@ -22,4 +22,4 @@ pnpm --filter @anvio/desktop dev
 | `ANVIO_WORKSPACE` | Workspace root |
 | `ANVIO_DESKTOP_TRAY` | Enable tray mode |
 
-See [75-phase-p14-priorities.md](../../docs/75-phase-p14-priorities.md).
+See [docs/ROADMAP.md](../../docs/ROADMAP.md).

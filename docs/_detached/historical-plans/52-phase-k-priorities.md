@@ -1,7 +1,7 @@
 # Phase K — Priority Pillars (2026)
 
 **Status:** Active  
-**Supersedes:** Generic P0–P3 ordering in [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md) for near-term delivery.
+**Supersedes:** Generic P0–P3 ordering in [51-gap-hermes-slaude.md](../superseded-designs/51-gap-hermes-slaude.md) for near-term delivery.
 
 User directive: prioritize **Learning & memory**, **Automation & workflows**, **Authoring & workspace (Phase J)**, **Tooling & eksekusi**, and **Runtime** before channel breadth, voice, and desktop.
 
@@ -78,7 +78,7 @@ flowchart TB
 | A6 | Blueprints / automations YAML | ✅ by design |
 | A7 | hermes-tech skill import script | ✅ Phase K |
 
-**Convention:** [49-workspace-artifacts.md](./49-workspace-artifacts.md)
+**Convention:** [49-workspace-artifacts.md](../../49-workspace-artifacts.md)
 
 ---
 
@@ -112,7 +112,7 @@ flowchart TB
 
 ## Phase P1 — Harness & Connections
 
-See [53-phase-p1-priorities.md](./53-phase-p1-priorities.md).
+See [53-phase-p1-priorities.md](53-phase-p1-priorities.md).
 
 | ID | Deliverable | Status |
 |----|-------------|--------|
@@ -126,7 +126,7 @@ See [53-phase-p1-priorities.md](./53-phase-p1-priorities.md).
 
 ## Phase P2 — Voice & channels (no desktop)
 
-See [54-phase-p2-priorities.md](./54-phase-p2-priorities.md). Desktop (DT) optional / deferred.
+See [54-phase-p2-priorities.md](54-phase-p2-priorities.md). Desktop (DT) optional / deferred.
 
 | ID | Deliverable | Status |
 |----|-------------|--------|
@@ -149,8 +149,8 @@ See [54-phase-p2-priorities.md](./54-phase-p2-priorities.md). Desktop (DT) optio
 
 ## Related
 
-- [43-learning-loop.md](./43-learning-loop.md)
-- [44-tool-gateway.md](./44-tool-gateway.md)
-- [45-workflow-engine.md](./45-workflow-engine.md)
-- [49-workspace-artifacts.md](./49-workspace-artifacts.md)
-- [51-gap-hermes-slaude.md](./51-gap-hermes-slaude.md)
+- [43-learning-loop.md](../../43-learning-loop.md)
+- [44-tool-gateway.md](../../44-tool-gateway.md)
+- [45-workflow-engine.md](../../45-workflow-engine.md)
+- [49-workspace-artifacts.md](../../49-workspace-artifacts.md)
+- [51-gap-hermes-slaude.md](../superseded-designs/51-gap-hermes-slaude.md)

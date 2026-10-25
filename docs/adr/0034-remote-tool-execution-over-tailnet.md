@@ -39,3 +39,7 @@ Introduce remote tool execution as a **tool-execution target**, not a new runtim
 
 - **Extend `SshRuntimeProvider` to run the full agent remotely.** Rejected: would move model credentials and memory to the user's machine.
 - **Reverse tunnel initiated by the user's machine.** Deferred: avoids exposing SSH but needs a long-lived agent process on the user side.
+
+## Reconciliation note (2026-10-25)
+
+Still **Proposed**. Partially implemented: a tailnet SSH target exists (`packages/runtimes/src/remote/tailnet-ssh-target.ts`). End-to-end remote tool execution was not verified. Acceptance is left to the owners. Original decision text above is unchanged.

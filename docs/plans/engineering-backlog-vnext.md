@@ -96,7 +96,7 @@ Layer rule machine-enforced by dependency-cruiser config (P2 story E0.F1.S3). An
 
 | ID | Title | Description & AC | Deps | Size | d | Risk |
 |---|---|---|---|---|---|---|
-| E12.F1.S1 ⚠️ partial v1.27.0 | Canonical request/response + ModelDescriptor | `ChatRequest`/`ChatResponse` live in `@anvio/core/ports`; `ModelDescriptor` registry shipped with 9 seed entries + `estimateModelCostUsd`. Canonical extraction into `packages/contracts` deferred to Epic 0. See [ADR-0013](adr/0013-model-gateway-evolution.md). | E0.F1.S2 | M | 3 | M |
+| E12.F1.S1 ⚠️ partial v1.27.0 | Canonical request/response + ModelDescriptor | `ChatRequest`/`ChatResponse` live in `@anvio/core/ports`; `ModelDescriptor` registry shipped with 9 seed entries + `estimateModelCostUsd`. Canonical extraction into `packages/contracts` deferred to Epic 0. See [ADR-0013](../adr/0013-model-gateway-evolution.md). | E0.F1.S2 | M | 3 | M |
 | E12.F1.S2 ✅ pre-vNext | Anthropic adapter | Shipped in `packages/models/src/providers/anthropic.provider.ts` with `cache_control` breakpoints (ADR-0010 L2) and native `tool_use`. | S1 | M | 3 | M |
 | E12.F1.S3 ✅ pre-vNext | OpenAI-compatible adapter | `openai-compatible.provider.ts` covers openai/openrouter/deepseek/groq/mistral/together/xai/fireworks/moonshot/cerebras/sambanova/perplexity/cohere/huggingface/ollama + `custom`. | S1 | M | 3 | M |
 | E12.F1.S4 ✅ v1.25.0 | Gemini adapter | Native `functionDeclarations` shipped v1.25.0; `supportsNativeTools = true`. | S1 | M | 2 | M |
@@ -110,7 +110,7 @@ Layer rule machine-enforced by dependency-cruiser config (P2 story E0.F1.S3). An
 | E12.F2.S2 ✅ v1.27.0 | Fallback chains + circuit breaker per provider | `walkFallbackChain` + `ProviderCircuitBreaker` (closed→open→half-open); attempts record `skipped:'circuit-open'`. | S1 | M | 3 | M |
 | E12.F2.S3 ✅ v1.27.0 | Usage metering + spend limits | `SpendBudgetLedger` + hard `MODEL_SPEND_BUDGET_EXCEEDED` (HTTP 402); wired in `ModelRouter.chargeBudget()`. | E0.F1.S4 | M | 2 | M |
 | E12.F2.S4 ⚠️ partial pre-vNext | Key pools (encrypted, rotating) | `packages/credentials` shipped; `RouteTarget.pool` consumed. Rotation test coverage still light. | E0.F2.S8 | M | 2 | H |
-| E12.F2.S5 ❌ N/A | v1 adapter shim (`gateway.model: legacy\|vnext`) | Not needed — `packages/models` IS the vnext gateway per [ADR-0013](adr/0013-model-gateway-evolution.md) D2. No greenfield rewrite. | S1–S4 | M | 3 | H |
+| E12.F2.S5 ❌ N/A | v1 adapter shim (`gateway.model: legacy\|vnext`) | Not needed — `packages/models` IS the vnext gateway per [ADR-0013](../adr/0013-model-gateway-evolution.md) D2. No greenfield rewrite. | S1–S4 | M | 3 | H |
 
 ### Epic 5 — Tool Bus (core in Phase 2, rest Phase 4)
 
