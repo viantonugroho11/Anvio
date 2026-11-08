@@ -12,7 +12,7 @@ Document numbers (`NN-*.md`) are stable identifiers that code, ADRs and other do
 
 | Document                                                | Purpose                               |
 | ------------------------------------------------------- | ------------------------------------- |
-| [README — Quick Start](../README.md#quick-start)        | Install, create a first agent, run it |
+| [Getting started](getting-started.md)                   | Install, create a first agent, run it |
 | [21 — Development guide](21-development-guide.md)       | Build, test and local development     |
 | [71 — MCP setup guide](71-mcp-setup-guide.md)           | Connect an MCP server                 |
 | [20 — Troubleshooting](20-troubleshooting.md) _(brief)_ | Common problems                       |
@@ -84,6 +84,18 @@ Document numbers (`NN-*.md`) are stable identifiers that code, ADRs and other do
 | [41 — Channel harness](41-channel-harness.md)                                       | Engagement, formatting, approvals                    |
 | [76 — Unified gateway](76-unified-gateway.md)                                       | One daemon: channels + worker + HTTP API + WebSocket |
 | [48 — Voice mode](48-voice-mode.md)                                                 | STT/TTS                                              |
+
+## Reference
+
+| Document                                                          | Purpose                                                    |
+| ----------------------------------------------------------------- | ---------------------------------------------------------- |
+| [CLI reference](reference/cli.md)                                 | Every `anvio` command group                                |
+| [Environment variables](reference/environment-variables.md)       | Every variable read by the code, with defaults             |
+| [Built-in tool catalog](reference/builtin-tools.md) _(generated)_ | All built-in tools, default on/off, argument hints         |
+| [MCP reference](reference/mcp.md)                                 | `servers.yaml` schema, transports, capabilities, approvals |
+| [Project metrics](reference/project-metrics.md) _(generated)_     | Counts derived from source                                 |
+
+Generated pages come from `scripts/docs-generate.mjs`; run `pnpm docs:generate` after changing tools, providers or channels. `pnpm docs:dev` serves this folder as a searchable site.
 
 ## Security, operations and reference
 

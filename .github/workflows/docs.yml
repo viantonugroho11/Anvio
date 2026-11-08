@@ -1,0 +1,55 @@
+name: Docs
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'docs/.vitepress/**'
+      - 'scripts/docs-generate.mjs'
+      - 'packages/tools/src/tool-descriptions.ts'
+      - 'packages/tools/src/gateway.ts'
+      - 'packages/models/src/provider-catalog.ts'
+      - 'packages/channels/src/create-channels.ts'
+      - '.github/workflows/docs.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'docs/.vitepress/**'
+      - 'scripts/docs-generate.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: Validate & build docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Generated reference pages (tool catalog, metrics) must match the source.
+      - name: Generated pages are up to date
+        run: node scripts/docs-generate.mjs --check
+
+      - name: Markdown formatting (prettier)
+        run: pnpm exec prettier --check "README.md" "docs/getting-started.md" "docs/index.md" "docs/reference/**/*.md"
+
+      # VitePress fails the build on any dead internal link.
+      - name: Build site (includes internal link check)
+        run: pnpm docs:build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: docs/.vitepress/dist
+          retention-days: 7

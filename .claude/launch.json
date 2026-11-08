@@ -4,8 +4,22 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@anvio/web", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@anvio/web",
+        "dev"
+      ],
       "port": 3100
+    },
+    {
+      "name": "docs",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "docs:dev",
+        "--port",
+        "5173"
+      ],
+      "port": 5173
     }
   ]
 }

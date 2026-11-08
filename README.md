@@ -1,6 +1,51 @@
+<div align="center">
+
+<img src="docs/assets/logo/anvio.svg" alt="Anvio logo" width="88" height="88" />
+
 # Anvio
 
-**An extensible AI agent platform.** Anvio runs and manages your agents, delegates work to sub-agents, external A2A agents and vendor agent CLIs, and connects them all to 18 model providers, MCP tool servers, skills, persistent memory and 15 chat channels. Agents are defined in Markdown; infrastructure in YAML.
+**An extensible AI agent platform — agents in Markdown, infrastructure in YAML.**
+
+Anvio runs and manages your agents, delegates work to sub-agents, external A2A agents and vendor agent CLIs, and connects them all to 18 model providers, MCP tool servers, skills, persistent memory and 15 chat channels.
+
+[![CI](https://github.com/viantonugroho11/Anvio/actions/workflows/ci.yml/badge.svg)](https://github.com/viantonugroho11/Anvio/actions/workflows/ci.yml)
+[![Docs](https://github.com/viantonugroho11/Anvio/actions/workflows/docs.yml/badge.svg)](https://github.com/viantonugroho11/Anvio/actions/workflows/docs.yml)
+[![Release](https://img.shields.io/github/v/release/viantonugroho11/Anvio?sort=semver)](https://github.com/viantonugroho11/Anvio/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)
+![Node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
+
+[**Quick start**](#quick-start) · [**Docs**](docs/README.md) · [**Architecture**](docs/02-architecture.md) · [**CLI**](docs/reference/cli.md) · [**MCP**](docs/reference/mcp.md) · [**Roadmap**](docs/ROADMAP.md)
+
+</div>
+
+<br />
+
+```console
+$ pnpm anvio workspace validate
+Workspace OK: ...
+$ pnpm anvio agents list
+assistant — General-purpose assistant
+$ pnpm anvio run assistant "Say hello"
+[Mock — set a model API key] You said: Say hello
+$ pnpm anvio gateway start --foreground   # channels + HTTP API + WebSocket + A2A on 127.0.0.1:3001
+```
+
+<sub>Output shown is the documented behaviour of a fresh workspace without a model key (see [Quick Start](#quick-start)). No screenshots of the web dashboard are published yet.</sub>
+
+### At a glance
+
+|                  |                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Runs**         | Multi-turn tool loop with approvals, checkpoints, cancellation and detached runs                              |
+| **Thinks with**  | 18 model providers — routing, fallback chains, circuit breakers, spend budgets                                |
+| **Acts with**    | [76 built-in tools](docs/reference/builtin-tools.md) behind an allow-list, plus any MCP server (stdio / HTTP) |
+| **Delegates to** | Sub-agents, mixture-of-agents, remote A2A agents, Claude Code / Cursor / Codex / Antigravity runtimes         |
+| **Remembers**    | Souls, filesystem / SQLite FTS5 / Honcho / gbrain memory, a learning loop                                     |
+| **Talks on**     | 15 channels: Slack, Discord, Telegram, WhatsApp, Teams, Matrix, Email, …                                      |
+| **Needs**        | Node 20+ and pnpm. No database, no Docker for the default tier                                                |
+
+<sub>Counts are generated from source — see [project metrics](docs/reference/project-metrics.md).</sub>
 
 ## Contents
 
@@ -19,6 +64,7 @@
 - [Channels](#channels)
 - [Security](#security)
 - [Deployment](#deployment)
+- [Technology Stack](#technology-stack)
 - [Development](#development)
 - [Documentation](#documentation)
 - [Roadmap](#roadmap)
@@ -470,6 +516,25 @@ See [docs/12-security.md](docs/12-security.md).
 
 Run one Anvio process per workspace directory. Shutdown does not drain in-flight turns, so plan restarts accordingly ([R-01](docs/ROADMAP.md#p1-reliability-and-interoperability)). There are no Kubernetes manifests in this repository.
 
+## Technology Stack
+
+<p>
+  <img src="https://skillicons.dev/icons?i=ts,nodejs,pnpm,vitest,nestjs,nextjs,tailwind,sqlite,postgres,redis,docker,githubactions&perline=12" alt="TypeScript, Node.js, pnpm, Vitest, NestJS, Next.js, Tailwind, SQLite, PostgreSQL, Redis, Docker, GitHub Actions" />
+</p>
+
+| Layer            | Technologies                                                                                         |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| Language & build | TypeScript 5.8, Node.js 20+, pnpm workspaces, Turborepo                                              |
+| Agent runtime    | Own tool loop (`packages/agents`); Claude Agent SDK for the `claude-code` runtime                    |
+| MCP              | Own MCP client (`packages/integrations`) — stdio (NDJSON) and Streamable HTTP with HTTP+SSE fallback |
+| Models           | Anthropic and Gemini adapters, one OpenAI-compatible adapter for the other 15 providers + `custom`   |
+| Protocols        | A2A 1.0 server and client, proprietary ACP editor bridge                                             |
+| Storage          | Filesystem (default), SQLite + FTS5 (Level 2), PostgreSQL via Drizzle (Level 3+)                     |
+| Events & infra   | In-process bus, optional NATS JetStream and Redis; Docker Compose files in `docker/`                 |
+| Observability    | pino, Prometheus-style metrics, OpenTelemetry, Langfuse                                              |
+| Interfaces       | CLI, NestJS REST API, gateway (HTTP + WebSocket), Next.js 15 + Tailwind 4 dashboard                  |
+| Quality          | Vitest, ESLint, Prettier, GitHub Actions (CI, docs, release)                                         |
+
 ## Development
 
 ```bash
@@ -487,7 +552,20 @@ Unit tests sit next to the source as `*.spec.ts`. Integration and E2E tests live
 
 ## Documentation
 
-Start at [docs/README.md](docs/README.md), the canonical documentation index. Architecture decisions are in [docs/adr/](docs/adr/README.md), and release history in [CHANGELOG.md](CHANGELOG.md).
+The `docs/` folder is the documentation. Read it on GitHub, or run it as a searchable site (VitePress, dark/light, Mermaid):
+
+```bash
+pnpm docs:dev        # http://localhost:5173
+pnpm docs:build      # static site in docs/.vitepress/dist (fails on dead links)
+pnpm docs:generate   # refresh generated reference pages from source
+```
+
+| Start                                      | Understand                                      | Look up                                                                       | Contribute                                        |
+| ------------------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------- |
+| [Getting started](docs/getting-started.md) | [Architecture](docs/02-architecture.md)         | [CLI](docs/reference/cli.md)                                                  | [Development guide](docs/21-development-guide.md) |
+| [Docs index](docs/README.md)               | [Agent runtime](docs/03-runtime.md)             | [Environment variables](docs/reference/environment-variables.md)              | [Contributing](docs/22-contributing.md)           |
+| [MCP setup](docs/71-mcp-setup-guide.md)    | [Provider routing](docs/36-provider-routing.md) | [Built-in tools](docs/reference/builtin-tools.md)                             | [ADRs](docs/adr/README.md)                        |
+| [Deployment](docs/14-deployment.md)        | [Security](docs/12-security.md)                 | [MCP reference](docs/reference/mcp.md) · [HTTP API](docs/15-api-reference.md) | [Changelog](CHANGELOG.md)                         |
 
 ## Roadmap
 
@@ -503,7 +581,11 @@ The vNext plan of record is [docs/plans/engineering-backlog-vnext.md](docs/plans
 
 ## Contributing
 
-See [docs/22-contributing.md](docs/22-contributing.md) and [docs/21-development-guide.md](docs/21-development-guide.md). Please run `pnpm build && pnpm lint && pnpm typecheck && pnpm test` before opening a pull request.
+See [docs/22-contributing.md](docs/22-contributing.md) and [docs/21-development-guide.md](docs/21-development-guide.md). Please run `pnpm build && pnpm lint && pnpm typecheck && pnpm test` before opening a pull request, and `pnpm docs:check` when you change docs or tool/provider/channel definitions.
+
+- Bugs and feature requests: [GitHub Issues](https://github.com/viantonugroho11/Anvio/issues)
+- Questions and ideas: [GitHub Discussions](https://github.com/viantonugroho11/Anvio/discussions)
+- Security: please report vulnerabilities privately through [GitHub security advisories](https://github.com/viantonugroho11/Anvio/security/advisories/new), not public issues.
 
 ## License
 

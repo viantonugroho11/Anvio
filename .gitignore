@@ -63,3 +63,7 @@ graphify-out/graph.json
 graphify-out/.graphify_*
 packages/graphify-out/
 **/graphify-out/cache/
+
+# VitePress docs site
+docs/.vitepress/dist
+docs/.vitepress/cache
