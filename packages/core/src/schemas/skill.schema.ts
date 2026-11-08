@@ -21,7 +21,7 @@ export const skillStepSchema = z.object({
   id: z.string().min(1),
   action: z.string().min(1),
   tool: z.string().optional(),
-  args: z.record(z.unknown()).optional(),
+  args: z.record(z.string(), z.unknown()).optional(),
   condition: z.string().optional(),
   onError: z.enum(['fail', 'skip', 'retry']).default('fail'),
   maxRetries: z.number().int().min(0).default(0),

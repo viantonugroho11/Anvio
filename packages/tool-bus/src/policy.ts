@@ -22,7 +22,7 @@ export const toolPolicySchema = z
     /** Explicit denies, evaluated AFTER `allowed`. Denies win over allowed. */
     denied: z.array(z.string()).default([]),
     /** Per-tool argument-shape overrides — future: JSON-Schema patches. */
-    argumentOverrides: z.record(z.string(), z.unknown()).default({}),
+    argumentOverrides: z.record(z.string(), z.unknown()).prefault({}),
     /** Require explicit user approval for these tools even when allowed. */
     requireApproval: z.array(z.string()).default([]),
     /** Free-form annotation for auditing. */

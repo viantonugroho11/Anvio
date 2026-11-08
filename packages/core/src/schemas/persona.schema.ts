@@ -11,7 +11,7 @@ export const personaProfileSchema = z.object({
       retainFacts: z.boolean().default(true),
       retainPreferences: z.boolean().default(true),
     })
-    .default({ retainFacts: true, retainPreferences: true }),
+    .prefault({ retainFacts: true, retainPreferences: true }),
   systemPrompt: z.string().min(1),
 });
 

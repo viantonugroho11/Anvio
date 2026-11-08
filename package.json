@@ -37,7 +37,8 @@
     "typescript-eslint": "^8.32.1",
     "vitepress": "1.6.3",
     "vitepress-plugin-mermaid": "2.0.17",
-    "vitest": "^3.1.4"
+    "vitest": "^4.1.12",
+    "vite": "^7.3.7"
   },
   "packageManager": "pnpm@9.15.9",
   "engines": {
@@ -67,7 +68,11 @@
       "@modelcontextprotocol/sdk@<1.32.0": ">=1.32.0",
       "zod@>=4.0.0 <4.6.6": ">=4.6.6",
       "qs@<6.16.0": ">=6.16.0",
-      "body-parser@>=2.0.0 <2.4.0": ">=2.4.0"
+      "body-parser@>=2.0.0 <2.4.0": ">=2.4.0",
+      "fast-uri@>=4.0.0 <4.2.3": ">=4.2.3",
+      "js-yaml@>=5.0.0 <5.4.1": ">=5.4.1",
+      "@vitest/mocker@<4.1.12": ">=4.1.12",
+      "vite@>=7.0.0 <7.3.7": ">=7.3.7"
     }
   }
 }

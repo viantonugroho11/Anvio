@@ -23,7 +23,7 @@ export const routeDefinitionSchema = z.object({
 
 export const providerRoutingSpecSchema = z.object({
   defaultStrategy: routingStrategySchema.default('highest_quality'),
-  routes: z.record(routeDefinitionSchema).default({}),
+  routes: z.record(z.string(), routeDefinitionSchema).prefault({}),
 });
 
 export const providerRoutingSchema = z.object({

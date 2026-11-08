@@ -33,9 +33,9 @@ export const agentMemorySchema = z.object({
       enabled: z.boolean().default(true),
       ttlSeconds: z.number().int().positive().default(3600),
     })
-    .default({ enabled: true, ttlSeconds: 3600 }),
-  longTerm: z.object({ enabled: z.boolean().default(true) }).default({ enabled: true }),
-  semantic: z.object({ enabled: z.boolean().default(false) }).default({ enabled: false }),
+    .prefault({ enabled: true, ttlSeconds: 3600 }),
+  longTerm: z.object({ enabled: z.boolean().default(true) }).prefault({ enabled: true }),
+  semantic: z.object({ enabled: z.boolean().default(false) }).prefault({ enabled: false }),
 });
 
 export const agentOrchestrationSchema = z.object({
@@ -77,10 +77,10 @@ export const agentSpecSchema = z
     skills: z.array(z.string()).default([]),
     tools: z.array(z.string()).default([]),
     model: agentModelSchema,
-    memory: agentMemorySchema.default({}),
-    orchestration: agentOrchestrationSchema.default({ pattern: 'single', delegates: [] }),
-    approvals: agentApprovalsSchema.default({ requiredFor: ['destructive'] }),
-    workspace: agentWorkspaceSchema.default({ isolatedWorktree: false }),
+    memory: agentMemorySchema.prefault({}),
+    orchestration: agentOrchestrationSchema.prefault({ pattern: 'single', delegates: [] }),
+    approvals: agentApprovalsSchema.prefault({ requiredFor: ['destructive'] }),
+    workspace: agentWorkspaceSchema.prefault({ isolatedWorktree: false }),
     runtime: agentRuntimeBindingSchema.optional(),
   })
   .superRefine((value, ctx) => {

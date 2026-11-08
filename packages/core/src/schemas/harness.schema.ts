@@ -31,7 +31,7 @@ export const harnessDefaultsSchema = z.object({
       encryptionKeyEnv: z.string().default('ANVIO_CONNECTION_ENCRYPTION_KEY'),
       defaultTtlSeconds: z.number().int().positive().default(3600),
     })
-    .default({}),
+    .prefault({}),
 });
 
 export const harnessConfigSchema = z.object({

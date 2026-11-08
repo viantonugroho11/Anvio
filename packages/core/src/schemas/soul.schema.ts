@@ -39,16 +39,16 @@ export const soulEvolutionSchema = z.object({
 
 export const soulSpecSchema = z.object({
   name: z.string().min(1),
-  identity: soulIdentitySchema.default({}),
+  identity: soulIdentitySchema.prefault({}),
   values: z.array(z.string()).default([]),
   personality: z.array(z.string()).default([]),
-  preferences: z.record(z.string()).default({}),
-  communicationStyle: soulCommunicationStyleSchema.default({}),
+  preferences: z.record(z.string(), z.string()).prefault({}),
+  communicationStyle: soulCommunicationStyleSchema.prefault({}),
   longTermGoals: z.array(z.string()).default([]),
   behavioralTendencies: z.array(z.string()).default([]),
-  relationshipMemory: soulRelationshipMemorySchema.default({}),
-  evolution: soulEvolutionSchema.default({}),
-  extensions: z.record(z.unknown()).optional(),
+  relationshipMemory: soulRelationshipMemorySchema.prefault({}),
+  evolution: soulEvolutionSchema.prefault({}),
+  extensions: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const soulDefinitionSchema = z.object({

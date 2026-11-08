@@ -21,13 +21,13 @@ export const assigneeStateSchema = z.object({
 export const kanbanAssigneeSchema = z.object({
   type: assigneeTypeSchema,
   id: z.string().min(1),
-  state: assigneeStateSchema.default({ status: 'idle' }),
+  state: assigneeStateSchema.prefault({ status: 'idle' }),
 });
 
 export const kanbanBoardSpecSchema = z.object({
   columns: z.array(kanbanColumnSchema).default(['backlog', 'todo', 'doing', 'review', 'done']),
   defaultLane: z.string().default('coding'),
-  wipLimits: z.record(z.number().int().min(0)).default({}),
+  wipLimits: z.record(z.string(), z.number().int().min(0)).prefault({}),
 });
 
 export const kanbanBoardSchema = z.object({

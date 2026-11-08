@@ -20,10 +20,10 @@
   },
   "dependencies": {
     "@anvio/core": "workspace:*",
-    "zod": "^3.25.28"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
-    "vitest": "^3.1.4"
+    "vitest": "^4.1.12"
   }
 }
