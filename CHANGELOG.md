@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.1] - 2026-11-08
+
+**Dependency security release and a documentation site.**
+
+### Security
+
+- **61 Dependabot alerts resolved** (2 critical, 5 high, 54 moderate/low):
+  - vitest `^3.1.4` → `^4.1.12` in every workspace; drops the vulnerable `tinypool` and patches `@vitest/mocker`.
+  - zod `^3.25.28` → `^4.6.6` in `core`, `agents`, `knowledge`, `tool-bus` — completes the migration deferred in [ADR-0012](docs/adr/0012-zod-4-migration-deferred.md).
+  - vite pinned to `>=7.3.7`; overrides for `fast-uri >=4.2.3` and `js-yaml >=5.4.1`.
+
+### Changed
+
+- **zod 4 schema migration** — `z.record(V)` is now `z.record(z.string(), V)`, and object `.default(...)` is now `.prefault(...)` so defaults still parse through the schema (zod 3 behaviour). Parsed config output is unchanged; the full test suite passes.
+
+### Added
+
+- **Documentation site** (VitePress) served from `docs/`, with getting-started, CLI, environment-variable and MCP reference pages. `pnpm docs:dev`, `docs:build`, `docs:check`.
+- **Generated reference pages** — built-in tool catalog (76 tools) and project metrics come from source via `scripts/docs-generate.mjs`; CI fails when they are stale (`.github/workflows/docs.yml`).
+- README landing section with logo, badges and documentation navigation.
+
 ## [2.11.0] - 2026-10-26
 
 **Hardening release: code-quality remediation, end-to-end verification with 18 regression fixes, and documentation rewritten around Anvio as an extensible multi-agent platform.**
@@ -1466,7 +1487,8 @@ Carried forward, recorded rather than fixed:
 
 4. GitHub Actions **Release** workflow validates the build and publishes a GitHub Release with notes extracted from this file.
 
-[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.11.0...HEAD
+[Unreleased]: https://github.com/viantonugroho11/Anvio/compare/v2.11.1...HEAD
+[2.11.1]: https://github.com/viantonugroho11/Anvio/compare/v2.11.0...v2.11.1
 [2.11.0]: https://github.com/viantonugroho11/Anvio/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/viantonugroho11/Anvio/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/viantonugroho11/Anvio/compare/v2.8.1...v2.9.0
