@@ -27,7 +27,7 @@ export const soulPolicyApproverSchema = z.object({
 
 export const soulPolicySchema = z.object({
   soulSlug: z.string().optional(),
-  identity: soulPolicyIdentitySchema.default({}),
+  identity: soulPolicyIdentitySchema.prefault({}),
   manager: soulPolicyUserRefSchema.optional(),
   backupManager: soulPolicyUserRefSchema.optional(),
   allowedZones: z.array(soulPolicyZoneSchema).default([]),

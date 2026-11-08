@@ -21,17 +21,17 @@
   "dependencies": {
     "@anvio/core": "workspace:*",
     "@anvio/events": "workspace:*",
-    "@anvio/personas": "workspace:*",
-    "@anvio/souls": "workspace:*",
-    "@anvio/skills": "workspace:*",
     "@anvio/memory": "workspace:*",
     "@anvio/models": "workspace:*",
+    "@anvio/personas": "workspace:*",
+    "@anvio/skills": "workspace:*",
+    "@anvio/souls": "workspace:*",
     "@anvio/tools": "workspace:*",
     "uuid": "^14.0.0",
-    "zod": "^3.25.28"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
-    "vitest": "^3.1.4"
+    "vitest": "^4.1.12"
   }
 }

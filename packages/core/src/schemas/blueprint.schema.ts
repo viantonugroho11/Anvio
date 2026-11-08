@@ -62,7 +62,7 @@ export const blueprintStepSchema: z.ZodType<BlueprintStep> = z.lazy(() =>
     hook: z.string().optional(),
     server: z.string().optional(),
     tool: z.string().optional(),
-    args: z.record(z.unknown()).optional(),
+    args: z.record(z.string(), z.unknown()).optional(),
     steps: z.array(blueprintStepSchema).optional(),
     condition: z.string().optional(),
     then: z.array(blueprintStepSchema).optional(),
@@ -73,9 +73,9 @@ export const blueprintStepSchema: z.ZodType<BlueprintStep> = z.lazy(() =>
 
 export const blueprintSpecSchema = z.object({
   description: z.string().default(''),
-  inputs: z.record(blueprintInputSchema).default({}),
+  inputs: z.record(z.string(), blueprintInputSchema).prefault({}),
   steps: z.array(blueprintStepSchema).default([]),
-  outputs: z.record(z.object({ from: z.string() })).optional(),
+  outputs: z.record(z.string(), z.object({ from: z.string() })).optional(),
 });
 
 export const blueprintDefinitionSchema = z.object({

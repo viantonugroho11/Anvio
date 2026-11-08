@@ -20,8 +20,8 @@ export const batchItemStatusSchema = z.enum([
 export const batchInputSchema = z.object({
   type: z.enum(['file', 'inline']).default('inline'),
   path: z.string().optional(),
-  items: z.array(z.record(z.unknown())).default([]),
-  itemTemplate: z.record(z.string()).optional(),
+  items: z.array(z.record(z.string(), z.unknown())).default([]),
+  itemTemplate: z.record(z.string(), z.string()).optional(),
 });
 
 export const batchRetrySchema = z.object({
@@ -36,7 +36,7 @@ export const batchJobSpecSchema = z.object({
   blueprint: z.string().min(1),
   input: batchInputSchema,
   concurrency: z.number().int().min(1).default(3),
-  retry: batchRetrySchema.default({}),
+  retry: batchRetrySchema.prefault({}),
   dryRun: z.boolean().default(false),
 });
 
@@ -69,7 +69,7 @@ export const batchItemRecordSchema = z.object({
   id: z.string().min(1),
   status: batchItemStatusSchema,
   attempts: z.number().int().min(0).default(0),
-  inputs: z.record(z.unknown()).default({}),
+  inputs: z.record(z.string(), z.unknown()).prefault({}),
   output: z.unknown().optional(),
   error: z.string().optional(),
   updatedAt: z.string().optional(),

@@ -32,7 +32,7 @@
     "@anvio/voice": "workspace:*",
     "@anvio/workflows": "workspace:*",
     "@anvio/workspace": "workspace:*",
-    "vitest": "^3.1.4",
+    "vitest": "^4.1.12",
     "yaml": "^2.8.0"
   }
 }

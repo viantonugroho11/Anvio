@@ -26,13 +26,13 @@ export const credentialPoolSpecSchema = z.object({
       onRateLimit: rateLimitActionSchema.default('rotate'),
       cooldownSeconds: z.number().int().min(0).default(60),
     })
-    .default({}),
+    .prefault({}),
   failover: z
     .object({
       enabled: z.boolean().default(false),
       fallbackPool: z.string().optional(),
     })
-    .default({}),
+    .prefault({}),
 });
 
 export const credentialPoolSchema = z.object({

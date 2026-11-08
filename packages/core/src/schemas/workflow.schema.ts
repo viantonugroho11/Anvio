@@ -57,9 +57,9 @@ export const workflowNodeSchema: z.ZodType<WorkflowNode> = z.lazy(() =>
     hook: z.string().optional(),
     server: z.string().optional(),
     tool: z.string().optional(),
-    args: z.record(z.unknown()).optional(),
+    args: z.record(z.string(), z.unknown()).optional(),
     skill: z.string().optional(),
-    params: z.record(z.unknown()).optional(),
+    params: z.record(z.string(), z.unknown()).optional(),
     nodes: z.array(workflowNodeSchema).optional(),
     steps: z.array(workflowNodeSchema).optional(),
     condition: z.string().optional(),
@@ -71,9 +71,9 @@ export const workflowNodeSchema: z.ZodType<WorkflowNode> = z.lazy(() =>
 
 export const workflowSpecSchema = z.object({
   description: z.string().default(''),
-  inputs: z.record(blueprintInputSchema).default({}),
+  inputs: z.record(z.string(), blueprintInputSchema).prefault({}),
   nodes: z.array(workflowNodeSchema).default([]),
-  outputs: z.record(z.object({ from: z.string() })).optional(),
+  outputs: z.record(z.string(), z.object({ from: z.string() })).optional(),
 });
 
 export const workflowDefinitionSchema = z.object({

@@ -24,7 +24,7 @@ export const goalSpecSchema = z.object({
   description: z.string().default(''),
   status: goalStatusSchema.default('active'),
   priority: goalPrioritySchema.default('medium'),
-  progress: goalProgressSchema.default({ percent: 0, milestones: [] }),
+  progress: goalProgressSchema.prefault({ percent: 0, milestones: [] }),
   assignedAgents: z.array(z.string()).default([]),
   assignees: z.array(goalAssigneeSchema).default([]),
   linkedTasks: z.array(z.string()).default([]),
@@ -33,7 +33,7 @@ export const goalSpecSchema = z.object({
   tags: z.array(z.string()).default([]),
   dueDate: z.string().optional(),
   onComplete: z.object({ workflow: z.string().optional() }).optional(),
-  extensions: z.record(z.unknown()).optional(),
+  extensions: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const goalDefinitionSchema = z.object({

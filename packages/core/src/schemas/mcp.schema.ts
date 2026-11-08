@@ -5,7 +5,7 @@ export const mcpServerSpecSchema = z
     /** stdio: executable to spawn. */
     command: z.string().min(1).optional(),
     args: z.array(z.string()).default([]),
-    env: z.record(z.string()).default({}),
+    env: z.record(z.string(), z.string()).prefault({}),
     enabled: z.boolean().default(true),
     /**
      * `http` is a remote server (ADR-0037): Streamable HTTP, falling back to
@@ -15,7 +15,7 @@ export const mcpServerSpecSchema = z
     /** http: server endpoint, e.g. https://mcp.example.com/mcp or …/sse. */
     url: z.string().url().optional(),
     /** http: extra request headers; values may use ${VAR} placeholders. */
-    headers: z.record(z.string()).default({}),
+    headers: z.record(z.string(), z.string()).prefault({}),
     /** When set, only these MCP tool names are exposed to the agent for this server. */
     allowedTools: z.array(z.string()).optional(),
   })
@@ -42,7 +42,7 @@ export const mcpConfigSchema = z.object({
      * servers.yaml directly are not constrained.
      */
     agentAllowedCommands: z.array(z.string()).default(['npx', 'uvx', 'node', 'python3', 'docker']),
-    servers: z.record(mcpServerSpecSchema).default({}),
+    servers: z.record(z.string(), mcpServerSpecSchema).prefault({}),
   }),
 });
 

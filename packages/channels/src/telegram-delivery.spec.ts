@@ -48,7 +48,7 @@ function makeChannel(
       resolveOrCreate: vi.fn(async () => ({ id: 'freshly-created' })),
     } as never,
     sessions,
-    onApproval: options.onApproval,
+    onApproval: options.onApproval as never,
   });
 
   return { channel, calls };

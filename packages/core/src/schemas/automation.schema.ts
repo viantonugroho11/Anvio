@@ -11,7 +11,7 @@ export const automationTriggerSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('event'),
     event: z.string().min(1),
-    filter: z.record(z.string()).optional(),
+    filter: z.record(z.string(), z.string()).optional(),
   }),
   z.object({
     type: z.literal('goal'),
@@ -29,7 +29,7 @@ export const automationActionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('blueprint'),
     blueprint: z.string().min(1),
-    inputs: z.record(z.unknown()).default({}),
+    inputs: z.record(z.string(), z.unknown()).prefault({}),
   }),
   z.object({
     type: z.literal('agent'),
@@ -60,13 +60,13 @@ export const automationSpecSchema = z.object({
   description: z.string().default(''),
   trigger: automationTriggerSchema,
   action: automationActionSchema,
-  retry: automationRetrySchema.default({}),
+  retry: automationRetrySchema.prefault({}),
   onFailure: z
     .object({
       notify: z.boolean().default(false),
       hook: z.string().optional(),
     })
-    .default({}),
+    .prefault({}),
 });
 
 export const automationDefinitionSchema = z.object({

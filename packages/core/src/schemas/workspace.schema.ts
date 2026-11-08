@@ -37,7 +37,7 @@ export const memoryConfigSchema = z.object({
       command: z.string().min(1).default('gbrain'),
       /** Defaults to `serve --surface verbs`, or full `serve` when episodic is on. */
       args: z.array(z.string()).optional(),
-      env: z.record(z.string()).default({}),
+      env: z.record(z.string(), z.string()).prefault({}),
       recallLimit: z.number().int().positive().default(5),
       budgetTokens: z.number().int().positive().optional(),
       /**
@@ -63,7 +63,7 @@ export const executionConfigSchema = z.object({
   /** `/remote` tool execution on users' machines over a tailnet (ADR 0034). Off by default. */
   remote: z
     .object({ enabled: z.boolean().default(false) })
-    .default({ enabled: false }),
+    .prefault({ enabled: false }),
 });
 
 export const credentialsConfigSchema = z.object({
@@ -186,7 +186,7 @@ export const a2aConfigSchema = z.object({
   enabled: z.boolean().default(false),
   agents: z.union([z.literal('*'), z.array(z.string())]).default('*'),
   remotes: z.array(a2aRemoteSchema).default([]),
-  auth: a2aAuthConfigSchema.default({ enabled: false }),
+  auth: a2aAuthConfigSchema.prefault({ enabled: false }),
   provider: z
     .object({
       organization: z.string().default('Anvio'),
@@ -202,21 +202,21 @@ export const worktreesConfigSchema = z.object({
 });
 
 export const workspaceSpecSchema = z.object({
-  auth: authConfigSchema.default({ enabled: false, provider: 'none' }),
-  storage: storageConfigSchema.default({ provider: 'filesystem', basePath: '.' }),
-  memory: memoryConfigSchema.default({ provider: 'filesystem', basePath: 'memory' }),
-  events: eventsConfigSchema.default({ provider: 'local' }),
-  runtime: runtimeConfigSchema.default({ default: 'local' }),
-  execution: executionConfigSchema.default({
+  auth: authConfigSchema.prefault({ enabled: false, provider: 'none' }),
+  storage: storageConfigSchema.prefault({ provider: 'filesystem', basePath: '.' }),
+  memory: memoryConfigSchema.prefault({ provider: 'filesystem', basePath: 'memory' }),
+  events: eventsConfigSchema.prefault({ provider: 'local' }),
+  runtime: runtimeConfigSchema.prefault({ default: 'local' }),
+  execution: executionConfigSchema.prefault({
     defaultTimeoutMs: 30000,
     networkEnabled: false,
     remote: { enabled: false },
   }),
-  credentials: credentialsConfigSchema.default({ encryption: 'disabled' }),
-  acp: acpConfigSchema.default({ enabled: false, port: 8765, host: '127.0.0.1' }),
+  credentials: credentialsConfigSchema.prefault({ encryption: 'disabled' }),
+  acp: acpConfigSchema.prefault({ enabled: false, port: 8765, host: '127.0.0.1' }),
   channels: channelsConfigSchema.optional(),
-  a2a: a2aConfigSchema.default({ enabled: false }),
-  worktrees: worktreesConfigSchema.default({ enabled: false, repoPath: '..' }),
+  a2a: a2aConfigSchema.prefault({ enabled: false }),
+  worktrees: worktreesConfigSchema.prefault({ enabled: false, repoPath: '..' }),
   defaultAgent: z.string().optional(),
   defaultSoul: z.string().optional(),
   defaultUserId: z.string().default('local-user'),
